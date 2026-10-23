@@ -721,6 +721,24 @@ test("pinned Combat offsets follow the native container padding as the viewport 
   assert.equal(table.parentNode, top);
 });
 
+test("generic pinned controls follow actual page padding, including Cartography's unpadded container", () => {
+  const f = fixture();
+  const padding = side => f.html.style.getPropertyValue(`--kroky-page-pin-content-${side}`);
+  const actual = () => [padding("top"), padding("left"), padding("right")];
+  Object.assign(f.skill.node.style, { paddingTop: "30px", paddingLeft: "30px", paddingRight: "30px" });
+  f.button.click();
+  assert.deepEqual(actual(), ["30px", "30px", "30px"]);
+  window.innerWidth = 390;
+  Object.assign(f.skill.node.style, { paddingTop: "12px", paddingLeft: "8px", paddingRight: "10px" });
+  f.events.get("resize")();
+  assert.deepEqual(actual(), ["12px", "8px", "10px"]);
+  const cartography = f.page("Cartography");
+  Object.assign(cartography.node.style, { paddingTop: "0px", paddingLeft: "0px", paddingRight: "0px" });
+  f.game.openPage = cartography.page; f.update();
+  assert.deepEqual(actual(), ["0px", "0px", "0px"], "unpadded pages do not inherit another page's edge expansion");
+  assert.ok(cartography.node.querySelector(".kroky-page-pin-controls"));
+});
+
 test("all pages including Township, Farming, Bank, Settings and Shop share the same pin choice", () => {
   const f = fixture();
   f.button.click();

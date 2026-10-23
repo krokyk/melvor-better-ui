@@ -37,7 +37,7 @@ const styles = `
 .kroky-skill-header-compact .skill-header-container:not(.kroky-page-header-details) { padding: 0; min-height: 0; }
 #page-container.kroky-page-pinned #page-header { position: sticky; top: 0; z-index: 1040; max-height: var(--kroky-page-pin-cap, 50vh); margin-bottom: 0 !important; }
 #page-container.kroky-page-pinned #page-header.kroky-page-pin-overflow { overflow-y: auto; overscroll-behavior: contain auto; }
-.kroky-page-pin-controls { position: sticky; top: calc(var(--kroky-page-pin-header-height) + var(--kroky-page-pin-static-height)); z-index: 1035; width: calc(100% + 3.75rem); max-height: max(0px, calc(var(--kroky-page-pin-cap, 50vh) - var(--kroky-page-pin-header-height) - var(--kroky-page-pin-static-height))); overflow-y: auto; overscroll-behavior: contain auto; scrollbar-gutter: stable; background: var(--dark, #232a35); margin: -1.875rem -1.875rem 1rem; padding: 0 1rem .25rem; }
+.kroky-page-pin-controls { position: sticky; top: calc(var(--kroky-page-pin-header-height) + var(--kroky-page-pin-static-height)); z-index: 1035; width: calc(100% + var(--kroky-page-pin-content-left, 1.875rem) + var(--kroky-page-pin-content-right, 1.875rem)); max-height: max(0px, calc(var(--kroky-page-pin-cap, 50vh) - var(--kroky-page-pin-header-height) - var(--kroky-page-pin-static-height))); overflow-y: auto; overscroll-behavior: contain auto; scrollbar-gutter: stable; background: var(--dark, #232a35); margin: calc(-1 * var(--kroky-page-pin-content-top, 1.875rem)) calc(-1 * var(--kroky-page-pin-content-right, 1.875rem)) 1rem calc(-1 * var(--kroky-page-pin-content-left, 1.875rem)); padding: 0 1rem .25rem; }
 .kroky-page-pin-static { position: sticky; top: var(--kroky-page-pin-header-height); z-index: 1036; max-height: max(0px, calc(var(--kroky-page-pin-cap, 50vh) - var(--kroky-page-pin-header-height) - var(--kroky-page-pin-reserved-height))); overflow-y: auto; overscroll-behavior: contain auto; background: var(--dark, #232a35); }
 #combat-top-menu.kroky-page-pin-static { width: calc(100% + var(--kroky-page-pin-content-left) + var(--kroky-page-pin-content-right)); margin: calc(-1 * var(--kroky-page-pin-content-top)) calc(-1 * var(--kroky-page-pin-content-right)) 0 calc(-1 * var(--kroky-page-pin-content-left)); }
 #combat-top-menu.kroky-page-pin-static > div.col-12 { padding-left: 0; padding-right: 0; }
@@ -73,7 +73,7 @@ const styles = `
   #page-container.kroky-page-pinned #bank-item-box > bank-sidebar-menu { display: block; padding-bottom: 10rem; }
 }
 @media (max-width: 991px) {
-  .kroky-page-pin-controls { width: calc(100% + 2rem); margin: -.6rem -1rem .75rem; padding: 0 .5rem .25rem; }
+  .kroky-page-pin-controls { width: calc(100% + var(--kroky-page-pin-content-left, 1rem) + var(--kroky-page-pin-content-right, 1rem)); margin: calc(-1 * var(--kroky-page-pin-content-top, .6rem)) calc(-1 * var(--kroky-page-pin-content-right, 1rem)) .75rem calc(-1 * var(--kroky-page-pin-content-left, 1rem)); padding: 0 .5rem .25rem; }
   .kroky-page-pin-controls > .skill-info { margin-left: -.5rem; margin-right: -.5rem; width: calc(100% + 1rem); }
 }
 @media (max-width: 575px) {
@@ -213,7 +213,7 @@ export function installPagePinning(ctx, game, isEnabled = () => true) {
       return;
     }
     const cap = window.innerHeight / 2;
-    if (stationary) {
+    if (container) {
       const padding = getComputedStyle(container);
       document.documentElement.style.setProperty("--kroky-page-pin-content-top", padding.paddingTop ?? "0px");
       document.documentElement.style.setProperty("--kroky-page-pin-content-left", padding.paddingLeft ?? "0px");
