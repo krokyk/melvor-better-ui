@@ -237,11 +237,12 @@ test("skill summary stays below the main header with native controls and restora
   assert.deepEqual(stats.children, originalGroups.filter(group => group !== native.upgrades && group !== native.items));
   assert.ok(spans.every(span => stats.contains(span)));
   assert.ok(native.header.skillXp.parentElement === xpParent, "the native XP value wrapper is preserved");
-  const summaryOrder = [stats, pools, upgrades];
+  const summaryOrder = [stats, pools, actions, upgrades];
   assert.equal(native.upper.children.length, summaryOrder.length);
-  assert.ok(native.upper.children.every((group, index) => group === summaryOrder[index]), "stats, mastery and upgrades are the three wrapping sections");
+  assert.ok(native.upper.children.every((group, index) => group === summaryOrder[index]), "stats, mastery pools, mastery actions and upgrades are the four wrapping sections");
   assert.deepEqual(actions.children, [native.mastery.viewCheckpointsButton, native.mastery.spendMasteryButton]);
-  assert.ok(actions.parentNode === pools && pools.children.at(-1) === actions, "mastery actions finish the pool section");
+  assert.ok(actions.parentNode === native.upper, "mastery actions form their own wrapping section");
+  assert.equal(pools.children.length, 0, "the pool section contains only mastery bars");
   assert.deepEqual(upgrades.children, [native.upgrades, native.items, native.tree]);
   assert.ok(native.tree.parentNode === upgrades, "Skill tree finishes the upgrades section");
   assert.equal(native.mastery.viewCheckpointsButton.className, "btn btn-info mr-2");
@@ -496,8 +497,10 @@ test("mastery summary orders visible realms, retains full over-cap counts and up
   const upgrades = native.upper.querySelector(".kroky-summary-upgrades");
   assert.ok(children[0] === stats && children[1] === pools, "Level and XP share the first section followed by a separate mastery section");
   assert.ok(groups.every(group => group.parentElement === pools));
-  assert.ok(actions.parentElement === pools && pools.children.at(-1) === actions, "mastery pool mirrors precede their action buttons in one section");
-  assert.ok(children[2] === upgrades && children.length === 3, "upgrades form the third wrapping section");
+  assert.equal(pools.children.length, groups.length, "the mastery pool section contains only its bars");
+  assert.ok(pools.children.every((group, index) => group === groups[index]));
+  assert.ok(actions.parentElement === native.upper && children[2] === actions, "paired mastery actions form the third wrapping section");
+  assert.ok(children[3] === upgrades && children.length === 4, "upgrades form the fourth wrapping section");
   assert.deepEqual(upgrades.children, [native.upgrades, native.items, native.tree]);
   const progress = group => group.querySelector(".kroky-summary-progress");
   const percent = group => group.querySelector(".kroky-summary-percent");

@@ -209,7 +209,7 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
         for (const action of [masteryOptions.viewCheckpointsButton, masteryOptions.spendMasteryButton]) {
           if (action) lift(action, masteryActions);
         }
-        masteryPools.append(masteryActions);
+        native.upperContainer.append(masteryActions);
       }
       summaryUpgrades = document.createElement("div");
       summaryUpgrades.className = "kroky-summary-upgrades";
@@ -274,10 +274,10 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
           percent.className = "kroky-summary-percent";
           group.append(icon, document.createElement("span"), percent);
           poolGroups.set(realm, group);
-          masteryPools.insertBefore(group, masteryActions);
+          masteryPools.append(group);
         }
         const position = masteryPools.children[index];
-        if (position !== group) masteryPools.insertBefore(group, position ?? masteryActions);
+        if (position !== group) masteryPools.insertBefore(group, position ?? null);
         const progress = group.children[1];
         const current = skill.getMasteryPoolXP(realm), maximum = skill.getMasteryPoolCap(realm);
         const format = value => typeof numberWithCommas === "function" ? numberWithCommas(Math.floor(value)) : Math.floor(value).toLocaleString("en-US");
