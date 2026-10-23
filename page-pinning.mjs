@@ -15,6 +15,8 @@ const styles = `
 .kroky-page-pin[aria-pressed="true"] { box-shadow: inset 0 0 0 1px currentColor; }
 .kroky-skill-header-compact .kroky-page-header-details { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: .35rem .75rem; padding: .4rem .6rem; background: var(--dark, #232a35); color: var(--light, #f5f5f5); }
 .kroky-page-header-details > * { flex: 0 0 auto; min-width: 0; max-width: 100%; }
+.kroky-summary-stats, .kroky-summary-pools { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .5rem; }
+.kroky-summary-stats > *, .kroky-summary-pools > * { flex: 0 0 auto; max-width: 100%; }
 .kroky-page-header-details :is(.kroky-header-level, .kroky-header-xp) { align-items: center; flex-wrap: nowrap; gap: .3rem; white-space: nowrap; }
 .kroky-page-header-details .kroky-header-enhancements { display: flex; align-items: center; flex-wrap: nowrap; gap: .25rem; }
 .kroky-page-header-details .kroky-header-enhancements::before { content: "Enhancements:"; white-space: nowrap; }
@@ -26,6 +28,7 @@ const styles = `
 .kroky-page-header-details .kroky-summary-xp-capped { width: calc(var(--kroky-summary-xp-chars) * 1ch + .6rem); }
 .kroky-summary-pool { display: flex; align-items: center; gap: .3rem; }
 .kroky-summary-pool img { width: 24px; height: 24px; }
+.kroky-summary-percent { color: white; font: .75rem monospace; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .kroky-summary-pool .kroky-summary-progress { width: 12.5rem; border-color: var(--warning, #ffb822); background: linear-gradient(to right, var(--warning, #ffb822) var(--kroky-summary-fill, 0%), var(--dark, #232a35) var(--kroky-summary-fill, 0%)) !important; }
 .kroky-summary-actions { display: flex; align-items: center; }
 .kroky-skill-header-compact .kroky-summary-mastery-native { display: none !important; }
@@ -47,6 +50,7 @@ const styles = `
 .kroky-page-pin-controls :is(.sticky-div-mobile, .sticky-category-menu-mobile) { position: static !important; top: auto !important; }
 .kroky-page-pin-controls .kroky-activity-summary { margin-top: .5rem; }
 @media (min-width: 992px) {
+  .kroky-summary-stats { margin-right: .75rem; }
   #page-container.kroky-page-pinned #shop-container { padding-left: 0; padding-right: 0; }
   #page-container.kroky-page-pinned #shop-container > .kroky-page-pin-controls { width: 100%; margin-left: 0; margin-right: 0; }
   #page-container.kroky-page-pinned #shop-container > .row { margin-left: 0; margin-right: 0; }
@@ -84,7 +88,7 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
   const progressStyles = new Map();
   const cappedXPWidths = new Map();
   const poolGroups = new Map();
-  let masteryOptions, masteryActions;
+  let summaryStats, masteryOptions, masteryActions, masteryPools;
   let currentPage, container, wrapper, stationary, header, root, button, observer, compactHeader;
 
   const refreshTooltips = node => {
@@ -160,6 +164,10 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
     cappedXPWidths.clear();
     for (const group of poolGroups.values()) group.remove();
     poolGroups.clear();
+    summaryStats?.remove();
+    summaryStats = undefined;
+    masteryPools?.remove();
+    masteryPools = undefined;
     masteryActions?.remove();
     masteryActions = undefined;
     masteryOptions?.classList.remove("kroky-summary-mastery-native");
@@ -182,10 +190,18 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
         node.before(marker); headerMoves.set(node, marker);
         destination.append(node); refreshTooltips(node);
       };
+      const statGroups = [...native.upperContainer.children].filter(node => statFields.some(([field]) => native[field] && node.contains(native[field])));
+      summaryStats = document.createElement("div");
+      summaryStats.className = "kroky-summary-stats";
+      native.upperContainer.prepend(summaryStats);
+      for (const group of statGroups) lift(group, summaryStats);
       masteryOptions = native.querySelector("mastery-skill-options");
       if (masteryOptions) {
         // Its realm tooltips do not recover after reconnecting; only move the native action buttons.
         masteryOptions.classList.add("kroky-summary-mastery-native");
+        masteryPools = document.createElement("div");
+        masteryPools.className = "kroky-summary-pools";
+        summaryStats.after(masteryPools);
         masteryActions = document.createElement("div");
         masteryActions.className = "kroky-summary-actions";
         for (const action of [masteryOptions.viewCheckpointsButton, masteryOptions.spendMasteryButton]) {
@@ -249,18 +265,24 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
           group.setAttribute("data-realm-id", realm.id);
           const icon = document.createElement("img");
           icon.src = realm.media; icon.alt = realm.name; icon.title = `${realm.name} mastery pool`;
-          group.append(icon, document.createElement("span"));
+          const percent = document.createElement("span");
+          percent.className = "kroky-summary-percent";
+          group.append(icon, document.createElement("span"), percent);
           poolGroups.set(realm, group);
-          native.upperContainer.insertBefore(group, masteryActions);
+          masteryPools.append(group);
         }
-        const position = native.upperContainer.querySelectorAll(".kroky-summary-pool")[index];
-        if (position !== group) native.upperContainer.insertBefore(group, position ?? masteryActions);
+        const position = masteryPools.children[index];
+        if (position !== group) masteryPools.insertBefore(group, position ?? null);
         const progress = group.children[1];
         const current = skill.getMasteryPoolXP(realm), maximum = skill.getMasteryPoolCap(realm);
         const format = value => typeof numberWithCommas === "function" ? numberWithCommas(Math.floor(value)) : Math.floor(value).toLocaleString("en-US");
         const text = `${format(current)} / ${format(maximum)}`;
         if (progress.textContent !== text) progress.textContent = text;
         setProgress(progress, maximum > 0 ? current / maximum * 100 : 0, `${realm.name} mastery pool`);
+        const baseCap = skill.getBaseMasteryPoolCap?.(realm) ?? maximum;
+        const percent = baseCap > 0 ? current / baseCap * 100 : 0;
+        const percentText = typeof formatPercent === "function" ? formatPercent(percent, 2) : `${percent.toFixed(2)}%`;
+        if (group.children[2].textContent !== percentText) group.children[2].textContent = percentText;
       }
     }
     for (const display of native.upperContainer.querySelectorAll("upgrade-chain-display")) {

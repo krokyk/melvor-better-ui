@@ -123,7 +123,10 @@ function nativeSkillHeader(skill, charges = true) {
     const group = new Element(); group.className = "col-12 col-md-3";
     const label = new Element("lang-string"); label.textContent = text;
     const span = new Element("span"); span.textContent = value;
-    header[name] = span; group.append(label, span); upper.append(group);
+    const valueParent = name.endsWith("Xp") ? new Element() : group;
+    valueParent.append(label, span);
+    if (valueParent !== group) group.append(valueParent);
+    header[name] = span; upper.append(group);
   }
   const upgrades = new Element(); upgrades.className = "col-12 col-md-3";
   const chain = new Element("upgrade-chain-display");
@@ -202,6 +205,7 @@ test("skill summary stays below the main header with native controls and restora
   native.chain.upgradeImg.setAttribute("tabindex", "-1");
   const originalGroups = [...native.upper.children];
   const spans = [native.header.skillLevel, native.header.skillXp, native.header.abyssalLevel, native.header.abyssalXp];
+  const xpParent = native.header.skillXp.parentElement;
   const labels = [...spans.map(span => span.parentElement.querySelector("lang-string")), native.treeAction.querySelector("lang-string")];
   const compactLabels = ["Level", "XP", "Abyssal Level", "Abyssal XP", "Skill tree"];
   let treeClicks = 0;
@@ -221,8 +225,13 @@ test("skill summary stays below the main header with native controls and restora
   assert.equal(native.header.classList.contains("kroky-skill-header-compact"), true);
   assert.equal(native.tree.parentNode, native.upper);
   const actions = native.upper.querySelector(".kroky-summary-actions");
+  const stats = native.upper.querySelector(".kroky-summary-stats"), pools = native.upper.querySelector(".kroky-summary-pools");
   assert.ok(actions);
-  const summaryOrder = [...originalGroups.filter(group => group !== native.upgrades && group !== native.items), actions, native.upgrades, native.items, native.tree];
+  assert.ok(stats);
+  assert.deepEqual(stats.children, originalGroups.filter(group => group !== native.upgrades && group !== native.items));
+  assert.ok(spans.every(span => stats.contains(span)));
+  assert.ok(native.header.skillXp.parentElement === xpParent, "the native XP value wrapper is preserved");
+  const summaryOrder = [stats, ...(pools ? [pools] : []), actions, native.upgrades, native.items, native.tree];
   assert.equal(native.upper.children.length, summaryOrder.length);
   assert.ok(native.upper.children.every((group, index) => group === summaryOrder[index]), "enhancements follow mastery actions immediately before Skill tree");
   assert.deepEqual(actions.children, [native.mastery.viewCheckpointsButton, native.mastery.spendMasteryButton]);
@@ -257,6 +266,8 @@ test("skill summary stays below the main header with native controls and restora
   f.button.click();
   assert.deepEqual(native.block.children, [native.upper, native.mastery, native.tree]);
   assert.deepEqual(native.upper.children, originalGroups);
+  assert.equal(native.upper.querySelector(".kroky-summary-stats"), null);
+  assert.equal(native.upper.querySelector(".kroky-summary-pools"), null);
   assert.deepEqual(native.masteryButtons.children, [native.mastery.viewCheckpointsButton, native.mastery.spendMasteryButton]);
   assert.equal(native.mastery.viewCheckpointsButton.className, "btn btn-info mr-2");
   assert.equal(native.mastery.viewCheckpointsButton.style.getPropertyValue("margin-left"), "3px");
@@ -447,6 +458,7 @@ test("mastery summary orders visible realms, retains full over-cap counts and up
   const hidden = { id: "mod:Hidden", name: "Hidden realm", media: "hidden.png", isUnlocked: false, showIfLocked: false };
   const shown = { id: "mod:Shown", name: "Shown realm", media: "shown.png", isUnlocked: false, showIfLocked: true };
   const amounts = new Map([[melvor.id, 1500], [abyssal.id, 2500], [other.id, 500], [shown.id, 200]]);
+  const baseCaps = new Map();
   f.game.openPage.action = {
     level: 50, currentLevelCap: 120, nextLevelProgress: 30,
     getRealmsWithMastery: () => [other, hidden, abyssal, shown, melvor],
@@ -458,26 +470,39 @@ test("mastery summary orders visible realms, retains full over-cap counts and up
       assert.ok(realm.isUnlocked || realm.showIfLocked, "hidden realm caps are not recomputed");
       return realm === melvor || realm === abyssal ? 2000 : 1000;
     },
+    getBaseMasteryPoolCap: realm => {
+      assert.ok(realm.isUnlocked || realm.showIfLocked, "hidden realm base caps are not recomputed");
+      return baseCaps.get(realm.id);
+    },
   };
   f.button.click();
   const groups = native.upper.querySelectorAll(".kroky-summary-pool");
   assert.deepEqual(groups.map(group => group.getAttribute("data-realm-id")), [melvor.id, abyssal.id, other.id, shown.id]);
   const actions = native.upper.querySelector(".kroky-summary-actions"), children = native.upper.children;
-  assert.ok(groups.every(group => children.indexOf(group) < children.indexOf(actions)), "mastery pool mirrors precede their action buttons");
+  const stats = native.upper.querySelector(".kroky-summary-stats"), pools = native.upper.querySelector(".kroky-summary-pools");
+  assert.ok(children[0] === stats && children[1] === pools, "Level and XP share the first section followed by a separate mastery section");
+  assert.ok(groups.every(group => group.parentElement === pools));
+  assert.ok(children.indexOf(pools) < children.indexOf(actions), "mastery pool mirrors precede their action buttons");
   assert.ok(children.indexOf(actions) < children.indexOf(native.upgrades), "enhancements follow the mastery buttons");
   assert.ok(children.slice(-3).every((group, index) => group === [native.upgrades, native.items, native.tree][index]), "enhancements and Skill tree finish the row");
   const progress = group => group.querySelector(".kroky-summary-progress");
+  const percent = group => group.querySelector(".kroky-summary-percent");
   assert.ok(groups.every(group => group.querySelector("img")));
+  assert.ok(groups.every(group => group.children[2] === percent(group)), "the percentage follows each mastery bar");
+  assert.deepEqual(groups.map(group => percent(group)?.textContent), ["75.00%", "125.00%", "50.00%", "20.00%"]);
   assert.deepEqual(groups.map(group => progress(group).style.getPropertyValue("--kroky-summary-fill")), ["75%", "100%", "50%", "20%"]);
   assert.equal(progress(groups[1]).textContent.replaceAll(",", ""), "2500 / 2000");
   const moves = groups.map(group => group.moves);
   amounts.set(melvor.id, 2000); amounts.set(abyssal.id, 3000);
+  baseCaps.set(other.id, 2000);
   f.update(); f.update();
   assert.deepEqual(native.upper.querySelectorAll(".kroky-summary-pool"), groups);
   assert.deepEqual(groups.map(group => group.moves), moves);
   assert.equal(progress(groups[0]).style.getPropertyValue("--kroky-summary-fill"), "100%");
   assert.equal(progress(groups[1]).textContent.replaceAll(",", ""), "3000 / 2000");
   assert.equal(progress(groups[1]).getAttribute("aria-valuenow"), "100");
+  assert.deepEqual(groups.map(group => percent(group).textContent), ["100.00%", "150.00%", "25.00%", "20.00%"]);
+  assert.equal(progress(groups[2]).style.getPropertyValue("--kroky-summary-fill"), "50%", "native base-cap percentage is independent of the bar capacity");
   melvor.isUnlocked = false; f.update();
   assert.deepEqual(native.upper.querySelectorAll(".kroky-summary-pool"), groups.slice(1));
   assert.deepEqual(groups.slice(1).map(group => group.moves), moves.slice(1));
@@ -489,6 +514,8 @@ test("mastery summary orders visible realms, retains full over-cap counts and up
   f.button.click();
   assert.equal(native.upper.querySelector(".kroky-summary-pool"), null);
   assert.equal(native.upper.querySelector(".kroky-summary-actions"), null);
+  assert.equal(native.upper.querySelector(".kroky-summary-stats"), null);
+  assert.equal(native.upper.querySelector(".kroky-summary-pools"), null);
   assert.deepEqual(native.masteryButtons.children, [native.mastery.viewCheckpointsButton, native.mastery.spendMasteryButton]);
   assert.equal(native.mastery.classList.contains("kroky-summary-mastery-native"), false);
 });
