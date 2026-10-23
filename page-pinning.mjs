@@ -19,7 +19,7 @@ const styles = `
 .kroky-summary-stats > *, .kroky-summary-pools > * { flex: 0 0 auto; max-width: 100%; }
 .kroky-page-header-details :is(.kroky-header-level, .kroky-header-xp) { align-items: center; flex-wrap: nowrap; gap: .3rem; white-space: nowrap; }
 .kroky-page-header-details .kroky-header-enhancements { display: flex; align-items: center; flex-wrap: nowrap; gap: .25rem; }
-.kroky-page-header-details .kroky-header-enhancements::before { content: "Enhancements:"; white-space: nowrap; }
+.kroky-page-header-details .kroky-header-enhancements::before { content: "Upgrades:"; white-space: nowrap; }
 .kroky-page-header-details upgrade-chain-display > span { display: none !important; }
 .kroky-page-header-details upgrade-chain-display img { width: 24px; height: 24px; cursor: help; }
 .kroky-page-header-details upgrade-chain-display img:focus-visible { outline: 2px solid var(--info, #5cace5); outline-offset: 2px; }
@@ -50,7 +50,8 @@ const styles = `
 .kroky-page-pin-controls :is(.sticky-div-mobile, .sticky-category-menu-mobile) { position: static !important; top: auto !important; }
 .kroky-page-pin-controls .kroky-activity-summary { margin-top: .5rem; }
 @media (min-width: 992px) {
-  .kroky-summary-stats { margin-right: .75rem; }
+  .kroky-summary-stats { margin-right: calc(30px - .75rem); }
+  .kroky-header-enhancements { margin-left: calc(30px - .75rem); }
   #page-container.kroky-page-pinned #shop-container { padding-left: 0; padding-right: 0; }
   #page-container.kroky-page-pinned #shop-container > .kroky-page-pin-controls { width: 100%; margin-left: 0; margin-right: 0; }
   #page-container.kroky-page-pinned #shop-container > .row { margin-left: 0; margin-right: 0; }
@@ -132,7 +133,7 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
     if (!node) return;
     if (!progressStyles.has(node)) progressStyles.set(node, node.style.getPropertyValue("--kroky-summary-fill"));
     const percent = Number.isFinite(amount) ? Math.max(0, Math.min(100, amount)) : 0;
-    node.classList.add("kroky-summary-progress");
+    if (!node.classList.contains("kroky-summary-progress")) node.classList.add("kroky-summary-progress");
     setStyle(node, "--kroky-summary-fill", `${percent}%`);
     decorate(node, "role", "progressbar");
     decorate(node, "aria-label", label);
@@ -437,7 +438,7 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
       measure();
       return;
     }
-    root.classList.add("kroky-page-pinned");
+    if (!root.classList.contains("kroky-page-pinned")) root.classList.add("kroky-page-pinned");
     if (container) {
       if (!wrapper) {
         wrapper = document.createElement("div");
@@ -475,7 +476,7 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
       });
       if (isCompactHeaderEnabled()) syncSkillHeader();
       else restoreSkillHeader();
-      wrapper.hidden = selected.length === 0;
+      if (wrapper.hidden !== (selected.length === 0)) wrapper.hidden = selected.length === 0;
       observer?.observe(wrapper);
     }
     observer?.observe(header);

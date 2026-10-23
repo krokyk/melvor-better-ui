@@ -21,7 +21,7 @@ export async function setup(ctx) {
     });
     settings.add({
       type: "switch", name: compactSettingName, label: "Enable Compact Skill Header", default: true,
-      hint: "Group Level and XP progress, Enhancements, mastery pools and their actions, and Skill tree in a dark row below the main header while pinned. Disable to keep their normal placement.",
+      hint: "Group Level and XP progress, Upgrades, mastery pools and their actions, and Skill tree in a dark row below the main header while pinned. Disable to keep their normal placement.",
       onChange(value) {
         if (typeof value !== "boolean") return "Choose enabled or disabled.";
         compactEnabled = value;

@@ -21,7 +21,12 @@ class Element {
       contains: name => this.className.split(" ").includes(name),
       add: (...names) => { this.className = [...new Set([...this.className.split(" ").filter(Boolean), ...names])].join(" "); },
       remove: (...names) => { this.className = this.className.split(" ").filter(name => !names.includes(name)).join(" "); },
-      toggle: (name, flag) => { if (flag === undefined) flag = !this.classList.contains(name); flag ? this.classList.add(name) : this.classList.remove(name); },
+      toggle: (name, flag) => {
+        const present = this.classList.contains(name);
+        if (flag === undefined) flag = !present;
+        if (flag !== present) flag ? this.classList.add(name) : this.classList.remove(name);
+        return flag;
+      },
     };
   }
   get children() { return this.childNodes.filter(node => node.tagName !== "#COMMENT"); }
@@ -428,11 +433,15 @@ test("skill summary progress follows live native skill values and restores its o
   assert.equal(native.header.skillXp.classList.contains("kroky-summary-xp-capped"), true);
   assert.equal(native.header.skillXp.style.getPropertyValue("--kroky-summary-xp-chars"), String(native.header.skillXp.textContent.length));
   const style = native.header.skillXp.style, setProperty = style.setProperty;
+  const addClass = native.header.skillXp.classList.add;
   let widthWrites = 0;
+  let classWrites = 0;
   style.setProperty = function(name, value) { if (name === "--kroky-summary-xp-chars") widthWrites++; setProperty.call(this, name, value); };
+  native.header.skillXp.classList.add = (...names) => { classWrites++; addClass(...names); };
   native.header.skillXp.textContent = "999,999,998";
   f.update(); f.update();
   assert.equal(widthWrites, 0, "a new XP value with the same digit count does not resize the capped bar");
+  assert.equal(classWrites, 0, "stable XP progress leaves its classes untouched");
   native.header.skillXp.textContent = "1,000,000,000"; f.update();
   assert.equal(widthWrites, 1);
   assert.equal(style.getPropertyValue("--kroky-summary-xp-chars"), String(native.header.skillXp.textContent.length));

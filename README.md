@@ -28,7 +28,7 @@ Each mastery pool shows its actual current and maximum values inside its progres
 Its native mastery percentage follows the bar in white with two decimal places and regular-weight tabular numerals in the game's font.
 Level and XP share a compact section, separated by a wider desktop gap from the section containing both mastery pools.
 Mastery progress retains its native warning colours.
-The native View Checkpoints and Spend Mastery Pool XP actions follow the mastery pools, with Enhancements immediately before Skill tree at the end.
+The native View Checkpoints and Spend Mastery Pool XP actions follow the mastery pools, with Upgrades immediately before Skill tree at the end.
 Native action buttons retain their sizing and spacing.
 Bars are thinner than the buttons, with labels, bars, icons and buttons vertically centred together.
 Whole groups wrap as the available width shrinks.

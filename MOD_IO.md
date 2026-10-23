@@ -25,10 +25,10 @@ Capped XP bars keep a stable width until the number of digits changes.
 Mastery pools show actual current and maximum values and retain their native warning colours.
 Each mastery bar has its native percentage beside it in white with two decimal places and regular-weight tabular numerals in the game's font.
 Level and XP share a compact section with a wider desktop gap before the section containing both mastery pools.
-The native View Checkpoints and Spend Mastery Pool XP actions follow the mastery pools, with Enhancements immediately before Skill tree at the end.
+The native View Checkpoints and Spend Mastery Pool XP actions follow the mastery pools, with Upgrades immediately before Skill tree at the end.
 Native action buttons retain their sizing and spacing, with thinner bars and vertically centred labels, icons and controls.
 Whole groups wrap on smaller screens.
-Enhancements show their names and effects on hover or keyboard focus.
+Upgrades show their names and effects on hover or keyboard focus.
 Only the thumbtack joins the main page header.
 Optional Skill Boosts controls are pinned across skills and Combat without requiring that mod.
 On desktop, the pinned Bank has a compact full-width toolbar above its inventory and item-details columns.
