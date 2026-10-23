@@ -403,6 +403,44 @@ test("unpinned phones publish the native sticky header offset without changing t
   assert.equal(f.update.offset, 0);
 });
 
+test("Bank inventory and item details stay in their native columns through pinning and disabling", () => {
+  let enabled = true;
+  const f = fixture([], true, () => enabled);
+  const bank = f.page("Bank", false);
+  bank.row.remove();
+  const controls = new Element("bank-options-menu");
+  const row = new Element(); row.className = "row row-deck gutters-tiny";
+  const inventory = new Element("bank-tab-menu"); inventory.id = "bank-tab-menu";
+  const column = new Element(); column.className = "col-12 col-lg-5 col-xl-4";
+  const box = new Element(); box.id = "bank-item-box";
+  const details = new Element("bank-sidebar-menu"); details.id = "main-bank-sidebar";
+  const modes = ["move", "sell"].map(mode => {
+    const menu = new Element(`bank-${mode}-mode-menu`); menu.id = `main-bank-${mode}-mode`; menu.className = "col-12 d-none";
+    row.append(menu);
+    return menu;
+  });
+  box.append(details); column.append(box); row.append(inventory, column); bank.node.append(controls, row);
+  const moves = [inventory.moves, box.moves, details.moves];
+  f.game.openPage = bank.page; f.update(); f.button.click();
+  assert.equal(controls.parentNode.className, "kroky-page-pin-controls");
+  assert.equal(inventory.parentNode, row);
+  assert.equal(box.parentNode, column);
+  assert.equal(details.parentNode, box);
+  for (const menu of modes) {
+    menu.classList.remove("d-none"); f.update();
+    assert.equal(menu.parentNode, controls.parentNode);
+    const moves = menu.moves;
+    f.update(); f.update();
+    assert.equal(menu.moves, moves, "periodic updates keep the visible mode menu mounted");
+    menu.classList.add("d-none"); f.update();
+    assert.equal(menu.parentNode, row);
+  }
+  enabled = false; f.update();
+  assert.equal(f.root.classList.contains("kroky-page-pinned"), false);
+  assert.deepEqual(bank.node.children, [controls, row]);
+  assert.deepEqual([inventory.moves, box.moves, details.moves], moves);
+});
+
 test("Combat's destructive XP-table disconnect lifecycle is avoided while its navigation is pinned", () => {
   const f = fixture();
   const combat = f.page("Combat", false);

@@ -17,6 +17,9 @@ Existing Workforce pin preferences migrate automatically without changing the or
 
 The pinned stack uses at most half the viewport height and scrolls internally when necessary.
 Combat's native XP table stays connected, and dropdown menus remain accessible outside scrolling sections.
+On desktop, the pinned Bank joins its top controls seamlessly to the fixed item-details sidebar on the right while the inventory scrolls independently on the left.
+Tall item details scroll within the sidebar so every item action remains accessible.
+Narrow screens retain the game's native Bank layout.
 
 ## Installation
 

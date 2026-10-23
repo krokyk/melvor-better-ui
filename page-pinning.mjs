@@ -25,6 +25,13 @@ const styles = `
 .kroky-page-pin-controls > .skill-info { margin: 0 -1rem 1rem; width: calc(100% + 2rem); max-width: none; }
 .kroky-page-pin-controls :is(.sticky-div-mobile, .sticky-category-menu-mobile) { position: static !important; top: auto !important; }
 .kroky-page-pin-controls .kroky-activity-summary { margin-top: .5rem; }
+@media (min-width: 992px) {
+  #page-container.kroky-page-pinned #bank-container { display: flex; flex-direction: column; height: calc(100dvh - var(--kroky-page-pin-header-height)); }
+  #page-container.kroky-page-pinned #bank-container > .kroky-page-pin-controls { position: static; flex-shrink: 0; margin-bottom: 0; }
+  #page-container.kroky-page-pinned #bank-container > .row { flex: 1; min-height: 0; flex-wrap: nowrap; }
+  #page-container.kroky-page-pinned #bank-tab-menu { overflow-y: auto; }
+  #page-container.kroky-page-pinned #bank-item-box { position: static !important; height: auto; min-height: 0; overflow-y: auto; }
+}
 @media (max-width: 991px) {
   .kroky-page-pin-controls { width: calc(100% + 2rem); margin: -.6rem -1rem .75rem; padding: 0 .5rem .25rem; }
   .kroky-page-pin-controls > .skill-info { margin-left: -.5rem; margin-right: -.5rem; width: calc(100% + 1rem); }
