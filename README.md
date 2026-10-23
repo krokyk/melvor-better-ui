@@ -25,7 +25,7 @@ Stats use the text labels Level and XP, and the native skill-tree button is labe
 Level and mastery-pool bars have fixed widths, and XP bars use a wide fixed width below the level cap.
 Capped XP bars fit the accumulated XP number and keep that width until its digit count changes.
 Each mastery pool shows its actual current and maximum values inside its progress bar.
-Its native mastery percentage follows the bar in white with two decimal places and monospaced digits.
+Its native mastery percentage follows the bar in white with two decimal places and regular-weight tabular numerals in the game's font.
 Level and XP share a compact section, separated by a wider desktop gap from the section containing both mastery pools.
 Mastery progress retains its native warning colours.
 The native View Checkpoints and Spend Mastery Pool XP actions follow the mastery pools, with Enhancements immediately before Skill tree at the end.

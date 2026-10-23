@@ -28,7 +28,7 @@ const styles = `
 .kroky-page-header-details .kroky-summary-xp-capped { width: calc(var(--kroky-summary-xp-chars) * 1ch + .6rem); }
 .kroky-summary-pool { display: flex; align-items: center; gap: .3rem; }
 .kroky-summary-pool img { width: 24px; height: 24px; }
-.kroky-summary-percent { color: white; font: .75rem monospace; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.kroky-summary-percent { color: white; font-size: .75rem; font-weight: 400; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .kroky-summary-pool .kroky-summary-progress { width: 12.5rem; border-color: var(--warning, #ffb822); background: linear-gradient(to right, var(--warning, #ffb822) var(--kroky-summary-fill, 0%), var(--dark, #232a35) var(--kroky-summary-fill, 0%)) !important; }
 .kroky-summary-actions { display: flex; align-items: center; }
 .kroky-skill-header-compact .kroky-summary-mastery-native { display: none !important; }
