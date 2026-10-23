@@ -6,7 +6,7 @@ Kroky's Better UI
 
 ## Summary
 
-Keep page headers and controls visible while scrolling, with optional pinning across the game.
+Keep headers visible while scrolling and fit more readable cards across wide desktop screens.
 
 ## Description
 
@@ -20,6 +20,14 @@ On desktop, the pinned Bank has a compact full-width toolbar above its inventory
 Bank tabs and labelled Space, Bank and Tab totals stay above the inventory on the left.
 The inventory and right-hand details panel fill the available viewport height and scroll independently.
 Narrow screens retain the game's native Bank layout.
+
+**Enable Wide Layout** uses the available desktop width for Woodcutting, Fishing, Mining, Astrology, Archaeology, Thieving, Shop, Bank, Farming and Township.
+It also expands Workforce's production recipe grids when installed.
+Each card layout has its own readable minimum and maximum width, so wider screens fit more columns.
+Bank keeps compact inventory icons beside a bounded details column.
+The setting works independently of pinning, defaults to on and is saved per character.
+It applies at viewport widths of 1,200 pixels and above; narrower screens keep their existing layout.
+Native production views, Combat, Cooking, Firemaking, Music and Agility retain their normal page widths.
 
 Open **Mod Settings → Kroky's Better UI → General → Enable Page Pinning** to enable or disable the feature.
 The toggle defaults to on.
@@ -42,7 +50,8 @@ The mod works independently of Workforce and also pins Workforce's controls and 
 - Restore existing Workforce pin preferences automatically.
 - Keep pinned content within half the viewport height and retain native Combat and dropdown behavior.
 - Keep the desktop Bank's labelled totals, compact toolbar, wrapping tabs and full-height inventory and details panels.
+- Use an independent wide-layout toggle and bounded card widths for supported desktop grids.
 
 ## Upload
 
-Upload **krokys-better-ui-1.0.0.zip** with `manifest.json`, `setup.mjs` and `page-pinning.mjs` at the archive root.
+Upload **krokys-better-ui-1.0.0.zip** with `manifest.json`, `setup.mjs`, `page-pinning.mjs` and `wide-layout.mjs` at the archive root.
