@@ -26,11 +26,21 @@ const styles = `
 .kroky-page-pin-controls :is(.sticky-div-mobile, .sticky-category-menu-mobile) { position: static !important; top: auto !important; }
 .kroky-page-pin-controls .kroky-activity-summary { margin-top: .5rem; }
 @media (min-width: 992px) {
-  #page-container.kroky-page-pinned #bank-container { display: flex; flex-direction: column; height: calc(100dvh - var(--kroky-page-pin-header-height)); }
-  #page-container.kroky-page-pinned #bank-container > .kroky-page-pin-controls { position: static; flex-shrink: 0; margin-bottom: 0; }
-  #page-container.kroky-page-pinned #bank-container > .row { flex: 1; min-height: 0; flex-wrap: nowrap; }
-  #page-container.kroky-page-pinned #bank-tab-menu { overflow-y: auto; }
-  #page-container.kroky-page-pinned #bank-item-box { position: static !important; height: auto; min-height: 0; overflow-y: auto; }
+  #page-container.kroky-page-pinned #bank-container { display: flex; flex-direction: column; height: calc(100dvh - var(--kroky-page-pin-header-height)); max-width: none; padding: 0 !important; }
+  #page-container.kroky-page-pinned #bank-container > .kroky-page-pin-controls { position: static; flex-shrink: 0; width: 100%; margin: 0; padding: 0; }
+  #page-container.kroky-page-pinned #bank-container > .kroky-page-pin-controls > * { display: block; padding: 0; }
+  #page-container.kroky-page-pinned #bank-container > .kroky-page-pin-controls .block { margin-bottom: 0; box-shadow: none; transform: none; }
+  #page-container.kroky-page-pinned #bank-container > .row { flex: 1; min-height: 0; flex-wrap: nowrap; margin: 0; }
+  #page-container.kroky-page-pinned #bank-container > .row > [class*="col-"] { padding: 0; }
+  #page-container.kroky-page-pinned #bank-tab-menu { display: flex; flex-direction: column; min-height: 0; }
+  #page-container.kroky-page-pinned #bank-tab-menu > .block { display: flex; flex-direction: column; flex: 1; min-height: 0; margin: 0; }
+  #page-container.kroky-page-pinned #bank-tab-menu > .block > :is(.nav, .bg-dark-bank-info) { position: static; flex-shrink: 0; }
+  /* The native 400px inline minimum must yield to the available viewport. */
+  #page-container.kroky-page-pinned #bank-tab-menu > .block > .tab-content { flex: 1; min-height: 0 !important; overflow-y: auto; padding: .5rem; }
+  #page-container.kroky-page-pinned #bank-tab-menu > .block > .tab-content > .tab-pane > .row { margin: 0; }
+  #page-container.kroky-page-pinned #bank-item-box { position: static !important; height: auto; min-height: 0; overflow-y: auto; margin: 0; }
+  /* Keep lower item actions above the floating combat minibar. */
+  #page-container.kroky-page-pinned #bank-item-box > bank-sidebar-menu { display: block; padding-bottom: 10rem; }
 }
 @media (max-width: 991px) {
   .kroky-page-pin-controls { width: calc(100% + 2rem); margin: -.6rem -1rem .75rem; padding: 0 .5rem .25rem; }
@@ -202,7 +212,10 @@ export function installPagePinning(ctx, game, isEnabled = () => true) {
           observer?.observe(stationary);
         } else container.prepend(wrapper);
       }
-      const candidates = [...container.querySelectorAll(targets)].filter(node => visible(node));
+      // Keep Bank labels themed and narrow-screen controls in their native layout.
+      const bank = container.querySelector("bank-tab-menu");
+      const candidates = [...container.querySelectorAll(targets)].filter(node =>
+        (!bank || window.innerWidth >= 992 && !bank.contains(node)) && visible(node));
       const selected = candidates.filter(node => !candidates.some(parent => parent !== node && parent.contains(node)));
       for (const [node, marker] of moved) {
         if (selected.includes(node)) continue;

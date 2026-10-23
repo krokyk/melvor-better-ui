@@ -411,6 +411,13 @@ test("Bank inventory and item details stay in their native columns through pinni
   const controls = new Element("bank-options-menu");
   const row = new Element(); row.className = "row row-deck gutters-tiny";
   const inventory = new Element("bank-tab-menu"); inventory.id = "bank-tab-menu";
+  const block = new Element(); block.className = "block tabbable";
+  const tabs = new Element("ul"); tabs.className = "nav nav-tabs sticky-div-mobile";
+  const summary = new Element(); summary.className = "bg-dark-bank-info";
+  const labels = new Element("span"); labels.textContent = "Space: 1,337 / 1,455 | Bank: 109B GP | Tab: 49B GP";
+  summary.append(labels);
+  const items = new Element(); items.className = "block-content tab-content";
+  block.append(tabs, summary, items); inventory.append(block);
   const column = new Element(); column.className = "col-12 col-lg-5 col-xl-4";
   const box = new Element(); box.id = "bank-item-box";
   const details = new Element("bank-sidebar-menu"); details.id = "main-bank-sidebar";
@@ -426,6 +433,14 @@ test("Bank inventory and item details stay in their native columns through pinni
   assert.equal(inventory.parentNode, row);
   assert.equal(box.parentNode, column);
   assert.equal(details.parentNode, box);
+  for (const width of [1200, 991, 992, 390, 1200]) {
+    window.innerWidth = width; f.update(); f.update();
+    assert.ok(tabs.parentNode === block && summary.parentNode === block && items.parentNode === block,
+      "Bank labels retain their native text-color ancestor at every width");
+    assert.equal(labels.parentNode, summary);
+    assert.equal(labels.textContent, "Space: 1,337 / 1,455 | Bank: 109B GP | Tab: 49B GP");
+    assert.equal(controls.parentNode === bank.node, width < 992, "narrow Bank controls remain in native flow");
+  }
   for (const menu of modes) {
     menu.classList.remove("d-none"); f.update();
     assert.equal(menu.parentNode, controls.parentNode);
