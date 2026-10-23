@@ -22,10 +22,17 @@ const styles = `
 #combat-top-menu.kroky-page-pin-static > div.col-12 > .block { border-top: 0!important; border-radius: 0; margin-bottom: 0; box-shadow: none; transform: none; }
 .kroky-page-pin-controls.kroky-page-pin-after-static { width: calc(100% + var(--kroky-page-pin-content-left) + var(--kroky-page-pin-content-right)); margin-top: 0; margin-left: calc(-1 * var(--kroky-page-pin-content-left)); margin-right: calc(-1 * var(--kroky-page-pin-content-right)); }
 .kroky-page-pin-controls > * { flex: 0 0 auto; width: 100%; max-width: 100%; }
+.kroky-page-pin-controls > .block,
+.kroky-page-pin-controls > :not(.block) > .block,
+.kroky-page-pin-controls > .skill-info > skill-header > .block { border-top: 0 !important; border-radius: 0; box-shadow: none !important; transform: none !important; }
 .kroky-page-pin-controls > .skill-info { margin: 0 -1rem 1rem; width: calc(100% + 2rem); max-width: none; }
 .kroky-page-pin-controls :is(.sticky-div-mobile, .sticky-category-menu-mobile) { position: static !important; top: auto !important; }
 .kroky-page-pin-controls .kroky-activity-summary { margin-top: .5rem; }
 @media (min-width: 992px) {
+  #page-container.kroky-page-pinned #shop-container { padding-left: 0; padding-right: 0; }
+  #page-container.kroky-page-pinned #shop-container > .kroky-page-pin-controls { width: 100%; margin-left: 0; margin-right: 0; }
+  #page-container.kroky-page-pinned #shop-container > .row { margin-left: 0; margin-right: 0; }
+  #page-container.kroky-page-pinned #new-shop { padding-left: 0; padding-right: 0; }
   #page-container.kroky-page-pinned #bank-container { display: flex; flex-direction: column; height: calc(100dvh - var(--kroky-page-pin-header-height)); max-width: none; padding: 0 !important; }
   #page-container.kroky-page-pinned #bank-container > .kroky-page-pin-controls { position: static; flex-shrink: 0; width: 100%; margin: 0; padding: 0; }
   #page-container.kroky-page-pinned #bank-container > .kroky-page-pin-controls > * { display: block; padding: 0; }
