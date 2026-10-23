@@ -119,10 +119,11 @@ function nativeSkillHeader(skill, charges = true) {
   const block = new Element(); block.className = "block";
   const upper = new Element(); upper.className = "row bg-dark";
   header.upperContainer = upper;
-  for (const [name, value] of [["skillLevel", "120 / 120"], ["skillXp", "248,739,822"], ["abyssalLevel", "60 / 60"], ["abyssalXp", "42,000,000"]]) {
+  for (const [name, text, value] of [["skillLevel", "Skill Level", "120 / 120"], ["skillXp", "Skill XP", "248,739,822"], ["abyssalLevel", "Abyssal Level", "60 / 60"], ["abyssalXp", "Abyssal XP", "42,000,000"]]) {
     const group = new Element(); group.className = "col-12 col-md-3";
+    const label = new Element("lang-string"); label.textContent = text;
     const span = new Element("span"); span.textContent = value;
-    header[name] = span; group.append(span); upper.append(group);
+    header[name] = span; group.append(label, span); upper.append(group);
   }
   const upgrades = new Element(); upgrades.className = "col-12 col-md-3";
   const chain = new Element("upgrade-chain-display");
@@ -136,7 +137,9 @@ function nativeSkillHeader(skill, charges = true) {
   header.itemChargeContainer = items; upper.append(items);
   const mastery = new Element("mastery-skill-options");
   const tree = new Element("skill-tree-button"), treeAction = new Element("button");
+  const treeLabel = new Element("lang-string"); treeLabel.textContent = "View Skill Tree";
   treeAction.textContent = "View Skill Tree";
+  treeAction.append(treeLabel);
   tree.append(treeAction); header.skillTreeButton = tree;
   block.append(upper, mastery, tree); header.append(block);
   return { header, block, upper, upgrades, chain, items, mastery, tree, treeAction };
@@ -195,6 +198,8 @@ test("native skill stats, enhancements and tree join the main header while maste
   native.chain.upgradeImg.setAttribute("tabindex", "-1");
   const originalGroups = [...native.upper.children];
   const spans = [native.header.skillLevel, native.header.skillXp, native.header.abyssalLevel, native.header.abyssalXp];
+  const labels = [...spans.map(span => span.parentElement.querySelector("lang-string")), native.treeAction.querySelector("lang-string")];
+  const compactLabels = ["Level", "XP", "Abyssal Level", "Abyssal XP", "Skill tree"];
   let treeClicks = 0;
   native.treeAction.addEventListener("click", () => treeClicks++);
   f.game.shop = { renderQueue: { upgrades: false } };
@@ -211,13 +216,17 @@ test("native skill stats, enhancements and tree join the main header while maste
   assert.equal(native.chain.upgradeImg.getAttribute("alt"), "Dragon Pickaxe");
   assert.equal(native.chain.upgradeImg.getAttribute("tabindex"), "0");
   assert.equal(native.treeAction.getAttribute("title"), "View Skill Tree");
+  assert.deepEqual(labels.map(label => label.textContent), compactLabels);
   assert.equal(f.game.shop.renderQueue.upgrades, true, "moving native upgrade displays requests tooltip recreation");
   assert.ok(spans.every(span => native.upper.contains(span)));
   native.header.skillXp.textContent = "248,739,999";
   native.treeAction.click(); assert.equal(treeClicks, 1);
   const moves = [native.upper, native.tree, native.chain, ...spans].map(node => node.moves);
   f.game.shop.renderQueue.upgrades = false;
+  labels[0].textContent = "Skill Level";
+  labels[4].textContent = "View Skill Tree";
   f.update(); f.update();
+  assert.deepEqual(labels.map(label => label.textContent), compactLabels, "native retranslation retains the compact visible labels");
   assert.deepEqual([native.upper, native.tree, native.chain, ...spans].map(node => node.moves), moves);
   assert.equal(f.game.shop.renderQueue.upgrades, false, "ordinary updates do not reconnect native tooltips");
   f.button.click();
@@ -230,6 +239,7 @@ test("native skill stats, enhancements and tree join the main header while maste
   assert.equal(native.chain.upgradeImg.getAttribute("alt"), "Native pickaxe");
   assert.equal(native.chain.upgradeImg.getAttribute("tabindex"), "-1");
   assert.equal(native.treeAction.getAttribute("title"), null);
+  assert.deepEqual(labels.map(label => label.textContent), ["Skill Level", "Skill XP", "Abyssal Level", "Abyssal XP", "View Skill Tree"]);
   native.treeAction.click(); assert.equal(treeClicks, 2);
   assert.equal(f.game.shop.renderQueue.upgrades, true);
 });
@@ -246,6 +256,8 @@ test("header details restore before page changes and config changes without requ
   f.game.openPage = next.page; f.update();
   assert.deepEqual(first.block.children, [first.upper, first.mastery, first.tree]);
   assert.equal(first.upper.classList.contains("kroky-page-header-details"), false);
+  assert.equal(first.header.skillLevel.parentElement.querySelector("lang-string").textContent, "Skill Level");
+  assert.equal(first.treeAction.querySelector("lang-string").textContent, "View Skill Tree");
   assert.equal(second.upper.parentNode, f.left);
   assert.equal(second.treeAction.getAttribute("title"), "Native tree tooltip");
   assert.equal(f.header.contains(first.upper), false);
@@ -260,6 +272,8 @@ test("header details restore before page changes and config changes without requ
   assert.equal(second.chain.upgradeImg.getAttribute("alt"), null);
   assert.equal(second.chain.upgradeImg.getAttribute("tabindex"), null);
   assert.equal(second.treeAction.getAttribute("title"), "Native tree tooltip");
+  assert.equal(second.header.skillLevel.parentElement.querySelector("lang-string").textContent, "Skill Level");
+  assert.equal(second.treeAction.querySelector("lang-string").textContent, "View Skill Tree");
   enabled = true; f.update();
   assert.equal(second.upper.parentNode, f.left);
   f.game.openPage = f.page("Shop", false).page; f.update();

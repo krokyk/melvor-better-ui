@@ -17,6 +17,7 @@ One shared pin choice follows you across skills, Combat, Bank, Shop, Settings, F
 The pinned stack uses at most half the screen height and scrolls internally when necessary.
 Combat's native XP table stays connected, and dropdown menus remain accessible outside scrolling sections.
 Pinned skill level, XP, enhancement icons and the native skill-tree control share a dark section beside the thumbtack.
+Level, XP and Skill tree retain visible text labels.
 Those groups wrap within the section on smaller screens.
 Enhancements show their names and effects on hover or keyboard focus.
 Mastery progress and its View Checkpoints and Spend Mastery Pool XP buttons stay below the main bar.
