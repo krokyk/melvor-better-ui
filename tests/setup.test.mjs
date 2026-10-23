@@ -24,7 +24,7 @@ test("setup loads its packaged modules through Melvor's standalone module URLs",
   assert.deepEqual(loaded, ["page-pinning.mjs", "wide-layout.mjs"]);
 });
 
-test("independent config restores on load and QuickLoad, applies toggles immediately, and bounds render updates", async () => {
+test("independent config restores on load and QuickLoad, applies toggles immediately, and bounds only pinning render updates", async () => {
   const hooks = {}, values = new Map(), fields = new Map();
   const updates = { pinning: [], compact: [], wide: [] };
   let now = 0;
@@ -97,12 +97,14 @@ test("independent config restores on load and QuickLoad, applies toggles immedia
   assert.equal(updates.wide.at(-1), false);
   assert.equal(updates.pinning.length, 3, "wide layout toggles do not reapply pinning");
   values.set(wide.name, false);
+  const wideCount = updates.wide.length;
   assert.equal(game.render(), "native render");
-  const count = updates.pinning.length, wideCount = updates.wide.length;
+  assert.equal(updates.wide.length, wideCount, "CSS wide layouts do not need render updates");
+  const count = updates.pinning.length;
   now = 199; game.render();
   assert.equal(updates.pinning.length, count); assert.equal(updates.wide.length, wideCount);
   now = 200; game.render();
-  assert.equal(updates.pinning.length, count + 1); assert.equal(updates.wide.length, wideCount + 1);
+  assert.equal(updates.pinning.length, count + 1); assert.equal(updates.wide.length, wideCount);
   assert.equal(updates.compact.length, count + 1);
   assert.equal(updates.pinning.at(-1), true); assert.equal(updates.wide.at(-1), false);
   for (const field of fields.values()) assert.equal(typeof field.onChange("false"), "string");

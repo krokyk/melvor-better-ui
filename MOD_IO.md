@@ -16,13 +16,18 @@ One shared pin choice follows you across skills, Combat, Bank, Shop, Settings, F
 
 The pinned stack uses at most half the screen height and scrolls internally when necessary.
 Combat's native XP table stays connected, and dropdown menus remain accessible outside scrolling sections.
-Pinned skill level, XP, enhancement icons and the native skill-tree control share a dark section beside the thumbtack.
-**General → Enable Compact Skill Header** independently controls this arrangement and defaults to on.
+Pinned skills show Level and XP progress bars, enhancement icons, Melvor and Abyssal mastery pools, their native actions, and Skill tree in one dark row below the main page header.
+**General → Enable Compact Skill Header** independently controls this arrangement, defaults to on and is saved per character.
 Disabling it restores native skill-header placement while retaining pinning and wide-layout settings.
 Level, XP and Skill tree retain visible text labels.
-Those groups wrap within the section on smaller screens.
+Level and mastery-pool bars have fixed widths, while XP bars stay wide below the level cap and fit accumulated XP at the cap.
+Capped XP bars keep a stable width until the number of digits changes.
+Mastery pools show actual current and maximum values and retain their native warning colours.
+The native View Checkpoints and Spend Mastery Pool XP actions follow the mastery pools, with Enhancements immediately before Skill tree at the end.
+Native action buttons retain their sizing and spacing, with thinner bars and vertically centred labels, icons and controls.
+Whole groups wrap on smaller screens.
 Enhancements show their names and effects on hover or keyboard focus.
-Mastery progress and its View Checkpoints and Spend Mastery Pool XP buttons stay below the main bar.
+Only the thumbtack joins the main page header.
 Optional Skill Boosts controls are pinned across skills and Combat without requiring that mod.
 On desktop, the pinned Bank has a compact full-width toolbar above its inventory and item-details columns.
 Bank tabs and labelled Space, Bank and Tab totals stay above the inventory on the left.
@@ -59,7 +64,7 @@ The mod works independently of Workforce and also pins Workforce's controls and 
 - Keep pinned content within half the viewport height and retain native Combat and dropdown behavior.
 - Keep the desktop Bank's labelled totals, compact toolbar, wrapping tabs and full-height inventory and details panels.
 - Use an independent wide-layout toggle and bounded card widths for supported desktop grids.
-- Group native skill stats, enhancement icons and skill trees in the top bar while keeping mastery below it.
+- Group skill progress bars, enhancements, mastery pools and their native actions, followed by Skill tree, in a compact row below the main header with an independent per-character toggle.
 - Preserve enhancement tooltip contents and pin optional Skill Boosts controls, including on Combat.
 
 ## Upload

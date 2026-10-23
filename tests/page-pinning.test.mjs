@@ -3,7 +3,7 @@ import { afterEach, test } from "node:test";
 import { installPagePinning } from "../page-pinning.mjs";
 
 afterEach(() => {
-  for (const name of ["document", "window", "getComputedStyle", "ResizeObserver", "$"]) delete globalThis[name];
+  for (const name of ["document", "window", "getComputedStyle", "ResizeObserver", "$", "tippy"]) delete globalThis[name];
 });
 
 class Element {
@@ -13,7 +13,7 @@ class Element {
     this.className = "";
     this.attributes = {};
     this.listeners = {};
-    this.style = { setProperty(name, value) { this[name] = value; }, getPropertyValue(name) { return this[name] ?? ""; } };
+    this.style = { setProperty(name, value) { this[name] = value; }, getPropertyValue(name) { return this[name] ?? ""; }, removeProperty(name) { const value = this[name] ?? ""; delete this[name]; return value; } };
     this.height = 40;
     this.width = 300;
     this.moves = 0;
@@ -29,7 +29,7 @@ class Element {
   get firstElementChild() { return this.children[0]; }
   get scrollHeight() { return this.hidden ? 0 : Math.max(this.height, this.children.reduce((height, node) => height + node.scrollHeight, 0)); }
   getBoundingClientRect() { return { top: 100, left: 40, height: this.hidden ? 0 : this.height, width: this.width }; }
-  setAttribute(name, value) { this.attributes[name] = value; }
+  setAttribute(name, value) { this.attributes[name] = String(value); }
   getAttribute(name) { return this.attributes[name] ?? null; }
   removeAttribute(name) { delete this.attributes[name]; }
   append(...nodes) { for (const node of nodes) this.insertBefore(node, null); }
@@ -136,13 +136,17 @@ function nativeSkillHeader(skill, charges = true) {
   else items.classList.add("d-none");
   header.itemChargeContainer = items; upper.append(items);
   const mastery = new Element("mastery-skill-options");
+  const masteryButtons = new Element();
+  mastery.viewCheckpointsButton = new Element("button"); mastery.viewCheckpointsButton.textContent = "View Checkpoints";
+  mastery.spendMasteryButton = new Element("button"); mastery.spendMasteryButton.textContent = "Spend Mastery Pool XP";
+  masteryButtons.append(mastery.viewCheckpointsButton, mastery.spendMasteryButton); mastery.append(masteryButtons);
   const tree = new Element("skill-tree-button"), treeAction = new Element("button");
   const treeLabel = new Element("lang-string"); treeLabel.textContent = "View Skill Tree";
   treeAction.textContent = "View Skill Tree";
   treeAction.append(treeLabel);
   tree.append(treeAction); header.skillTreeButton = tree;
   block.append(upper, mastery, tree); header.append(block);
-  return { header, block, upper, upgrades, chain, items, mastery, tree, treeAction };
+  return { header, block, upper, upgrades, chain, items, mastery, masteryButtons, tree, treeAction };
 }
 
 test("default stays unpinned with an accessible icon-only phone-sized button", () => {
@@ -192,7 +196,7 @@ test("icon-only pin action retains accessible names, native colours and icon ide
   assert.match(document.head.children[0].textContent, /white-space: nowrap/);
 });
 
-test("native skill stats, enhancements and tree join the main header while mastery stays below", () => {
+test("skill summary stays below the main header with native controls and restorable mastery actions", () => {
   const f = fixture(), native = nativeSkillHeader(f.skill);
   native.chain.upgradeImg.setAttribute("alt", "Native pickaxe");
   native.chain.upgradeImg.setAttribute("tabindex", "-1");
@@ -202,14 +206,33 @@ test("native skill stats, enhancements and tree join the main header while maste
   const compactLabels = ["Level", "XP", "Abyssal Level", "Abyssal XP", "Skill tree"];
   let treeClicks = 0;
   native.treeAction.addEventListener("click", () => treeClicks++);
+  let checkpoints = 0, spends = 0;
+  native.mastery.viewCheckpointsButton.className = "btn btn-info mr-2";
+  native.mastery.viewCheckpointsButton.style.setProperty("margin-left", "3px");
+  native.mastery.spendMasteryButton.className = "btn btn-warning";
+  native.mastery.spendMasteryButton.style.setProperty("padding", ".375rem .75rem");
+  native.mastery.viewCheckpointsButton.addEventListener("click", () => checkpoints++);
+  native.mastery.spendMasteryButton.addEventListener("click", () => spends++);
   f.game.shop = { renderQueue: { upgrades: false } };
   f.button.click();
-  assert.equal(native.upper.parentNode, f.left);
-  assert.equal(f.left.children[f.left.children.indexOf(f.button) + 1], native.upper);
+  assert.ok(native.upper.parentNode === native.block, "the summary retains its native block parent");
+  assert.equal(f.header.contains(native.upper), false);
   assert.equal(native.upper.classList.contains("kroky-page-header-details"), true);
   assert.equal(native.header.classList.contains("kroky-skill-header-compact"), true);
-  assert.deepEqual(native.upper.children, [...originalGroups, native.tree]);
+  assert.equal(native.tree.parentNode, native.upper);
+  const actions = native.upper.querySelector(".kroky-summary-actions");
+  assert.ok(actions);
+  const summaryOrder = [...originalGroups.filter(group => group !== native.upgrades && group !== native.items), actions, native.upgrades, native.items, native.tree];
+  assert.equal(native.upper.children.length, summaryOrder.length);
+  assert.ok(native.upper.children.every((group, index) => group === summaryOrder[index]), "enhancements follow mastery actions immediately before Skill tree");
+  assert.deepEqual(actions.children, [native.mastery.viewCheckpointsButton, native.mastery.spendMasteryButton]);
+  assert.ok(native.upper.children.at(-1) === native.tree, "Skill tree follows both mastery actions at the end of the summary");
+  assert.equal(native.mastery.viewCheckpointsButton.className, "btn btn-info mr-2");
+  assert.equal(native.mastery.viewCheckpointsButton.style.getPropertyValue("margin-left"), "3px");
+  assert.equal(native.mastery.spendMasteryButton.className, "btn btn-warning");
+  assert.equal(native.mastery.spendMasteryButton.style.getPropertyValue("padding"), ".375rem .75rem");
   assert.equal(native.mastery.parentNode, native.block);
+  assert.equal(native.mastery.classList.contains("kroky-summary-mastery-native"), true);
   assert.equal(f.pinned().contains(native.mastery), true);
   assert.equal(f.header.contains(native.mastery), false, "mastery progress remains below the main header");
   assert.equal(native.chain.parentNode, native.upgrades);
@@ -221,6 +244,8 @@ test("native skill stats, enhancements and tree join the main header while maste
   assert.ok(spans.every(span => native.upper.contains(span)));
   native.header.skillXp.textContent = "248,739,999";
   native.treeAction.click(); assert.equal(treeClicks, 1);
+  native.mastery.viewCheckpointsButton.click(); native.mastery.spendMasteryButton.click();
+  assert.deepEqual([checkpoints, spends], [1, 1]);
   const moves = [native.upper, native.tree, native.chain, ...spans].map(node => node.moves);
   f.game.shop.renderQueue.upgrades = false;
   labels[0].textContent = "Skill Level";
@@ -232,6 +257,11 @@ test("native skill stats, enhancements and tree join the main header while maste
   f.button.click();
   assert.deepEqual(native.block.children, [native.upper, native.mastery, native.tree]);
   assert.deepEqual(native.upper.children, originalGroups);
+  assert.deepEqual(native.masteryButtons.children, [native.mastery.viewCheckpointsButton, native.mastery.spendMasteryButton]);
+  assert.equal(native.mastery.viewCheckpointsButton.className, "btn btn-info mr-2");
+  assert.equal(native.mastery.viewCheckpointsButton.style.getPropertyValue("margin-left"), "3px");
+  assert.equal(native.mastery.spendMasteryButton.style.getPropertyValue("padding"), ".375rem .75rem");
+  assert.equal(native.mastery.classList.contains("kroky-summary-mastery-native"), false);
   assert.equal(native.upper.classList.contains("kroky-page-header-details"), false);
   assert.equal(native.header.classList.contains("kroky-skill-header-compact"), false);
   assert.equal(f.skill.info.parentNode, f.skill.node);
@@ -241,6 +271,8 @@ test("native skill stats, enhancements and tree join the main header while maste
   assert.equal(native.treeAction.getAttribute("title"), null);
   assert.deepEqual(labels.map(label => label.textContent), ["Skill Level", "Skill XP", "Abyssal Level", "Abyssal XP", "View Skill Tree"]);
   native.treeAction.click(); assert.equal(treeClicks, 2);
+  native.mastery.viewCheckpointsButton.click(); native.mastery.spendMasteryButton.click();
+  assert.deepEqual([checkpoints, spends], [2, 2]);
   assert.equal(f.game.shop.renderQueue.upgrades, true);
 });
 
@@ -252,13 +284,13 @@ test("header details restore before page changes and config changes without requ
   second.header.skillTreeButton.classList.add("d-none");
   second.treeAction.setAttribute("title", "Native tree tooltip");
   f.button.click();
-  assert.equal(first.upper.parentNode, f.left);
+  assert.ok(first.upper.parentNode === first.block, "the first summary retains its native block parent");
   f.game.openPage = next.page; f.update();
   assert.deepEqual(first.block.children, [first.upper, first.mastery, first.tree]);
   assert.equal(first.upper.classList.contains("kroky-page-header-details"), false);
   assert.equal(first.header.skillLevel.parentElement.querySelector("lang-string").textContent, "Skill Level");
   assert.equal(first.treeAction.querySelector("lang-string").textContent, "View Skill Tree");
-  assert.equal(second.upper.parentNode, f.left);
+  assert.ok(second.upper.parentNode === second.block, "the next summary retains its native block parent");
   assert.equal(second.treeAction.getAttribute("title"), "Native tree tooltip");
   assert.equal(f.header.contains(first.upper), false);
   assert.equal(f.header.contains(second.mastery), false);
@@ -275,7 +307,7 @@ test("header details restore before page changes and config changes without requ
   assert.equal(second.header.skillLevel.parentElement.querySelector("lang-string").textContent, "Skill Level");
   assert.equal(second.treeAction.querySelector("lang-string").textContent, "View Skill Tree");
   enabled = true; f.update();
-  assert.equal(second.upper.parentNode, f.left);
+  assert.ok(second.upper.parentNode === second.block, "the resumed summary retains its native block parent");
   f.game.openPage = f.page("Shop", false).page; f.update();
   assert.deepEqual(second.block.children, [second.upper, second.mastery, second.tree]);
   assert.equal(f.header.querySelector(".kroky-page-header-details"), null);
@@ -292,7 +324,7 @@ test("compact-header config restores native details independently while page con
   const treeLabel = native.treeAction.querySelector("lang-string");
   f.button.click();
   const wrapper = f.pinned();
-  assert.equal(native.upper.parentNode, f.left);
+  assert.ok(native.upper.parentNode === native.block, "the summary retains its native block parent");
   assert.equal(boosts.parentNode, wrapper);
   compact = false; f.update();
   assert.deepEqual(native.block.children, [native.upper, native.mastery, native.tree]);
@@ -302,6 +334,7 @@ test("compact-header config restores native details independently while page con
   assert.equal(native.chain.upgradeImg.getAttribute("alt"), "Native pickaxe");
   assert.equal(native.chain.upgradeImg.getAttribute("tabindex"), "-1");
   assert.equal(native.treeAction.getAttribute("title"), null);
+  assert.deepEqual(native.masteryButtons.children, [native.mastery.viewCheckpointsButton, native.mastery.spendMasteryButton]);
   assert.equal(f.pinned(), wrapper);
   assert.equal(f.root.classList.contains("kroky-page-pinned"), true);
   assert.equal(f.button.getAttribute("aria-pressed"), "true");
@@ -312,7 +345,7 @@ test("compact-header config restores native details independently while page con
   f.update(); f.update();
   assert.deepEqual([native.upper.moves, native.tree.moves], moves);
   compact = true; f.update();
-  assert.equal(native.upper.parentNode, f.left);
+  assert.ok(native.upper.parentNode === native.block, "the summary retains its native block parent");
   assert.equal(native.tree.parentNode, native.upper);
   assert.deepEqual([levelLabel.textContent, xpLabel.textContent, treeLabel.textContent], ["Level", "XP", "Skill tree"]);
   assert.equal(native.mastery.parentNode, native.block);
@@ -341,11 +374,193 @@ test("disabled compact header leaves native details mounted through pinning conf
   assert.ok(f.pinned());
   assert.equal(f.storage.get("kroky-better-ui:pin"), "true");
   compact = true; f.update();
-  assert.equal(native.upper.parentNode, f.left);
+  assert.ok(native.upper.parentNode === native.block, "the summary retains its native block parent");
   assert.equal(native.tree.parentNode, native.upper);
   assert.equal(native.header.skillLevel.parentElement.querySelector("lang-string").textContent, "Level");
   assert.equal(native.treeAction.querySelector("lang-string").textContent, "Skill tree");
   assert.equal(f.header.contains(native.mastery), false);
+});
+
+test("skill summary progress follows live native skill values and restores its original decoration", () => {
+  let compact = true;
+  const f = fixture([], true, () => true, () => compact), native = nativeSkillHeader(f.skill);
+  const skill = {
+    level: 1, currentLevelCap: 120, nextLevelProgress: 25,
+    abyssalLevel: 1, currentAbyssalLevelCap: 60, nextAbyssalLevelProgress: 40,
+    getRealmsWithMastery: () => [],
+  };
+  native.header.setAttribute("data-skill-id", "melvorD:Smithing");
+  f.game.skills = { getObjectByID: id => id === "melvorD:Smithing" ? skill : undefined };
+  native.header.skillLevel.textContent = "1 / 120";
+  native.header.skillXp.textContent = "2,345 / 3,000";
+  native.header.abyssalLevel.textContent = "1 / 60";
+  native.header.abyssalXp.textContent = "4,567 / 8,000";
+  native.header.skillXp.style.setProperty("--kroky-summary-fill", "19%");
+  native.header.skillXp.style.setProperty("--kroky-summary-xp-chars", "7");
+  native.header.skillXp.setAttribute("role", "note");
+  native.header.skillXp.setAttribute("aria-valuenow", "19");
+  const fill = field => native.header[field].style.getPropertyValue("--kroky-summary-fill");
+  f.button.click();
+  assert.deepEqual([fill("skillLevel"), fill("skillXp"), fill("abyssalLevel"), fill("abyssalXp")], ["0%", "25%", "0%", "40%"]);
+  assert.equal(native.header.skillXp.getAttribute("role"), "progressbar");
+  assert.equal(native.header.skillXp.getAttribute("aria-valuenow"), "25");
+  assert.equal(native.header.skillXp.classList.contains("kroky-summary-progress"), true);
+  assert.equal(native.header.skillXp.classList.contains("kroky-summary-xp-capped"), false);
+  assert.equal(native.header.skillXp.textContent, "2,345 / 3,000");
+  skill.level = 120; skill.abyssalLevel = 60;
+  skill.nextLevelProgress = 1; skill.nextAbyssalLevelProgress = 2;
+  native.header.skillLevel.textContent = "120 / 120";
+  native.header.skillXp.textContent = "999,999,999";
+  f.update();
+  assert.deepEqual([fill("skillLevel"), fill("skillXp"), fill("abyssalLevel"), fill("abyssalXp")], ["100%", "100%", "100%", "100%"]);
+  assert.equal(native.header.skillXp.textContent, "999,999,999", "native updates remain the source of displayed XP text");
+  assert.equal(native.header.skillXp.classList.contains("kroky-summary-xp-capped"), true);
+  assert.equal(native.header.skillXp.style.getPropertyValue("--kroky-summary-xp-chars"), String(native.header.skillXp.textContent.length));
+  const style = native.header.skillXp.style, setProperty = style.setProperty;
+  let widthWrites = 0;
+  style.setProperty = function(name, value) { if (name === "--kroky-summary-xp-chars") widthWrites++; setProperty.call(this, name, value); };
+  native.header.skillXp.textContent = "999,999,998";
+  f.update(); f.update();
+  assert.equal(widthWrites, 0, "a new XP value with the same digit count does not resize the capped bar");
+  native.header.skillXp.textContent = "1,000,000,000"; f.update();
+  assert.equal(widthWrites, 1);
+  assert.equal(style.getPropertyValue("--kroky-summary-xp-chars"), String(native.header.skillXp.textContent.length));
+  skill.level = 119; f.update();
+  assert.equal(native.header.skillXp.classList.contains("kroky-summary-xp-capped"), false);
+  assert.equal(style.getPropertyValue("--kroky-summary-xp-chars"), "");
+  compact = false; f.update();
+  assert.equal(fill("skillXp"), "19%");
+  assert.equal(fill("skillLevel"), "");
+  assert.equal(native.header.skillXp.getAttribute("role"), "note");
+  assert.equal(native.header.skillXp.getAttribute("aria-valuenow"), "19");
+  assert.equal(native.header.skillXp.classList.contains("kroky-summary-progress"), false);
+  assert.equal(native.header.skillXp.classList.contains("kroky-summary-xp-capped"), false);
+  assert.equal(style.getPropertyValue("--kroky-summary-xp-chars"), "7");
+  assert.equal(native.header.skillXp.textContent, "1,000,000,000");
+});
+
+test("mastery summary orders visible realms, retains full over-cap counts and updates without remounting", () => {
+  const f = fixture(), native = nativeSkillHeader(f.skill);
+  const melvor = { id: "melvorD:Melvor", name: "Melvor", media: "melvor.png", isUnlocked: true };
+  const abyssal = { id: "melvorItA:Abyssal", name: "Abyssal", media: "abyssal.png", isUnlocked: true };
+  const other = { id: "mod:Realm", name: "Other realm", media: "other.png", isUnlocked: true };
+  const hidden = { id: "mod:Hidden", name: "Hidden realm", media: "hidden.png", isUnlocked: false, showIfLocked: false };
+  const shown = { id: "mod:Shown", name: "Shown realm", media: "shown.png", isUnlocked: false, showIfLocked: true };
+  const amounts = new Map([[melvor.id, 1500], [abyssal.id, 2500], [other.id, 500], [shown.id, 200]]);
+  f.game.openPage.action = {
+    level: 50, currentLevelCap: 120, nextLevelProgress: 30,
+    getRealmsWithMastery: () => [other, hidden, abyssal, shown, melvor],
+    getMasteryPoolXP: realm => {
+      assert.ok(realm.isUnlocked || realm.showIfLocked, "hidden realm XP is not recomputed");
+      return amounts.get(realm.id) ?? 0;
+    },
+    getMasteryPoolCap: realm => {
+      assert.ok(realm.isUnlocked || realm.showIfLocked, "hidden realm caps are not recomputed");
+      return realm === melvor || realm === abyssal ? 2000 : 1000;
+    },
+  };
+  f.button.click();
+  const groups = native.upper.querySelectorAll(".kroky-summary-pool");
+  assert.deepEqual(groups.map(group => group.getAttribute("data-realm-id")), [melvor.id, abyssal.id, other.id, shown.id]);
+  const actions = native.upper.querySelector(".kroky-summary-actions"), children = native.upper.children;
+  assert.ok(groups.every(group => children.indexOf(group) < children.indexOf(actions)), "mastery pool mirrors precede their action buttons");
+  assert.ok(children.indexOf(actions) < children.indexOf(native.upgrades), "enhancements follow the mastery buttons");
+  assert.ok(children.slice(-3).every((group, index) => group === [native.upgrades, native.items, native.tree][index]), "enhancements and Skill tree finish the row");
+  const progress = group => group.querySelector(".kroky-summary-progress");
+  assert.ok(groups.every(group => group.querySelector("img")));
+  assert.deepEqual(groups.map(group => progress(group).style.getPropertyValue("--kroky-summary-fill")), ["75%", "100%", "50%", "20%"]);
+  assert.equal(progress(groups[1]).textContent.replaceAll(",", ""), "2500 / 2000");
+  const moves = groups.map(group => group.moves);
+  amounts.set(melvor.id, 2000); amounts.set(abyssal.id, 3000);
+  f.update(); f.update();
+  assert.deepEqual(native.upper.querySelectorAll(".kroky-summary-pool"), groups);
+  assert.deepEqual(groups.map(group => group.moves), moves);
+  assert.equal(progress(groups[0]).style.getPropertyValue("--kroky-summary-fill"), "100%");
+  assert.equal(progress(groups[1]).textContent.replaceAll(",", ""), "3000 / 2000");
+  assert.equal(progress(groups[1]).getAttribute("aria-valuenow"), "100");
+  melvor.isUnlocked = false; f.update();
+  assert.deepEqual(native.upper.querySelectorAll(".kroky-summary-pool"), groups.slice(1));
+  assert.deepEqual(groups.slice(1).map(group => group.moves), moves.slice(1));
+  melvor.isUnlocked = true; f.update();
+  const restored = native.upper.querySelectorAll(".kroky-summary-pool");
+  assert.deepEqual(restored.map(group => group.getAttribute("data-realm-id")), [melvor.id, abyssal.id, other.id, shown.id]);
+  assert.deepEqual(restored.slice(1), groups.slice(1), "visible realm groups retain their native DOM identity");
+  assert.deepEqual(restored.slice(1).map(group => group.moves), moves.slice(1));
+  f.button.click();
+  assert.equal(native.upper.querySelector(".kroky-summary-pool"), null);
+  assert.equal(native.upper.querySelector(".kroky-summary-actions"), null);
+  assert.deepEqual(native.masteryButtons.children, [native.mastery.viewCheckpointsButton, native.mastery.spendMasteryButton]);
+  assert.equal(native.mastery.classList.contains("kroky-summary-mastery-native"), false);
+});
+
+test("masteryless skills need no mastery APIs and a level-one cap remains complete", () => {
+  const f = fixture(), native = nativeSkillHeader(f.skill, false);
+  native.mastery.remove();
+  f.game.openPage.action = { level: 1, currentLevelCap: 1, nextLevelProgress: Number.NaN };
+  f.button.click();
+  assert.ok(native.upper.parentNode === native.block);
+  assert.equal(native.upper.querySelector(".kroky-summary-pool"), null);
+  assert.equal(native.upper.querySelector(".kroky-summary-actions"), null);
+  assert.equal(native.header.skillLevel.style.getPropertyValue("--kroky-summary-fill"), "100%");
+  assert.equal(native.header.skillXp.style.getPropertyValue("--kroky-summary-fill"), "100%");
+  assert.equal(native.header.abyssalLevel.classList.contains("kroky-summary-progress"), false);
+  f.update(); f.update();
+  f.button.click();
+  assert.deepEqual(native.block.children, [native.upper, native.tree]);
+  assert.equal(native.header.skillLevel.classList.contains("kroky-summary-progress"), false);
+});
+
+test("hidden and unrelated skill headers never resolve or read their skill calculations", () => {
+  const f = fixture(), hidden = nativeSkillHeader(f.skill);
+  const other = f.page("Mining"), shown = nativeSkillHeader(other);
+  hidden.header.setAttribute("data-skill-id", "melvorD:Smithing");
+  shown.header.setAttribute("data-skill-id", "melvorD:Mining");
+  hidden.header.hidden = true;
+  const hiddenSkill = {};
+  Object.defineProperty(hiddenSkill, "level", { get() { assert.fail("hidden fallback skill must not be calculated"); } });
+  f.game.openPage.action = hiddenSkill;
+  const visibleSkill = { level: 10, currentLevelCap: 100, nextLevelProgress: 35 };
+  const lookups = [];
+  f.game.skills = { getObjectByID(id) {
+    lookups.push(id);
+    assert.equal(id, "melvorD:Mining", "unrelated and hidden skill records are not resolved");
+    return visibleSkill;
+  } };
+  f.button.click(); f.update();
+  assert.deepEqual(lookups, []);
+  f.game.openPage = other.page; f.update();
+  assert.deepEqual(lookups, ["melvorD:Mining"]);
+  assert.equal(shown.header.skillXp.style.getPropertyValue("--kroky-summary-fill"), "35%");
+  shown.header.hidden = true;
+  Object.defineProperty(visibleSkill, "level", { get() { assert.fail("a hidden current skill must not be calculated"); } });
+  f.update(); f.update();
+  assert.deepEqual(lookups, ["melvorD:Mining"]);
+});
+
+test("hidden stat groups skip their numeric getters and stable visible progress does not rewrite its style", () => {
+  const f = fixture(), native = nativeSkillHeader(f.skill);
+  native.mastery.remove();
+  for (const field of ["skillXp", "abyssalLevel", "abyssalXp"]) native.header[field].parentElement.classList.add("d-none");
+  const skill = { level: 61, currentLevelCap: 121 };
+  for (const field of ["nextLevelProgress", "abyssalLevel", "currentAbyssalLevelCap", "nextAbyssalLevelProgress"]) {
+    Object.defineProperty(skill, field, { get() { assert.fail(`hidden ${field} must not be calculated`); } });
+  }
+  f.game.openPage.action = skill;
+  const style = native.header.skillLevel.style, setProperty = style.setProperty;
+  let writes = 0;
+  style.setProperty = function(name, value) { writes++; setProperty.call(this, name, value); };
+  f.button.click();
+  assert.equal(style.getPropertyValue("--kroky-summary-fill"), "50%");
+  assert.equal(native.header.skillXp.classList.contains("kroky-summary-progress"), false);
+  const initialWrites = writes;
+  f.update(); f.update();
+  assert.equal(writes, initialWrites, "unchanged progress leaves the DOM style untouched");
+  native.header.skillLevel.parentElement.classList.add("d-none");
+  for (const field of ["level", "currentLevelCap"]) {
+    Object.defineProperty(skill, field, { get() { assert.fail(`hidden ${field} must not be calculated`); } });
+  }
+  f.update(); f.update();
+  assert.equal(writes, initialWrites);
 });
 
 test("native charged-enhancement tooltips recover after every relocation and remain untouched on stable updates", () => {
@@ -361,7 +576,7 @@ test("native charged-enhancement tooltips recover after every relocation and rem
     tooltip = actual.description;
   };
   f.game.items = { getObjectByID: id => id === item.id ? item : undefined };
-  for (const node of [native.upper, f.skill.info]) {
+  for (const node of [native.upper, native.items, f.skill.info]) {
     node.remove = function() {
       if (this.parentNode && this.contains(display)) { disconnects++; tooltip = ""; }
       Element.prototype.remove.call(this);
@@ -381,6 +596,42 @@ test("native charged-enhancement tooltips recover after every relocation and rem
   f.button.click(); check();
   enabled = false; f.update(); check();
   assert.deepEqual(native.block.children, [native.upper, native.mastery, native.tree]);
+});
+
+test("native mastery realm tooltips recover once per ancestor disconnect without stable-update repairs", () => {
+  let enabled = true;
+  const f = fixture([], true, () => enabled), native = nativeSkillHeader(f.skill);
+  const pool = new Element("mastery-pool-display"); native.mastery.append(pool);
+  const realm = { id: "melvorD:Melvor", name: "Melvor" }, image = new Element("img");
+  pool.append(image);
+  const tooltip = () => ({ state: { isDestroyed: false }, destroy() { this.state.isDestroyed = true; } });
+  const display = { realmImage: image, realmTooltip: tooltip() };
+  pool.realmDisplayMap = new Map([[realm, display]]);
+  let disconnects = 0, repairs = 0;
+  globalThis.tippy = (target, options) => {
+    assert.equal(target, image);
+    assert.deepEqual(options, { content: "Melvor", placement: "bottom", allowHTML: false, interactive: false, animation: false });
+    repairs++;
+    return tooltip();
+  };
+  f.skill.info.remove = function() {
+    if (this.parentNode) { disconnects++; display.realmTooltip.destroy(); }
+    Element.prototype.remove.call(this);
+  };
+  const check = () => {
+    assert.equal(display.realmTooltip.state.isDestroyed, false);
+    assert.equal(repairs, disconnects, "each native ancestor disconnect repairs its destroyed realm tooltip once");
+    const count = repairs;
+    f.update(); f.update();
+    assert.equal(repairs, count, "ordinary rendering leaves live realm tooltips intact");
+  };
+  f.button.click(); check();
+  assert.equal(disconnects, 1);
+  f.button.click(); check();
+  assert.equal(pool.parentNode, native.mastery);
+  f.button.click(); check();
+  enabled = false; f.update(); check();
+  assert.equal(pool.parentNode, native.mastery);
 });
 
 test("pinning preserves original nodes, callbacks, order and cards, and unpin restores exact positions", () => {

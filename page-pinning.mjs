@@ -13,18 +13,22 @@ const styles = `
 .kroky-page-pin:enabled:is(:hover, :focus-visible) { filter: brightness(1.2); }
 .kroky-page-pin:focus-visible { outline: 2px solid var(--info, #5cace5); outline-offset: 2px; }
 .kroky-page-pin[aria-pressed="true"] { box-shadow: inset 0 0 0 1px currentColor; }
-#header-theme.kroky-page-header-has-details { height: auto; min-height: 64px; gap: .5rem; }
-#header-theme.kroky-page-header-has-details > :first-child { flex: 1 1 auto; min-width: 0; gap: .35rem; }
-#header-theme.kroky-page-header-has-details > :first-child > :not(.kroky-page-header-details) { flex: 0 0 auto !important; }
-#header-theme .kroky-page-header-details { display: flex; flex: 0 1 auto; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: .35rem .75rem; min-width: 7rem; margin: .25rem 0 .25rem .4rem; padding: .35rem .6rem; border-radius: .25rem; background: var(--dark, #232a35); color: var(--light, #f5f5f5); }
+.kroky-skill-header-compact .kroky-page-header-details { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: .35rem .75rem; padding: .4rem .6rem; background: var(--dark, #232a35); color: var(--light, #f5f5f5); }
 .kroky-page-header-details > * { flex: 0 0 auto; min-width: 0; max-width: 100%; }
-.kroky-page-header-details :is(.kroky-header-level, .kroky-header-xp) { flex-wrap: wrap; max-width: 100%; gap: .3rem; white-space: nowrap; }
-.kroky-page-header-details .kroky-header-enhancements { display: flex; align-items: center; flex-wrap: wrap; gap: .25rem; }
+.kroky-page-header-details :is(.kroky-header-level, .kroky-header-xp) { align-items: center; flex-wrap: nowrap; gap: .3rem; white-space: nowrap; }
+.kroky-page-header-details .kroky-header-enhancements { display: flex; align-items: center; flex-wrap: nowrap; gap: .25rem; }
 .kroky-page-header-details .kroky-header-enhancements::before { content: "Enhancements:"; white-space: nowrap; }
 .kroky-page-header-details upgrade-chain-display > span { display: none !important; }
 .kroky-page-header-details upgrade-chain-display img { width: 24px; height: 24px; cursor: help; }
 .kroky-page-header-details upgrade-chain-display img:focus-visible { outline: 2px solid var(--info, #5cace5); outline-offset: 2px; }
-.kroky-page-header-details skill-tree-button button { min-width: 32px; min-height: 32px; padding: .25rem .4rem; }
+.kroky-page-header-details .kroky-summary-progress { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 14rem; height: 1.25rem; padding: .05rem .3rem; border: 1px solid var(--success, #28c394); border-radius: .2rem; background: linear-gradient(to right, var(--success, #28c394) var(--kroky-summary-fill, 0%), var(--dark, #232a35) var(--kroky-summary-fill, 0%)) !important; color: white; font-size: .75rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.kroky-header-level .kroky-summary-progress { width: 4.5rem; }
+.kroky-page-header-details .kroky-summary-xp-capped { width: calc(var(--kroky-summary-xp-chars) * 1ch + .6rem); }
+.kroky-summary-pool { display: flex; align-items: center; gap: .3rem; }
+.kroky-summary-pool img { width: 24px; height: 24px; }
+.kroky-summary-pool .kroky-summary-progress { width: 12.5rem; border-color: var(--warning, #ffb822); background: linear-gradient(to right, var(--warning, #ffb822) var(--kroky-summary-fill, 0%), var(--dark, #232a35) var(--kroky-summary-fill, 0%)) !important; }
+.kroky-summary-actions { display: flex; align-items: center; }
+.kroky-skill-header-compact .kroky-summary-mastery-native { display: none !important; }
 .kroky-skill-header-compact > .block > .progress { display: none; }
 .kroky-skill-header-compact .skill-header-container:not(.kroky-page-header-details) { padding: 0; min-height: 0; }
 #page-container.kroky-page-pinned #page-header { position: sticky; top: 0; z-index: 1040; max-height: var(--kroky-page-pin-cap, 50vh); margin-bottom: 0 !important; }
@@ -43,8 +47,6 @@ const styles = `
 .kroky-page-pin-controls :is(.sticky-div-mobile, .sticky-category-menu-mobile) { position: static !important; top: auto !important; }
 .kroky-page-pin-controls .kroky-activity-summary { margin-top: .5rem; }
 @media (min-width: 992px) {
-  #header-theme.kroky-page-header-has-details > :first-child { flex-basis: 0; min-width: min-content; }
-  #header-theme.kroky-page-header-has-details > .header-cloud-save { flex: 0 0 auto; }
   #page-container.kroky-page-pinned #shop-container { padding-left: 0; padding-right: 0; }
   #page-container.kroky-page-pinned #shop-container > .kroky-page-pin-controls { width: 100%; margin-left: 0; margin-right: 0; }
   #page-container.kroky-page-pinned #shop-container > .row { margin-left: 0; margin-right: 0; }
@@ -69,13 +71,6 @@ const styles = `
   .kroky-page-pin-controls { width: calc(100% + var(--kroky-page-pin-content-left, 1rem) + var(--kroky-page-pin-content-right, 1rem)); margin: calc(-1 * var(--kroky-page-pin-content-top, .6rem)) calc(-1 * var(--kroky-page-pin-content-right, 1rem)) .75rem calc(-1 * var(--kroky-page-pin-content-left, 1rem)); padding: 0 .5rem .25rem; }
   .kroky-page-pin-controls > .skill-info { margin-left: -.5rem; margin-right: -.5rem; width: calc(100% + 1rem); }
 }
-@media (max-width: 575px) {
-  #header-theme.kroky-page-header-has-details > :first-child { gap: 0; }
-  #header-theme.kroky-page-header-has-details .m-header-icon { width: 32px; height: 32px; padding: 0; margin: 0 .25rem 0 0 !important; }
-  #header-theme.kroky-page-header-has-details .kroky-page-pin { margin-left: 0 !important; }
-  #header-theme .kroky-page-header-details { margin-left: .25rem; padding-left: .35rem; padding-right: .35rem; column-gap: .35rem; }
-  #header-theme .kroky-page-header-details .kroky-header-enhancements::before { flex-basis: 100%; }
-}
 `;
 
 export function installPagePinning(ctx, game, isEnabled = () => true, isCompactHeaderEnabled = () => true) {
@@ -86,6 +81,10 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
   const headerMoves = new Map();
   const headerAttributes = new Map();
   const headerTexts = new Map();
+  const progressStyles = new Map();
+  const cappedXPWidths = new Map();
+  const poolGroups = new Map();
+  let masteryOptions, masteryActions;
   let currentPage, container, wrapper, stationary, header, root, button, observer, compactHeader;
 
   const refreshTooltips = node => {
@@ -95,6 +94,15 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
       const itemID = display.getAttribute("data-item-id");
       const item = itemID ? game.items?.getObjectByID(itemID) : undefined;
       if (item) display.setItem(item);
+    }
+    for (const pool of node.querySelectorAll("mastery-pool-display")) {
+      for (const [realm, display] of pool.realmDisplayMap ?? []) {
+        if (display.realmTooltip?.state?.isDestroyed && typeof tippy === "function") {
+          display.realmTooltip = tippy(display.realmImage, {
+            content: realm.name, placement: "bottom", allowHTML: false, interactive: false, animation: false,
+          });
+        }
+      }
     }
   };
   const putBack = (node, marker) => { marker.replaceWith(node); refreshTooltips(node); };
@@ -113,6 +121,22 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
     ["skillLevel", "kroky-header-level"], ["skillXp", "kroky-header-xp"],
     ["abyssalLevel", "kroky-header-level"], ["abyssalXp", "kroky-header-xp"],
   ];
+  const setStyle = (node, name, value) => {
+    if (node.style.getPropertyValue(name) !== value) node.style.setProperty(name, value);
+  };
+  const setProgress = (node, amount, label) => {
+    if (!node) return;
+    if (!progressStyles.has(node)) progressStyles.set(node, node.style.getPropertyValue("--kroky-summary-fill"));
+    const percent = Number.isFinite(amount) ? Math.max(0, Math.min(100, amount)) : 0;
+    node.classList.add("kroky-summary-progress");
+    setStyle(node, "--kroky-summary-fill", `${percent}%`);
+    decorate(node, "role", "progressbar");
+    decorate(node, "aria-label", label);
+    decorate(node, "aria-valuemin", "0");
+    decorate(node, "aria-valuemax", "100");
+    decorate(node, "aria-valuenow", String(percent));
+    decorate(node, "aria-valuetext", node.textContent);
+  };
   const restoreSkillHeader = () => {
     for (const [node, marker] of headerMoves) putBack(node, marker);
     headerMoves.clear();
@@ -122,12 +146,29 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
     headerAttributes.clear();
     for (const [node, text] of headerTexts) node.textContent = text;
     headerTexts.clear();
+    for (const [node, fill] of progressStyles) {
+      node.classList.remove("kroky-summary-progress");
+      if (fill) node.style.setProperty("--kroky-summary-fill", fill);
+      else node.style.removeProperty("--kroky-summary-fill");
+    }
+    progressStyles.clear();
+    for (const [node, width] of cappedXPWidths) {
+      node.classList.remove("kroky-summary-xp-capped");
+      if (width) node.style.setProperty("--kroky-summary-xp-chars", width);
+      else node.style.removeProperty("--kroky-summary-xp-chars");
+    }
+    cappedXPWidths.clear();
+    for (const group of poolGroups.values()) group.remove();
+    poolGroups.clear();
+    masteryActions?.remove();
+    masteryActions = undefined;
+    masteryOptions?.classList.remove("kroky-summary-mastery-native");
+    masteryOptions = undefined;
     if (!compactHeader) return;
     compactHeader.classList.remove("kroky-skill-header-compact");
     compactHeader.upperContainer.classList.remove("kroky-page-header-details");
     compactHeader.upgradeChainContainer?.classList.remove("kroky-header-enhancements");
     for (const [field, name] of statFields) compactHeader[field]?.parentElement.classList.remove(name);
-    document.getElementById("header-theme")?.classList.remove("kroky-page-header-has-details");
     compactHeader = undefined;
   };
   const syncSkillHeader = () => {
@@ -141,7 +182,20 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
         node.before(marker); headerMoves.set(node, marker);
         destination.append(node); refreshTooltips(node);
       };
-      lift(native.upperContainer, button.parentElement);
+      masteryOptions = native.querySelector("mastery-skill-options");
+      if (masteryOptions) {
+        // Its realm tooltips do not recover after reconnecting; only move the native action buttons.
+        masteryOptions.classList.add("kroky-summary-mastery-native");
+        masteryActions = document.createElement("div");
+        masteryActions.className = "kroky-summary-actions";
+        for (const action of [masteryOptions.viewCheckpointsButton, masteryOptions.spendMasteryButton]) {
+          if (action) lift(action, masteryActions);
+        }
+        native.upperContainer.append(masteryActions);
+      }
+      for (const enhancements of [native.upgradeChainContainer, native.itemChargeContainer]) {
+        if (enhancements) lift(enhancements, native.upperContainer);
+      }
       if (native.skillTreeButton) {
         const treeButton = native.skillTreeButton.querySelector("button");
         if (treeButton && !treeButton.getAttribute("title")) decorate(treeButton, "title", treeButton.textContent.trim());
@@ -153,11 +207,62 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
       for (const [field, name] of statFields) {
         native[field]?.parentElement.classList.add(name);
       }
-      document.getElementById("header-theme")?.classList.add("kroky-page-header-has-details");
     }
     setHeaderText(native.skillLevel?.parentElement.querySelector("lang-string"), "Level");
     setHeaderText(native.skillXp?.parentElement.querySelector("lang-string"), "XP");
     setHeaderText(native.skillTreeButton?.querySelector("lang-string"), "Skill tree");
+    const skillID = native.getAttribute("data-skill-id");
+    const skill = (skillID ? game.skills?.getObjectByID(skillID) : undefined) ?? game.openPage?.action;
+    if (skill) {
+      for (const [levelField, xpField, levelKey, capKey, progressKey] of [
+        ["skillLevel", "skillXp", "level", "currentLevelCap", "nextLevelProgress"],
+        ["abyssalLevel", "abyssalXp", "abyssalLevel", "currentAbyssalLevelCap", "nextAbyssalLevelProgress"],
+      ]) {
+        const showLevel = native[levelField] && visible(native[levelField].parentElement);
+        const showXP = native[xpField] && visible(native[xpField].parentElement);
+        if (!showLevel && !showXP) continue;
+        const level = skill[levelKey], cap = skill[capKey];
+        if (!Number.isFinite(level) || !Number.isFinite(cap)) continue;
+        if (showLevel) setProgress(native[levelField], cap > 1 ? (level - 1) / (cap - 1) * 100 : 100, levelField === "skillLevel" ? "Level" : "Abyssal Level");
+        if (showXP) {
+          const xp = native[xpField], capped = level >= cap;
+          setProgress(xp, capped ? 100 : skill[progressKey], xpField === "skillXp" ? "XP" : "Abyssal XP");
+          if (!cappedXPWidths.has(xp)) cappedXPWidths.set(xp, xp.style.getPropertyValue("--kroky-summary-xp-chars"));
+          xp.classList.toggle("kroky-summary-xp-capped", capped);
+          if (capped) setStyle(xp, "--kroky-summary-xp-chars", String(xp.textContent.length));
+          else if (xp.style.getPropertyValue("--kroky-summary-xp-chars")) xp.style.removeProperty("--kroky-summary-xp-chars");
+        }
+      }
+      const realms = masteryOptions ? [...(skill.getRealmsWithMastery?.() ?? [])]
+        .filter(realm => realm.isUnlocked || realm.showIfLocked) : [];
+      const order = id => id === "melvorD:Melvor" ? 0 : id === "melvorItA:Abyssal" ? 1 : 2;
+      realms.sort((a, b) => order(a.id) - order(b.id));
+      for (const [realm, group] of poolGroups) {
+        if (realms.includes(realm)) continue;
+        group.remove(); poolGroups.delete(realm);
+      }
+      for (const [index, realm] of realms.entries()) {
+        let group = poolGroups.get(realm);
+        if (!group) {
+          group = document.createElement("div");
+          group.className = "kroky-summary-pool";
+          group.setAttribute("data-realm-id", realm.id);
+          const icon = document.createElement("img");
+          icon.src = realm.media; icon.alt = realm.name; icon.title = `${realm.name} mastery pool`;
+          group.append(icon, document.createElement("span"));
+          poolGroups.set(realm, group);
+          native.upperContainer.insertBefore(group, masteryActions);
+        }
+        const position = native.upperContainer.querySelectorAll(".kroky-summary-pool")[index];
+        if (position !== group) native.upperContainer.insertBefore(group, position ?? masteryActions);
+        const progress = group.children[1];
+        const current = skill.getMasteryPoolXP(realm), maximum = skill.getMasteryPoolCap(realm);
+        const format = value => typeof numberWithCommas === "function" ? numberWithCommas(Math.floor(value)) : Math.floor(value).toLocaleString("en-US");
+        const text = `${format(current)} / ${format(maximum)}`;
+        if (progress.textContent !== text) progress.textContent = text;
+        setProgress(progress, maximum > 0 ? current / maximum * 100 : 0, `${realm.name} mastery pool`);
+      }
+    }
     for (const display of native.upperContainer.querySelectorAll("upgrade-chain-display")) {
       if (!display.upgradeImg) continue;
       decorate(display.upgradeImg, "tabindex", "0");
@@ -206,37 +311,37 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
     stationary = undefined;
     root?.classList.remove("kroky-page-pinned");
     header?.classList.remove("kroky-page-pin-overflow");
-    document.documentElement.style.setProperty("--kroky-page-pin-offset", `${nativeOffset()}px`);
+    setStyle(document.documentElement, "--kroky-page-pin-offset", `${nativeOffset()}px`);
     observer?.disconnect();
     if (header) observer?.observe(header);
   };
   const measure = () => {
     if (!root?.classList.contains("kroky-page-pinned")) {
-      document.documentElement.style.setProperty("--kroky-page-pin-offset", `${nativeOffset()}px`);
+      setStyle(document.documentElement, "--kroky-page-pin-offset", `${nativeOffset()}px`);
       return;
     }
     const cap = window.innerHeight / 2;
     if (container) {
       const padding = getComputedStyle(container);
-      document.documentElement.style.setProperty("--kroky-page-pin-content-top", padding.paddingTop ?? "0px");
-      document.documentElement.style.setProperty("--kroky-page-pin-content-left", padding.paddingLeft ?? "0px");
-      document.documentElement.style.setProperty("--kroky-page-pin-content-right", padding.paddingRight ?? "0px");
+      setStyle(document.documentElement, "--kroky-page-pin-content-top", padding.paddingTop ?? "0px");
+      setStyle(document.documentElement, "--kroky-page-pin-content-left", padding.paddingLeft ?? "0px");
+      setStyle(document.documentElement, "--kroky-page-pin-content-right", padding.paddingRight ?? "0px");
     }
-    document.documentElement.style.setProperty("--kroky-page-pin-cap", `${cap}px`);
+    setStyle(document.documentElement, "--kroky-page-pin-cap", `${cap}px`);
     // Absolutely positioned dropdowns inflate scrollHeight without making the header itself taller.
     const naturalHeight = (header.firstElementChild ?? header).getBoundingClientRect().height;
     header.classList.toggle("kroky-page-pin-overflow", naturalHeight > cap);
     const height = Math.min(cap, header.getBoundingClientRect().height);
-    document.documentElement.style.setProperty("--kroky-page-pin-header-height", `${Math.ceil(height)}px`);
+    setStyle(document.documentElement, "--kroky-page-pin-header-height", `${Math.ceil(height)}px`);
     const available = Math.max(0, cap - height);
     // Each Combat segment needs a visible scroller; let shorter content yield its unused share.
     const fixedShare = stationary ? Math.min(stationary.scrollHeight, available - Math.min(available / 2, wrapper?.scrollHeight ?? 0)) : 0;
     const reserved = wrapper ? Math.min(available - fixedShare, wrapper.scrollHeight) : 0;
-    document.documentElement.style.setProperty("--kroky-page-pin-reserved-height", `${Math.ceil(reserved)}px`);
+    setStyle(document.documentElement, "--kroky-page-pin-reserved-height", `${Math.ceil(reserved)}px`);
     const fixed = stationary ? Math.min(Math.max(0, cap - height - reserved), stationary.getBoundingClientRect().height) : 0;
-    document.documentElement.style.setProperty("--kroky-page-pin-static-height", `${Math.ceil(fixed)}px`);
+    setStyle(document.documentElement, "--kroky-page-pin-static-height", `${Math.ceil(fixed)}px`);
     const controls = wrapper ? Math.min(Math.max(0, cap - height - fixed), wrapper.getBoundingClientRect().height) : 0;
-    document.documentElement.style.setProperty("--kroky-page-pin-offset", `${Math.ceil(height + fixed + controls)}px`);
+    setStyle(document.documentElement, "--kroky-page-pin-offset", `${Math.ceil(height + fixed + controls)}px`);
   };
   const ensureHeader = () => {
     header = document.getElementById("page-header");
@@ -296,10 +401,12 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
     const enabled = isEnabled();
     const pinned = enabled && !!page?.id && preferred(page.id);
     button.classList.toggle("d-none", !enabled);
-    button.disabled = !enabled || !page?.id;
-    button.title = pinned ? "Unpin headers throughout the game" : "Pin headers throughout the game";
-    button.setAttribute("aria-label", button.title);
-    button.setAttribute("aria-pressed", String(pinned));
+    const disabled = !enabled || !page?.id;
+    if (button.disabled !== disabled) button.disabled = disabled;
+    const title = pinned ? "Unpin headers throughout the game" : "Pin headers throughout the game";
+    if (button.title !== title) button.title = title;
+    if (button.getAttribute("aria-label") !== title) button.setAttribute("aria-label", title);
+    if (button.getAttribute("aria-pressed") !== String(pinned)) button.setAttribute("aria-pressed", String(pinned));
     button.classList.toggle("btn-dual", !pinned);
     button.classList.toggle("text-combat-smoke", !pinned);
     button.classList.toggle("btn-info", pinned);
@@ -310,8 +417,6 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
     }
     root.classList.add("kroky-page-pinned");
     if (container) {
-      if (isCompactHeaderEnabled()) syncSkillHeader();
-      else restoreSkillHeader();
       if (!wrapper) {
         wrapper = document.createElement("div");
         wrapper.className = "kroky-page-pin-controls";
@@ -346,6 +451,8 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
         wrapper.insertBefore(node, wrapper.children[index] ?? null);
         refreshTooltips(node);
       });
+      if (isCompactHeaderEnabled()) syncSkillHeader();
+      else restoreSkillHeader();
       wrapper.hidden = selected.length === 0;
       observer?.observe(wrapper);
     }

@@ -17,16 +17,24 @@ Existing Workforce pin preferences migrate automatically without changing the or
 
 The pinned stack uses at most half the viewport height and scrolls internally when necessary.
 Combat's native XP table stays connected, and dropdown menus remain accessible outside scrolling sections.
-Pinned skills show their native level, XP, enhancement icons and skill-tree control together in a dark section beside the thumbtack.
+Pinned skills show Level and XP progress bars, enhancement icons, Melvor and Abyssal mastery pools, their native actions, and Skill tree together in a dark row below the main page header.
 **General → Enable Compact Skill Header** controls this arrangement independently of pinning and wide layouts.
 It defaults to on and is saved per character.
-Disabling it restores the native skill-header placement below the main bar while keeping headers pinned.
+Disabling it restores the native skill-header placement while keeping headers pinned.
 Stats use the text labels Level and XP, and the native skill-tree button is labelled Skill tree.
-The groups inside that section wrap as the available width shrinks.
+Level and mastery-pool bars have fixed widths, and XP bars use a wide fixed width below the level cap.
+Capped XP bars fit the accumulated XP number and keep that width until its digit count changes.
+Each mastery pool shows its actual current and maximum values inside its progress bar.
+Mastery progress retains its native warning colours.
+The native View Checkpoints and Spend Mastery Pool XP actions follow the mastery pools, with Enhancements immediately before Skill tree at the end.
+Native action buttons retain their sizing and spacing.
+Bars are thinner than the buttons, with labels, bars, icons and buttons vertically centred together.
+Whole groups wrap as the available width shrinks.
 Enhancement icons show their names and effects on hover or keyboard focus.
-Mastery progress, View Checkpoints and Spend Mastery Pool XP stay below the main bar.
+Only the thumbtack joins the main page header.
 Skill Boosts controls join the pinned controls when that optional mod is installed, including on Combat.
 The mod has no dependency on Skill Boosts.
+Progress calculations cover the visible skill and stat groups; hidden skills and realms are skipped.
 On desktop, the pinned Bank has a compact full-width toolbar above its inventory and item-details columns.
 Bank tabs and labelled Space, Bank and Tab totals stay above the inventory on the left.
 The inventory and right-hand details panel fill the available viewport height and scroll independently.

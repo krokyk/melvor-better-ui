@@ -21,7 +21,7 @@ export async function setup(ctx) {
     });
     settings.add({
       type: "switch", name: compactSettingName, label: "Enable Compact Skill Header", default: true,
-      hint: "Move Level, XP, Enhancements, and Skill Tree controls into the main bar while pinned. Disable to keep their normal header placement.",
+      hint: "Group Level and XP progress, Enhancements, mastery pools and their actions, and Skill tree in a dark row below the main header while pinned. Disable to keep their normal placement.",
       onChange(value) {
         if (typeof value !== "boolean") return "Choose enabled or disabled.";
         compactEnabled = value;
@@ -50,7 +50,6 @@ export async function setup(ctx) {
       if (!interfaceReady || performance.now() < nextUpdate) return;
       nextUpdate = performance.now() + 200;
       updatePinning();
-      updateWideLayout();
     });
   });
 }
