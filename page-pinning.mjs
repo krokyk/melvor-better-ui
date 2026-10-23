@@ -13,10 +13,11 @@ const styles = `
 .kroky-page-pin:enabled:is(:hover, :focus-visible) { filter: brightness(1.2); }
 .kroky-page-pin:focus-visible { outline: 2px solid var(--info, #5cace5); outline-offset: 2px; }
 .kroky-page-pin[aria-pressed="true"] { box-shadow: inset 0 0 0 1px currentColor; }
-.kroky-skill-header-compact .kroky-page-header-details { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: .35rem .75rem; padding: .4rem .6rem; background: var(--dark, #232a35); color: var(--light, #f5f5f5); }
+.kroky-skill-header-compact .kroky-page-header-details { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: .35rem 30px; padding: .4rem .6rem; background: var(--dark, #232a35); color: var(--light, #f5f5f5); }
 .kroky-page-header-details > * { flex: 0 0 auto; min-width: 0; max-width: 100%; }
-.kroky-summary-stats, .kroky-summary-pools { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .5rem; }
-.kroky-summary-stats > *, .kroky-summary-pools > * { flex: 0 0 auto; max-width: 100%; }
+.kroky-summary-stats, .kroky-summary-pools, .kroky-summary-upgrades { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .5rem; }
+.kroky-summary-stats > *, .kroky-summary-pools > *, .kroky-summary-upgrades > * { flex: 0 0 auto; max-width: 100%; }
+.kroky-summary-upgrades:not(:has(> :not(.d-none):not([hidden]))) { display: none; }
 .kroky-page-header-details :is(.kroky-header-level, .kroky-header-xp) { align-items: center; flex-wrap: nowrap; gap: .3rem; white-space: nowrap; }
 .kroky-page-header-details .kroky-header-enhancements { display: flex; align-items: center; flex-wrap: nowrap; gap: .25rem; }
 .kroky-page-header-details .kroky-header-enhancements::before { content: "Upgrades:"; white-space: nowrap; }
@@ -50,8 +51,6 @@ const styles = `
 .kroky-page-pin-controls :is(.sticky-div-mobile, .sticky-category-menu-mobile) { position: static !important; top: auto !important; }
 .kroky-page-pin-controls .kroky-activity-summary { margin-top: .5rem; }
 @media (min-width: 992px) {
-  .kroky-summary-stats { margin-right: calc(30px - .75rem); }
-  .kroky-header-enhancements { margin-left: calc(30px - .75rem); }
   #page-container.kroky-page-pinned #shop-container { padding-left: 0; padding-right: 0; }
   #page-container.kroky-page-pinned #shop-container > .kroky-page-pin-controls { width: 100%; margin-left: 0; margin-right: 0; }
   #page-container.kroky-page-pinned #shop-container > .row { margin-left: 0; margin-right: 0; }
@@ -89,7 +88,7 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
   const progressStyles = new Map();
   const cappedXPWidths = new Map();
   const poolGroups = new Map();
-  let summaryStats, masteryOptions, masteryActions, masteryPools;
+  let summaryStats, masteryOptions, masteryActions, masteryPools, summaryUpgrades;
   let currentPage, container, wrapper, stationary, header, root, button, observer, compactHeader;
 
   const refreshTooltips = node => {
@@ -171,6 +170,8 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
     masteryPools = undefined;
     masteryActions?.remove();
     masteryActions = undefined;
+    summaryUpgrades?.remove();
+    summaryUpgrades = undefined;
     masteryOptions?.classList.remove("kroky-summary-mastery-native");
     masteryOptions = undefined;
     if (!compactHeader) return;
@@ -208,15 +209,18 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
         for (const action of [masteryOptions.viewCheckpointsButton, masteryOptions.spendMasteryButton]) {
           if (action) lift(action, masteryActions);
         }
-        native.upperContainer.append(masteryActions);
+        masteryPools.append(masteryActions);
       }
+      summaryUpgrades = document.createElement("div");
+      summaryUpgrades.className = "kroky-summary-upgrades";
+      native.upperContainer.append(summaryUpgrades);
       for (const enhancements of [native.upgradeChainContainer, native.itemChargeContainer]) {
-        if (enhancements) lift(enhancements, native.upperContainer);
+        if (enhancements) lift(enhancements, summaryUpgrades);
       }
       if (native.skillTreeButton) {
         const treeButton = native.skillTreeButton.querySelector("button");
         if (treeButton && !treeButton.getAttribute("title")) decorate(treeButton, "title", treeButton.textContent.trim());
-        lift(native.skillTreeButton, native.upperContainer);
+        lift(native.skillTreeButton, summaryUpgrades);
       }
       native.classList.add("kroky-skill-header-compact");
       native.upperContainer.classList.add("kroky-page-header-details");
@@ -270,10 +274,10 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
           percent.className = "kroky-summary-percent";
           group.append(icon, document.createElement("span"), percent);
           poolGroups.set(realm, group);
-          masteryPools.append(group);
+          masteryPools.insertBefore(group, masteryActions);
         }
         const position = masteryPools.children[index];
-        if (position !== group) masteryPools.insertBefore(group, position ?? null);
+        if (position !== group) masteryPools.insertBefore(group, position ?? masteryActions);
         const progress = group.children[1];
         const current = skill.getMasteryPoolXP(realm), maximum = skill.getMasteryPoolCap(realm);
         const format = value => typeof numberWithCommas === "function" ? numberWithCommas(Math.floor(value)) : Math.floor(value).toLocaleString("en-US");

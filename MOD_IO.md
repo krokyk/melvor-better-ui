@@ -27,7 +27,7 @@ Each mastery bar has its native percentage beside it in white with two decimal p
 Level and XP share a compact section with a wider desktop gap before the section containing both mastery pools.
 The native View Checkpoints and Spend Mastery Pool XP actions follow the mastery pools, with Upgrades immediately before Skill tree at the end.
 Native action buttons retain their sizing and spacing, with thinner bars and vertically centred labels, icons and controls.
-Whole groups wrap on smaller screens.
+Sections wrap first at their 30px gaps; controls inside each section wrap only when the section is wider than the viewport.
 Upgrades show their names and effects on hover or keyboard focus.
 Only the thumbtack joins the main page header.
 Optional Skill Boosts controls are pinned across skills and Combat without requiring that mod.

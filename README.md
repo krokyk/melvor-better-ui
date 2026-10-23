@@ -31,7 +31,8 @@ Mastery progress retains its native warning colours.
 The native View Checkpoints and Spend Mastery Pool XP actions follow the mastery pools, with Upgrades immediately before Skill tree at the end.
 Native action buttons retain their sizing and spacing.
 Bars are thinner than the buttons, with labels, bars, icons and buttons vertically centred together.
-Whole groups wrap as the available width shrinks.
+Sections wrap first at the 30px gaps as the available width shrinks.
+Level/XP, mastery pools with their buttons, and Upgrades with Skill tree each stay together until a section needs to wrap internally to fit the viewport.
 Enhancement icons show their names and effects on hover or keyboard focus.
 Only the thumbtack joins the main page header.
 Skill Boosts controls join the pinned controls when that optional mod is installed, including on Combat.
