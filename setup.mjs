@@ -11,7 +11,7 @@ export async function setup(ctx) {
     const updateWideLayout = installWideLayout(ctx, game, () => wideEnabled);
     settings.add({
       type: "switch", name: settingName, label: "Enable Page Pinning", default: true,
-      hint: "Show the Pin / Unpin button in the page header. Disable to restore the normal layout while keeping your pin preference.",
+      hint: "Show the thumbtack button in the page header. Disable to restore the normal layout while keeping your pin preference.",
       onChange(value) {
         if (typeof value !== "boolean") return "Choose enabled or disabled.";
         enabled = value;

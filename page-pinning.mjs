@@ -1,6 +1,6 @@
 const storageKey = "kroky-better-ui:pin";
 const targets = [
-  ".skill-info", "skill-header", "realm-select-menu", "realmed-category-menu", "category-menu",
+  ".skill-info", "skill-header", "skillboost-menu", "realm-select-menu", "realmed-category-menu", "category-menu",
   ".sticky-div-mobile", ".sticky-category-menu-mobile", ".kroky-production-toolbar", ".kroky-production-tabs",
   ".kroky-gathering-toolbar", ".kroky-woodcutting-controls", ".kroky-activity-summary", ".kroky-activity-controls",
   "#farming-category-container", "farming-category-options",
@@ -13,6 +13,28 @@ const styles = `
 .kroky-page-pin:enabled:is(:hover, :focus-visible) { filter: brightness(1.2); }
 .kroky-page-pin:focus-visible { outline: 2px solid var(--info, #5cace5); outline-offset: 2px; }
 .kroky-page-pin[aria-pressed="true"] { box-shadow: inset 0 0 0 1px currentColor; }
+#header-theme.kroky-page-header-has-details { height: auto; min-height: 64px; gap: .5rem; }
+#header-theme.kroky-page-header-has-details > :first-child { flex: 1 1 auto; min-width: 0; gap: .35rem; }
+#header-theme.kroky-page-header-has-details > :first-child > :not(.kroky-page-header-details) { flex: 0 0 auto !important; }
+#header-theme .kroky-page-header-details { display: flex; flex: 0 1 auto; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: .35rem .75rem; min-width: 7rem; margin: .25rem 0 .25rem .4rem; padding: .35rem .6rem; border-radius: .25rem; background: var(--dark, #232a35); color: var(--light, #f5f5f5); }
+.kroky-page-header-details > * { flex: 0 0 auto; min-width: 0; max-width: 100%; }
+.kroky-page-header-details :is(.kroky-header-level, .kroky-header-xp) { gap: .3rem; white-space: nowrap; }
+.kroky-page-header-details :is(.kroky-header-level, .kroky-header-xp)::before,
+.kroky-page-header-details skill-tree-button button::before { font-family: "Font Awesome 5 Free"; font-weight: 900; font-size: .9rem; }
+.kroky-page-header-details .kroky-header-level::before { content: "\\f201"; }
+.kroky-page-header-details .kroky-header-xp::before { content: "\\f005"; }
+.kroky-page-header-details .kroky-header-abyssal::before { color: var(--danger, #e56767); }
+.kroky-page-header-details :is(.kroky-header-level, .kroky-header-xp) > lang-string,
+.kroky-page-header-details skill-tree-button lang-string { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+.kroky-page-header-details .kroky-header-enhancements { display: flex; align-items: center; flex-wrap: wrap; gap: .25rem; }
+.kroky-page-header-details .kroky-header-enhancements::before { content: "Enhancements:"; white-space: nowrap; }
+.kroky-page-header-details upgrade-chain-display > span { display: none !important; }
+.kroky-page-header-details upgrade-chain-display img { width: 24px; height: 24px; cursor: help; }
+.kroky-page-header-details upgrade-chain-display img:focus-visible { outline: 2px solid var(--info, #5cace5); outline-offset: 2px; }
+.kroky-page-header-details skill-tree-button button { min-width: 32px; min-height: 32px; padding: .25rem .4rem; }
+.kroky-page-header-details skill-tree-button button::before { content: "\\f0e8"; }
+.kroky-skill-header-compact > .block > .progress { display: none; }
+.kroky-skill-header-compact .skill-header-container:not(.kroky-page-header-details) { padding: 0; min-height: 0; }
 #page-container.kroky-page-pinned #page-header { position: sticky; top: 0; z-index: 1040; max-height: var(--kroky-page-pin-cap, 50vh); margin-bottom: 0 !important; }
 #page-container.kroky-page-pinned #page-header.kroky-page-pin-overflow { overflow-y: auto; overscroll-behavior: contain auto; }
 .kroky-page-pin-controls { position: sticky; top: calc(var(--kroky-page-pin-header-height) + var(--kroky-page-pin-static-height)); z-index: 1035; width: calc(100% + 3.75rem); max-height: max(0px, calc(var(--kroky-page-pin-cap, 50vh) - var(--kroky-page-pin-header-height) - var(--kroky-page-pin-static-height))); overflow-y: auto; overscroll-behavior: contain auto; scrollbar-gutter: stable; background: var(--dark, #232a35); margin: -1.875rem -1.875rem 1rem; padding: 0 1rem .25rem; }
@@ -29,6 +51,7 @@ const styles = `
 .kroky-page-pin-controls :is(.sticky-div-mobile, .sticky-category-menu-mobile) { position: static !important; top: auto !important; }
 .kroky-page-pin-controls .kroky-activity-summary { margin-top: .5rem; }
 @media (min-width: 992px) {
+  #header-theme.kroky-page-header-has-details > :first-child { flex-basis: 0; min-width: min-content; }
   #page-container.kroky-page-pinned #shop-container { padding-left: 0; padding-right: 0; }
   #page-container.kroky-page-pinned #shop-container > .kroky-page-pin-controls { width: 100%; margin-left: 0; margin-right: 0; }
   #page-container.kroky-page-pinned #shop-container > .row { margin-left: 0; margin-right: 0; }
@@ -53,6 +76,13 @@ const styles = `
   .kroky-page-pin-controls { width: calc(100% + 2rem); margin: -.6rem -1rem .75rem; padding: 0 .5rem .25rem; }
   .kroky-page-pin-controls > .skill-info { margin-left: -.5rem; margin-right: -.5rem; width: calc(100% + 1rem); }
 }
+@media (max-width: 575px) {
+  #header-theme.kroky-page-header-has-details > :first-child { gap: 0; }
+  #header-theme.kroky-page-header-has-details .m-header-icon { width: 32px; height: 32px; padding: 0; margin: 0 .25rem 0 0 !important; }
+  #header-theme.kroky-page-header-has-details .kroky-page-pin { margin-left: 0 !important; }
+  #header-theme .kroky-page-header-details { margin-left: .25rem; padding-left: .35rem; padding-right: .35rem; column-gap: .35rem; }
+  #header-theme .kroky-page-header-details .kroky-header-enhancements::before { flex-basis: 100%; }
+}
 `;
 
 export function installPagePinning(ctx, game, isEnabled = () => true) {
@@ -60,7 +90,78 @@ export function installPagePinning(ctx, game, isEnabled = () => true) {
   let preference;
   const moved = new Map();
   const dropdowns = new Map();
-  let currentPage, container, wrapper, stationary, header, root, button, label, observer;
+  const headerMoves = new Map();
+  const headerAttributes = new Map();
+  let currentPage, container, wrapper, stationary, header, root, button, observer, compactHeader;
+
+  const refreshTooltips = node => {
+    // Reconnecting native enhancement displays recreates their tooltips without content.
+    if (node.querySelector("upgrade-chain-display") && game.shop?.renderQueue) game.shop.renderQueue.upgrades = true;
+    for (const display of node.querySelectorAll("item-charge-display")) {
+      const itemID = display.getAttribute("data-item-id");
+      const item = itemID ? game.items?.getObjectByID(itemID) : undefined;
+      if (item) display.setItem(item);
+    }
+  };
+  const putBack = (node, marker) => { marker.replaceWith(node); refreshTooltips(node); };
+  const decorate = (node, name, value) => {
+    if (!headerAttributes.has(node)) headerAttributes.set(node, new Map());
+    const saved = headerAttributes.get(node);
+    if (!saved.has(name)) saved.set(name, node.getAttribute(name));
+    if (node.getAttribute(name) !== value) node.setAttribute(name, value);
+  };
+  const statFields = [
+    ["skillLevel", "kroky-header-level"], ["skillXp", "kroky-header-xp"],
+    ["abyssalLevel", "kroky-header-level"], ["abyssalXp", "kroky-header-xp"],
+  ];
+  const restoreSkillHeader = () => {
+    for (const [node, marker] of headerMoves) putBack(node, marker);
+    headerMoves.clear();
+    for (const [node, attributes] of headerAttributes) {
+      for (const [name, value] of attributes) value === null ? node.removeAttribute(name) : node.setAttribute(name, value);
+    }
+    headerAttributes.clear();
+    if (!compactHeader) return;
+    compactHeader.classList.remove("kroky-skill-header-compact");
+    compactHeader.upperContainer.classList.remove("kroky-page-header-details");
+    compactHeader.upgradeChainContainer?.classList.remove("kroky-header-enhancements");
+    for (const [field, name] of statFields) compactHeader[field]?.parentElement.classList.remove(name, "kroky-header-abyssal");
+    document.getElementById("header-theme")?.classList.remove("kroky-page-header-has-details");
+    compactHeader = undefined;
+  };
+  const syncSkillHeader = () => {
+    const native = [...container.querySelectorAll("skill-header")].find(node => node.upperContainer && visible(node));
+    if (native !== compactHeader) restoreSkillHeader();
+    if (!native) return;
+    if (!compactHeader) {
+      compactHeader = native;
+      const lift = (node, destination) => {
+        const marker = document.createComment("better ui skill header");
+        node.before(marker); headerMoves.set(node, marker);
+        destination.append(node); refreshTooltips(node);
+      };
+      lift(native.upperContainer, button.parentElement);
+      if (native.skillTreeButton) {
+        const treeButton = native.skillTreeButton.querySelector("button");
+        if (treeButton && !treeButton.getAttribute("title")) decorate(treeButton, "title", treeButton.textContent.trim());
+        lift(native.skillTreeButton, native.upperContainer);
+      }
+      native.classList.add("kroky-skill-header-compact");
+      native.upperContainer.classList.add("kroky-page-header-details");
+      native.upgradeChainContainer?.classList.add("kroky-header-enhancements");
+      for (const [field, name] of statFields) {
+        native[field]?.parentElement.classList.add(name);
+        if (field.startsWith("abyssal")) native[field]?.parentElement.classList.add("kroky-header-abyssal");
+      }
+      document.getElementById("header-theme")?.classList.add("kroky-page-header-has-details");
+    }
+    for (const display of native.upperContainer.querySelectorAll("upgrade-chain-display")) {
+      if (!display.upgradeImg) continue;
+      decorate(display.upgradeImg, "tabindex", "0");
+      const name = display.upgradeName?.textContent ?? "Enhancement";
+      decorate(display.upgradeImg, "alt", name);
+    }
+  };
 
   const nativeOffset = () => root?.classList.contains("page-header-fixed-mobile") && window.innerWidth <= 991
     ? Math.ceil(header.getBoundingClientRect().height) : 0;
@@ -93,7 +194,8 @@ export function installPagePinning(ctx, game, isEnabled = () => true) {
   };
   const restore = () => {
     for (const owner of dropdowns.keys()) restoreDropdown(owner);
-    for (const [node, marker] of moved) marker.replaceWith(node);
+    restoreSkillHeader();
+    for (const [node, marker] of moved) putBack(node, marker);
     moved.clear();
     wrapper?.remove();
     wrapper = undefined;
@@ -147,8 +249,7 @@ export function installPagePinning(ctx, game, isEnabled = () => true) {
     const icon = document.createElement("i");
     icon.className = "fa fa-thumbtack";
     icon.setAttribute("aria-hidden", "true");
-    label = document.createElement("span");
-    button.append(icon, label);
+    button.append(icon);
     (document.getElementById("header-theme")?.firstElementChild ?? header).append(button);
     button.addEventListener("click", () => {
       const id = game.openPage?.id;
@@ -199,7 +300,6 @@ export function installPagePinning(ctx, game, isEnabled = () => true) {
     button.classList.toggle("btn-dual", !pinned);
     button.classList.toggle("text-combat-smoke", !pinned);
     button.classList.toggle("btn-info", pinned);
-    label.textContent = pinned ? "Unpin" : "Pin";
     if (!pinned) {
       if (wrapper || root.classList.contains("kroky-page-pinned")) restore();
       measure();
@@ -207,6 +307,7 @@ export function installPagePinning(ctx, game, isEnabled = () => true) {
     }
     root.classList.add("kroky-page-pinned");
     if (container) {
+      syncSkillHeader();
       if (!wrapper) {
         wrapper = document.createElement("div");
         wrapper.className = "kroky-page-pin-controls";
@@ -226,7 +327,7 @@ export function installPagePinning(ctx, game, isEnabled = () => true) {
       const selected = candidates.filter(node => !candidates.some(parent => parent !== node && parent.contains(node)));
       for (const [node, marker] of moved) {
         if (selected.includes(node)) continue;
-        marker.replaceWith(node);
+        putBack(node, marker);
         moved.delete(node);
       }
       for (const node of selected) {
@@ -236,7 +337,11 @@ export function installPagePinning(ctx, game, isEnabled = () => true) {
         moved.set(node, marker);
       }
       selected.sort((a, b) => moved.get(a).compareDocumentPosition(moved.get(b)) & 4 ? -1 : 1);
-      selected.forEach((node, index) => { if (wrapper.children[index] !== node) wrapper.insertBefore(node, wrapper.children[index] ?? null); });
+      selected.forEach((node, index) => {
+        if (wrapper.children[index] === node) return;
+        wrapper.insertBefore(node, wrapper.children[index] ?? null);
+        refreshTooltips(node);
+      });
       wrapper.hidden = selected.length === 0;
       observer?.observe(wrapper);
     }

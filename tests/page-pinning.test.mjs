@@ -114,11 +114,42 @@ function fixture(initialStorage = [], initialPage = true, isEnabled = () => true
     pinned: () => skill.node.querySelector(".kroky-page-pin-controls") };
 }
 
-test("default stays unpinned with a labelled accessible phone-sized button", () => {
+function nativeSkillHeader(skill, charges = true) {
+  const header = skill.info.querySelector("skill-header");
+  const block = new Element(); block.className = "block";
+  const upper = new Element(); upper.className = "row bg-dark";
+  header.upperContainer = upper;
+  for (const [name, value] of [["skillLevel", "120 / 120"], ["skillXp", "248,739,822"], ["abyssalLevel", "60 / 60"], ["abyssalXp", "42,000,000"]]) {
+    const group = new Element(); group.className = "col-12 col-md-3";
+    const span = new Element("span"); span.textContent = value;
+    header[name] = span; group.append(span); upper.append(group);
+  }
+  const upgrades = new Element(); upgrades.className = "col-12 col-md-3";
+  const chain = new Element("upgrade-chain-display");
+  chain.upgradeName = new Element("span"); chain.upgradeName.textContent = "Dragon Pickaxe";
+  chain.upgradeImg = new Element("img");
+  chain.append(chain.upgradeName, chain.upgradeImg); upgrades.append(chain);
+  header.upgradeChainContainer = upgrades; upper.append(upgrades);
+  const items = new Element(); items.className = "col-12 col-md-3";
+  if (charges) items.append(new Element("item-charge-display"));
+  else items.classList.add("d-none");
+  header.itemChargeContainer = items; upper.append(items);
+  const mastery = new Element("mastery-skill-options");
+  const tree = new Element("skill-tree-button"), treeAction = new Element("button");
+  treeAction.textContent = "View Skill Tree";
+  tree.append(treeAction); header.skillTreeButton = tree;
+  block.append(upper, mastery, tree); header.append(block);
+  return { header, block, upper, upgrades, chain, items, mastery, tree, treeAction };
+}
+
+test("default stays unpinned with an accessible icon-only phone-sized button", () => {
   const f = fixture();
   assert.equal(f.button.getAttribute("aria-pressed"), "false");
   assert.equal(f.button.getAttribute("aria-label"), "Pin headers throughout the game");
-  assert.equal(f.button.querySelector("span").textContent, "Pin");
+  assert.equal(f.button.title, "Pin headers throughout the game");
+  assert.equal(f.button.querySelector("span"), null);
+  assert.equal(f.button.children.length, 1);
+  assert.equal(f.button.querySelector("i").className, "fa fa-thumbtack");
   assert.equal(f.button.querySelector("i").getAttribute("aria-hidden"), "true");
   assert.equal(f.button.classList.contains("btn-dual"), true);
   assert.equal(f.button.classList.contains("btn-info"), false);
@@ -131,29 +162,144 @@ test("default stays unpinned with a labelled accessible phone-sized button", () 
   assert.match(document.head.children[0].textContent, /\[aria-pressed="false"\] > i \{ transform: rotate\(-45deg\); \}/);
 });
 
-test("Pin and Unpin labels, native button colours and icon states stay distinct at every screen width", () => {
+test("icon-only pin action retains accessible names, native colours and icon identity at every screen width", () => {
   const f = fixture();
-  const label = f.button.querySelector("span"), icon = f.button.querySelector("i");
+  const icon = f.button.querySelector("i");
   for (const width of [390, 844, 1200]) {
     window.innerWidth = width;
     f.update();
-    assert.equal(label.textContent, "Pin");
+    assert.equal(f.button.querySelector("span"), null);
+    assert.equal(f.button.getAttribute("aria-label"), "Pin headers throughout the game");
+    assert.equal(f.button.title, "Pin headers throughout the game");
     assert.equal(f.button.getAttribute("aria-pressed"), "false");
     f.button.click();
-    assert.equal(label.textContent, "Unpin");
+    assert.equal(f.button.querySelector("span"), null);
     assert.equal(f.button.getAttribute("aria-label"), "Unpin headers throughout the game");
+    assert.equal(f.button.title, "Unpin headers throughout the game");
     assert.equal(f.button.getAttribute("aria-pressed"), "true");
     assert.equal(f.button.classList.contains("btn-info"), true);
     assert.equal(f.button.classList.contains("btn-dual"), false);
     assert.equal(f.button.classList.contains("text-combat-smoke"), false);
     assert.equal(f.button.querySelector("i"), icon);
     f.button.click();
-    assert.equal(label.textContent, "Pin");
+    assert.equal(f.button.querySelector("span"), null);
     assert.equal(f.button.classList.contains("btn-dual"), true);
     assert.equal(f.button.classList.contains("btn-info"), false);
   }
-  assert.equal(label.className, "", "action text has no responsive hiding class");
   assert.match(document.head.children[0].textContent, /white-space: nowrap/);
+});
+
+test("native skill stats, enhancements and tree join the main header while mastery stays below", () => {
+  const f = fixture(), native = nativeSkillHeader(f.skill);
+  native.chain.upgradeImg.setAttribute("alt", "Native pickaxe");
+  native.chain.upgradeImg.setAttribute("tabindex", "-1");
+  const originalGroups = [...native.upper.children];
+  const spans = [native.header.skillLevel, native.header.skillXp, native.header.abyssalLevel, native.header.abyssalXp];
+  let treeClicks = 0;
+  native.treeAction.addEventListener("click", () => treeClicks++);
+  f.game.shop = { renderQueue: { upgrades: false } };
+  f.button.click();
+  assert.equal(native.upper.parentNode, f.left);
+  assert.equal(f.left.children[f.left.children.indexOf(f.button) + 1], native.upper);
+  assert.equal(native.upper.classList.contains("kroky-page-header-details"), true);
+  assert.equal(native.header.classList.contains("kroky-skill-header-compact"), true);
+  assert.deepEqual(native.upper.children, [...originalGroups, native.tree]);
+  assert.equal(native.mastery.parentNode, native.block);
+  assert.equal(f.pinned().contains(native.mastery), true);
+  assert.equal(f.header.contains(native.mastery), false, "mastery progress remains below the main header");
+  assert.equal(native.chain.parentNode, native.upgrades);
+  assert.equal(native.chain.upgradeImg.getAttribute("alt"), "Dragon Pickaxe");
+  assert.equal(native.chain.upgradeImg.getAttribute("tabindex"), "0");
+  assert.equal(native.treeAction.getAttribute("title"), "View Skill Tree");
+  assert.equal(f.game.shop.renderQueue.upgrades, true, "moving native upgrade displays requests tooltip recreation");
+  assert.ok(spans.every(span => native.upper.contains(span)));
+  native.header.skillXp.textContent = "248,739,999";
+  native.treeAction.click(); assert.equal(treeClicks, 1);
+  const moves = [native.upper, native.tree, native.chain, ...spans].map(node => node.moves);
+  f.game.shop.renderQueue.upgrades = false;
+  f.update(); f.update();
+  assert.deepEqual([native.upper, native.tree, native.chain, ...spans].map(node => node.moves), moves);
+  assert.equal(f.game.shop.renderQueue.upgrades, false, "ordinary updates do not reconnect native tooltips");
+  f.button.click();
+  assert.deepEqual(native.block.children, [native.upper, native.mastery, native.tree]);
+  assert.deepEqual(native.upper.children, originalGroups);
+  assert.equal(native.upper.classList.contains("kroky-page-header-details"), false);
+  assert.equal(native.header.classList.contains("kroky-skill-header-compact"), false);
+  assert.equal(f.skill.info.parentNode, f.skill.node);
+  assert.equal(native.header.skillXp.textContent, "248,739,999");
+  assert.equal(native.chain.upgradeImg.getAttribute("alt"), "Native pickaxe");
+  assert.equal(native.chain.upgradeImg.getAttribute("tabindex"), "-1");
+  assert.equal(native.treeAction.getAttribute("title"), null);
+  native.treeAction.click(); assert.equal(treeClicks, 2);
+  assert.equal(f.game.shop.renderQueue.upgrades, true);
+});
+
+test("header details restore before page changes and config changes without requiring enhancements or Shop", () => {
+  let enabled = true;
+  const f = fixture([], true, () => enabled), first = nativeSkillHeader(f.skill, false);
+  const next = f.page("Mining"), second = nativeSkillHeader(next, false);
+  second.header.upgradeChainContainer.classList.add("d-none");
+  second.header.skillTreeButton.classList.add("d-none");
+  second.treeAction.setAttribute("title", "Native tree tooltip");
+  f.button.click();
+  assert.equal(first.upper.parentNode, f.left);
+  f.game.openPage = next.page; f.update();
+  assert.deepEqual(first.block.children, [first.upper, first.mastery, first.tree]);
+  assert.equal(first.upper.classList.contains("kroky-page-header-details"), false);
+  assert.equal(second.upper.parentNode, f.left);
+  assert.equal(second.treeAction.getAttribute("title"), "Native tree tooltip");
+  assert.equal(f.header.contains(first.upper), false);
+  assert.equal(f.header.contains(second.mastery), false);
+  assert.equal(second.items.classList.contains("d-none"), true);
+  assert.equal(second.tree.classList.contains("d-none"), true);
+  enabled = false; f.update();
+  assert.deepEqual(second.block.children, [second.upper, second.mastery, second.tree]);
+  assert.equal(second.header.classList.contains("kroky-skill-header-compact"), false);
+  assert.equal(next.info.parentNode, next.node);
+  assert.equal(f.left.children.includes(second.upper), false);
+  assert.equal(second.chain.upgradeImg.getAttribute("alt"), null);
+  assert.equal(second.chain.upgradeImg.getAttribute("tabindex"), null);
+  assert.equal(second.treeAction.getAttribute("title"), "Native tree tooltip");
+  enabled = true; f.update();
+  assert.equal(second.upper.parentNode, f.left);
+  f.game.openPage = f.page("Shop", false).page; f.update();
+  assert.deepEqual(second.block.children, [second.upper, second.mastery, second.tree]);
+  assert.equal(f.header.querySelector(".kroky-page-header-details"), null);
+});
+
+test("native charged-enhancement tooltips recover after every relocation and remain untouched on stable updates", () => {
+  let enabled = true;
+  const f = fixture([], true, () => enabled), native = nativeSkillHeader(f.skill);
+  const display = native.items.querySelector("item-charge-display");
+  const item = { id: "melvorD:Coating", description: "+10% Mining XP" };
+  display.setAttribute("data-item-id", item.id);
+  let disconnects = 0, repairs = 0, tooltip = item.description;
+  display.setItem = actual => {
+    assert.equal(actual, item);
+    repairs++;
+    tooltip = actual.description;
+  };
+  f.game.items = { getObjectByID: id => id === item.id ? item : undefined };
+  for (const node of [native.upper, f.skill.info]) {
+    node.remove = function() {
+      if (this.parentNode && this.contains(display)) { disconnects++; tooltip = ""; }
+      Element.prototype.remove.call(this);
+    };
+  }
+  const check = () => {
+    assert.equal(tooltip, item.description);
+    assert.equal(repairs, disconnects, "each native disconnect is followed by one setItem repair");
+    const count = repairs;
+    f.update(); f.update();
+    assert.equal(repairs, count, "ordinary rendering does not recreate charge tooltips");
+  };
+  f.button.click(); check();
+  assert.ok(disconnects > 0);
+  f.button.click(); check();
+  assert.deepEqual(native.block.children, [native.upper, native.mastery, native.tree]);
+  f.button.click(); check();
+  enabled = false; f.update(); check();
+  assert.deepEqual(native.block.children, [native.upper, native.mastery, native.tree]);
 });
 
 test("pinning preserves original nodes, callbacks, order and cards, and unpin restores exact positions", () => {
@@ -477,6 +623,43 @@ test("Combat's destructive XP-table disconnect lifecycle is avoided while its na
   assert.deepEqual(combat.node.children, [top, nav, combat.cards]);
   assert.equal(top.moves, originalMoves);
   assert.equal(top.classList.contains("kroky-page-pin-static"), false);
+});
+
+test("optional Skill Boosts joins pinned Combat controls and restores without reconnecting the XP table", () => {
+  const f = fixture(), combat = f.page("Combat", false);
+  combat.row.remove();
+  const top = new Element(); top.id = "combat-top-menu";
+  const table = new Element("combat-skill-progress-table"); top.append(table);
+  const boosts = new Element("skillboost-menu"), boostAction = new Element("button");
+  boosts.append(boostAction);
+  const nav = new Element("category-menu"); nav.id = "combat-area-category-menu";
+  combat.node.append(top, boosts, nav, combat.cards);
+  const tableMoves = table.moves, topMoves = top.moves;
+  let boostClicks = 0;
+  boostAction.addEventListener("click", () => boostClicks++);
+  f.game.openPage = combat.page; f.update(); f.button.click();
+  const wrapper = combat.node.querySelector(".kroky-page-pin-controls");
+  assert.deepEqual(wrapper.children, [boosts, nav]);
+  assert.equal(table.parentNode, top);
+  assert.deepEqual([table.moves, top.moves], [tableMoves, topMoves]);
+  boostAction.click(); assert.equal(boostClicks, 1);
+  const moves = boosts.moves;
+  f.update(); f.update();
+  assert.equal(boosts.moves, moves);
+  boosts.classList.add("d-none"); f.update();
+  assert.equal(boosts.parentNode, combat.node, "hidden optional controls retain native placement");
+  boosts.classList.remove("d-none"); f.update();
+  assert.deepEqual(wrapper.children, [boosts, nav]);
+  f.button.click();
+  assert.deepEqual(combat.node.children, [top, boosts, nav, combat.cards]);
+  assert.deepEqual([table.moves, top.moves], [tableMoves, topMoves]);
+  boostAction.click(); assert.equal(boostClicks, 2);
+  boosts.remove();
+  f.button.click();
+  assert.deepEqual(combat.node.querySelector(".kroky-page-pin-controls").children, [nav]);
+  assert.deepEqual([table.moves, top.moves], [tableMoves, topMoves]);
+  f.button.click();
+  assert.deepEqual(combat.node.children, [top, nav, combat.cards]);
 });
 
 test("short landscape Combat keeps both native sections scrollable within the half-screen cap", () => {

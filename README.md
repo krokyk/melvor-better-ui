@@ -7,16 +7,22 @@ The mod works independently of Workforce.
 
 Open **Mod Settings → Kroky's Better UI → General → Enable Page Pinning** to enable or disable the feature.
 The setting defaults to on and is saved per character.
-Disabling it hides the Pin / Unpin button and restores the normal layout immediately while retaining the pin preference.
+Disabling it hides the thumbtack button and restores the normal layout immediately while retaining the pin preference.
 
-Use **Pin** in the main page header to keep the header and controls visible while scrolling.
-Use **Unpin** to restore the normal layout.
+Use the thumbtack icon in the main page header to pin or unpin the header and controls.
+The button keeps its native state colours and exposes its action through a tooltip and accessible label.
 The choice applies across skills, Combat, Bank, Shop, Settings, Farming and Township, and is remembered in this browser on this device.
 New users start unpinned.
 Existing Workforce pin preferences migrate automatically without changing the original values.
 
 The pinned stack uses at most half the viewport height and scrolls internally when necessary.
 Combat's native XP table stays connected, and dropdown menus remain accessible outside scrolling sections.
+Pinned skills show their native level, XP, enhancement icons and skill-tree control together in a dark section beside the thumbtack.
+The groups inside that section wrap as the available width shrinks.
+Enhancement icons show their names and effects on hover or keyboard focus.
+Mastery progress, View Checkpoints and Spend Mastery Pool XP stay below the main bar.
+Skill Boosts controls join the pinned controls when that optional mod is installed, including on Combat.
+The mod has no dependency on Skill Boosts.
 On desktop, the pinned Bank has a compact full-width toolbar above its inventory and item-details columns.
 Bank tabs and labelled Space, Bank and Tab totals stay above the inventory on the left.
 The inventory and right-hand details panel fill the available viewport height and scroll independently.

@@ -10,12 +10,17 @@ Keep headers visible while scrolling and fit more readable cards across wide des
 
 ## Description
 
-**Kroky's Better UI** adds a **Pin / Unpin** button to the main page header.
+**Kroky's Better UI** adds a thumbtack button to pin or unpin the main page header.
 Keep skill statistics, equipment, realm selectors and category controls visible while scrolling through cards.
 One shared pin choice follows you across skills, Combat, Bank, Shop, Settings, Farming and Township.
 
 The pinned stack uses at most half the screen height and scrolls internally when necessary.
 Combat's native XP table stays connected, and dropdown menus remain accessible outside scrolling sections.
+Pinned skill level, XP, enhancement icons and the native skill-tree control share a dark section beside the thumbtack.
+Those groups wrap within the section on smaller screens.
+Enhancements show their names and effects on hover or keyboard focus.
+Mastery progress and its View Checkpoints and Spend Mastery Pool XP buttons stay below the main bar.
+Optional Skill Boosts controls are pinned across skills and Combat without requiring that mod.
 On desktop, the pinned Bank has a compact full-width toolbar above its inventory and item-details columns.
 Bank tabs and labelled Space, Bank and Tab totals stay above the inventory on the left.
 The inventory and right-hand details panel fill the available viewport height and scroll independently.
@@ -45,12 +50,14 @@ The mod works independently of Workforce and also pins Workforce's controls and 
 
 ### 1.0.0
 
-- Pin page headers and controls across skills, Combat, Bank, Shop, Settings, Farming and Township.
+- Pin page headers and controls with an icon-only thumbtack across skills, Combat, Bank, Shop, Settings, Farming and Township.
 - Enable or disable page pinning in mod settings while retaining the browser's pin preference.
 - Restore existing Workforce pin preferences automatically.
 - Keep pinned content within half the viewport height and retain native Combat and dropdown behavior.
 - Keep the desktop Bank's labelled totals, compact toolbar, wrapping tabs and full-height inventory and details panels.
 - Use an independent wide-layout toggle and bounded card widths for supported desktop grids.
+- Group native skill stats, enhancement icons and skill trees in the top bar while keeping mastery below it.
+- Preserve enhancement tooltip contents and pin optional Skill Boosts controls, including on Combat.
 
 ## Upload
 
