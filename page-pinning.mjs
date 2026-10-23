@@ -52,6 +52,7 @@ const styles = `
 .kroky-page-pin-controls .kroky-activity-summary { margin-top: .5rem; }
 @media (min-width: 992px) {
   #header-theme.kroky-page-header-has-details > :first-child { flex-basis: 0; min-width: min-content; }
+  #header-theme.kroky-page-header-has-details > .header-cloud-save { flex: 0 0 auto; }
   #page-container.kroky-page-pinned #shop-container { padding-left: 0; padding-right: 0; }
   #page-container.kroky-page-pinned #shop-container > .kroky-page-pin-controls { width: 100%; margin-left: 0; margin-right: 0; }
   #page-container.kroky-page-pinned #shop-container > .row { margin-left: 0; margin-right: 0; }
