@@ -69,7 +69,7 @@ class Element {
   }
 }
 
-function fixture(initialStorage = [], initialPage = true, isEnabled = () => true) {
+function fixture(initialStorage = [], initialPage = true, isEnabled = () => true, isCompactHeaderEnabled = () => true) {
   const html = new Element("html"), head = new Element("head"), body = new Element("body");
   const root = new Element(); root.id = "page-container";
   const main = new Element("main"); main.id = "main-container";
@@ -107,7 +107,7 @@ function fixture(initialStorage = [], initialPage = true, isEnabled = () => true
     return { node, info, row, realm, cards, page: { id: `melvorD:${name}`, containerID: node.id } };
   };
   const skill = page("Smithing"), game = { openPage: initialPage ? skill.page : undefined };
-  const update = installPagePinning({}, game, isEnabled);
+  const update = installPagePinning({}, game, isEnabled, isCompactHeaderEnabled);
   update();
   const button = header.querySelector(".kroky-page-pin");
   return { html, root, main, header, theme, left, storage, events, observers, jqueryEvents, page, skill, game, update, button,
@@ -279,6 +279,73 @@ test("header details restore before page changes and config changes without requ
   f.game.openPage = f.page("Shop", false).page; f.update();
   assert.deepEqual(second.block.children, [second.upper, second.mastery, second.tree]);
   assert.equal(f.header.querySelector(".kroky-page-header-details"), null);
+});
+
+test("compact-header config restores native details independently while page controls remain pinned", () => {
+  let compact = true;
+  const f = fixture([], true, () => true, () => compact), native = nativeSkillHeader(f.skill);
+  const boosts = new Element("skillboost-menu"); f.skill.node.append(boosts);
+  native.chain.upgradeImg.setAttribute("alt", "Native pickaxe");
+  native.chain.upgradeImg.setAttribute("tabindex", "-1");
+  const levelLabel = native.header.skillLevel.parentElement.querySelector("lang-string");
+  const xpLabel = native.header.skillXp.parentElement.querySelector("lang-string");
+  const treeLabel = native.treeAction.querySelector("lang-string");
+  f.button.click();
+  const wrapper = f.pinned();
+  assert.equal(native.upper.parentNode, f.left);
+  assert.equal(boosts.parentNode, wrapper);
+  compact = false; f.update();
+  assert.deepEqual(native.block.children, [native.upper, native.mastery, native.tree]);
+  assert.equal(native.header.classList.contains("kroky-skill-header-compact"), false);
+  assert.equal(native.upper.classList.contains("kroky-page-header-details"), false);
+  assert.deepEqual([levelLabel.textContent, xpLabel.textContent, treeLabel.textContent], ["Skill Level", "Skill XP", "View Skill Tree"]);
+  assert.equal(native.chain.upgradeImg.getAttribute("alt"), "Native pickaxe");
+  assert.equal(native.chain.upgradeImg.getAttribute("tabindex"), "-1");
+  assert.equal(native.treeAction.getAttribute("title"), null);
+  assert.equal(f.pinned(), wrapper);
+  assert.equal(f.root.classList.contains("kroky-page-pinned"), true);
+  assert.equal(f.button.getAttribute("aria-pressed"), "true");
+  assert.equal(f.storage.get("kroky-better-ui:pin"), "true");
+  assert.equal(f.skill.info.parentNode, wrapper);
+  assert.equal(boosts.parentNode, wrapper);
+  const moves = [native.upper.moves, native.tree.moves];
+  f.update(); f.update();
+  assert.deepEqual([native.upper.moves, native.tree.moves], moves);
+  compact = true; f.update();
+  assert.equal(native.upper.parentNode, f.left);
+  assert.equal(native.tree.parentNode, native.upper);
+  assert.deepEqual([levelLabel.textContent, xpLabel.textContent, treeLabel.textContent], ["Level", "XP", "Skill tree"]);
+  assert.equal(native.mastery.parentNode, native.block);
+  assert.equal(f.header.contains(native.mastery), false);
+  assert.equal(f.pinned(), wrapper);
+  assert.equal(boosts.parentNode, wrapper);
+});
+
+test("disabled compact header leaves native details mounted through pinning config changes until enabled", () => {
+  let pinning = true, compact = false;
+  const f = fixture([], true, () => pinning, () => compact), native = nativeSkillHeader(f.skill);
+  const moves = [native.upper.moves, native.tree.moves];
+  f.button.click();
+  const check = () => {
+    assert.deepEqual(native.block.children, [native.upper, native.mastery, native.tree]);
+    assert.deepEqual([native.upper.moves, native.tree.moves], moves);
+    assert.equal(native.header.classList.contains("kroky-skill-header-compact"), false);
+    assert.equal(native.header.skillLevel.parentElement.querySelector("lang-string").textContent, "Skill Level");
+    assert.equal(native.treeAction.querySelector("lang-string").textContent, "View Skill Tree");
+  };
+  check();
+  f.update(); check();
+  pinning = false; f.update(); check();
+  assert.equal(f.pinned(), null);
+  pinning = true; f.update(); check();
+  assert.ok(f.pinned());
+  assert.equal(f.storage.get("kroky-better-ui:pin"), "true");
+  compact = true; f.update();
+  assert.equal(native.upper.parentNode, f.left);
+  assert.equal(native.tree.parentNode, native.upper);
+  assert.equal(native.header.skillLevel.parentElement.querySelector("lang-string").textContent, "Level");
+  assert.equal(native.treeAction.querySelector("lang-string").textContent, "Skill tree");
+  assert.equal(f.header.contains(native.mastery), false);
 });
 
 test("native charged-enhancement tooltips recover after every relocation and remain untouched on stable updates", () => {

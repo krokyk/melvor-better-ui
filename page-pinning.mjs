@@ -78,7 +78,7 @@ const styles = `
 }
 `;
 
-export function installPagePinning(ctx, game, isEnabled = () => true) {
+export function installPagePinning(ctx, game, isEnabled = () => true, isCompactHeaderEnabled = () => true) {
   if (typeof document === "undefined") return () => {};
   let preference;
   const moved = new Map();
@@ -310,7 +310,8 @@ export function installPagePinning(ctx, game, isEnabled = () => true) {
     }
     root.classList.add("kroky-page-pinned");
     if (container) {
-      syncSkillHeader();
+      if (isCompactHeaderEnabled()) syncSkillHeader();
+      else restoreSkillHeader();
       if (!wrapper) {
         wrapper = document.createElement("div");
         wrapper.className = "kroky-page-pin-controls";

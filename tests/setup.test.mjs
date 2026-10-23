@@ -26,7 +26,7 @@ test("setup loads its packaged modules through Melvor's standalone module URLs",
 
 test("independent config restores on load and QuickLoad, applies toggles immediately, and bounds render updates", async () => {
   const hooks = {}, values = new Map(), fields = new Map();
-  const updates = { pinning: [], wide: [] };
+  const updates = { pinning: [], compact: [], wide: [] };
   let now = 0;
   globalThis.performance = { now: () => now };
   globalThis.Game = class {
@@ -38,9 +38,12 @@ test("independent config restores on load and QuickLoad, applies toggles immedia
     async loadModule(path) {
       const pinning = path === "page-pinning.mjs";
       assert.ok(pinning || path === "wide-layout.mjs");
-      return { [pinning ? "installPagePinning" : "installWideLayout"](actualCtx, actualGame, isEnabled) {
+      return { [pinning ? "installPagePinning" : "installWideLayout"](actualCtx, actualGame, isEnabled, isCompactHeaderEnabled) {
         assert.equal(actualCtx, ctx); assert.equal(actualGame, game);
-        return () => updates[pinning ? "pinning" : "wide"].push(isEnabled());
+        return () => {
+          updates[pinning ? "pinning" : "wide"].push(isEnabled());
+          if (pinning) updates.compact.push(isCompactHeaderEnabled());
+        };
       } };
     },
     settings: { section(name) {
@@ -66,38 +69,50 @@ test("independent config restores on load and QuickLoad, applies toggles immedia
   };
   await setup(ctx); hooks.mods();
   const pinning = fields.get("page-pinning-enabled"), wide = fields.get("wide-layout-enabled");
-  assert.equal(fields.size, 2);
+  const compact = fields.get("compact-skill-header-enabled");
+  assert.equal(fields.size, 3);
   assert.equal(pinning.label, "Enable Page Pinning");
   assert.equal(wide.label, "Enable Wide Layout");
+  assert.equal(compact.label, "Enable Compact Skill Header");
   for (const field of fields.values()) {
     assert.equal(field.type, "switch");
     assert.equal(field.default, true);
   }
-  game.render(); assert.deepEqual(updates, { pinning: [], wide: [] });
-  game.decode({ [pinning.name]: false, [wide.name]: true }); hooks.character();
-  assert.deepEqual(updates, { pinning: [], wide: [] }, "saved settings wait until the interface is ready");
-  hooks.interface(); assert.deepEqual(updates, { pinning: [false], wide: [true] });
+  game.render(); assert.deepEqual(updates, { pinning: [], compact: [], wide: [] });
+  assert.equal(compact.onChange(false), undefined);
+  game.decode({ [pinning.name]: false, [compact.name]: false, [wide.name]: true }); hooks.character();
+  assert.deepEqual(updates, { pinning: [], compact: [], wide: [] }, "saved settings and toggles wait until the interface is ready");
+  hooks.interface(); assert.deepEqual(updates, { pinning: [false], compact: [false], wide: [true] });
   assert.equal(pinning.onChange(true), undefined);
   assert.equal(updates.pinning.at(-1), true, "onChange applies before the settings API stores its value");
   assert.equal(updates.wide.length, 1, "pinning toggles do not reapply the wide layout");
+  assert.equal(updates.compact.at(-1), false, "pinning toggles preserve compact header settings");
   values.set(pinning.name, true);
+  assert.equal(compact.onChange(true), undefined);
+  assert.equal(updates.compact.at(-1), true, "compact headers apply before the settings API stores their value");
+  assert.equal(updates.pinning.at(-1), true, "compact header toggles preserve pinning settings");
+  assert.equal(updates.wide.length, 1, "compact header toggles do not reapply the wide layout");
+  values.set(compact.name, true);
   assert.equal(wide.onChange(false), undefined);
   assert.equal(updates.wide.at(-1), false);
-  assert.equal(updates.pinning.length, 2, "wide layout toggles do not reapply pinning");
+  assert.equal(updates.pinning.length, 3, "wide layout toggles do not reapply pinning");
   values.set(wide.name, false);
   assert.equal(game.render(), "native render");
-  const count = updates.pinning.length;
-  assert.equal(updates.wide.length, count);
+  const count = updates.pinning.length, wideCount = updates.wide.length;
   now = 199; game.render();
-  assert.equal(updates.pinning.length, count); assert.equal(updates.wide.length, count);
+  assert.equal(updates.pinning.length, count); assert.equal(updates.wide.length, wideCount);
   now = 200; game.render();
-  assert.equal(updates.pinning.length, count + 1); assert.equal(updates.wide.length, count + 1);
+  assert.equal(updates.pinning.length, count + 1); assert.equal(updates.wide.length, wideCount + 1);
+  assert.equal(updates.compact.length, count + 1);
   assert.equal(updates.pinning.at(-1), true); assert.equal(updates.wide.at(-1), false);
   for (const field of fields.values()) assert.equal(typeof field.onChange("false"), "string");
-  game.decode({ [pinning.name]: false, [wide.name]: true });
+  game.decode({ [pinning.name]: false, [compact.name]: false, [wide.name]: true });
   assert.equal(updates.pinning.at(-1), false); assert.equal(updates.wide.at(-1), true);
-  values.set(pinning.name, true); values.set(wide.name, false); hooks.character();
+  assert.equal(updates.compact.at(-1), false);
+  values.set(pinning.name, true); values.set(compact.name, true); values.set(wide.name, false); hooks.character();
   assert.equal(updates.pinning.at(-1), true); assert.equal(updates.wide.at(-1), false);
-  game.decode({ [pinning.name]: undefined, [wide.name]: undefined });
+  assert.equal(updates.compact.at(-1), true);
+  game.decode({ [pinning.name]: undefined, [compact.name]: undefined, [wide.name]: undefined });
   assert.equal(updates.pinning.at(-1), true); assert.equal(updates.wide.at(-1), true);
+  assert.equal(updates.compact.at(-1), true);
 });

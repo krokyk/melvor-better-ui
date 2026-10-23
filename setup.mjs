@@ -5,9 +5,10 @@ export async function setup(ctx) {
     const settings = ctx.settings.section("General");
     const settingName = "page-pinning-enabled";
     const wideSettingName = "wide-layout-enabled";
+    const compactSettingName = "compact-skill-header-enabled";
     let enabled = true, interfaceReady = false, nextUpdate = 0;
-    let wideEnabled = true;
-    const updatePinning = installPagePinning(ctx, game, () => enabled);
+    let wideEnabled = true, compactEnabled = true;
+    const updatePinning = installPagePinning(ctx, game, () => enabled, () => compactEnabled);
     const updateWideLayout = installWideLayout(ctx, game, () => wideEnabled);
     settings.add({
       type: "switch", name: settingName, label: "Enable Page Pinning", default: true,
@@ -15,6 +16,15 @@ export async function setup(ctx) {
       onChange(value) {
         if (typeof value !== "boolean") return "Choose enabled or disabled.";
         enabled = value;
+        if (interfaceReady) updatePinning();
+      },
+    });
+    settings.add({
+      type: "switch", name: compactSettingName, label: "Enable Compact Skill Header", default: true,
+      hint: "Move Level, XP, Enhancements, and Skill Tree controls into the main bar while pinned. Disable to keep their normal header placement.",
+      onChange(value) {
+        if (typeof value !== "boolean") return "Choose enabled or disabled.";
+        compactEnabled = value;
         if (interfaceReady) updatePinning();
       },
     });
@@ -30,6 +40,7 @@ export async function setup(ctx) {
     const restore = () => {
       enabled = settings.get(settingName) !== false;
       wideEnabled = settings.get(wideSettingName) !== false;
+      compactEnabled = settings.get(compactSettingName) !== false;
       if (interfaceReady) { updatePinning(); updateWideLayout(); }
     };
     ctx.onCharacterLoaded(restore);

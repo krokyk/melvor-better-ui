@@ -18,6 +18,9 @@ Existing Workforce pin preferences migrate automatically without changing the or
 The pinned stack uses at most half the viewport height and scrolls internally when necessary.
 Combat's native XP table stays connected, and dropdown menus remain accessible outside scrolling sections.
 Pinned skills show their native level, XP, enhancement icons and skill-tree control together in a dark section beside the thumbtack.
+**General → Enable Compact Skill Header** controls this arrangement independently of pinning and wide layouts.
+It defaults to on and is saved per character.
+Disabling it restores the native skill-header placement below the main bar while keeping headers pinned.
 Stats use the text labels Level and XP, and the native skill-tree button is labelled Skill tree.
 The groups inside that section wrap as the available width shrinks.
 Enhancement icons show their names and effects on hover or keyboard focus.
