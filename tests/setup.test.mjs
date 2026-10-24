@@ -21,12 +21,13 @@ test("setup loads its packaged modules through Melvor's standalone module URLs",
     onModsLoaded() { registered = true; },
   });
   assert.equal(registered, true);
-  assert.deepEqual(loaded, ["page-pinning.mjs", "wide-layout.mjs"]);
+  assert.deepEqual(loaded, ["page-pinning.mjs", "wide-layout.mjs", "item-sources-and-uses.mjs"]);
 });
 
 test("independent config restores on load and QuickLoad, updates new pages immediately, and throttles same-page pinning", async () => {
   const hooks = {}, values = new Map(), fields = new Map();
   const updates = { pinning: [], compact: [], wide: [] };
+  let sourcesInstalled = 0;
   const renderEvents = [];
   const pageA = { id: "melvorD:Smithing", containerID: "smithing-container" }, pageB = { id: "melvorD:Mining", containerID: "mining-container" };
   const parent = {}, card = {}, roots = new Map([pageA, pageB].map(page => {
@@ -49,6 +50,10 @@ test("independent config restores on load and QuickLoad, updates new pages immed
   game.pages = { forEach: callback => [pageA, pageB, { containerID: "missing-container" }].forEach(callback) };
   const ctx = {
     async loadModule(path) {
+      if (path === "item-sources-and-uses.mjs") return { installItemSourcesAndUses(actualCtx, actualGame) {
+        assert.equal(actualCtx, ctx); assert.equal(actualGame, game);
+        sourcesInstalled++;
+      } };
       const pinning = path === "page-pinning.mjs";
       assert.ok(pinning || path === "wide-layout.mjs");
       return { [pinning ? "installPagePinning" : "installWideLayout"](actualCtx, actualGame, isEnabled, isCompactHeaderEnabled) {
@@ -81,7 +86,10 @@ test("independent config restores on load and QuickLoad, updates new pages immed
       } };
     },
   };
-  await setup(ctx); hooks.mods();
+  await setup(ctx);
+  assert.equal(sourcesInstalled, 0, "optional integrations wait for all mods to load");
+  hooks.mods();
+  assert.equal(sourcesInstalled, 1);
   const pinning = fields.get("page-pinning-enabled"), wide = fields.get("wide-layout-enabled");
   const compact = fields.get("compact-skill-header-enabled");
   assert.equal(fields.size, 3);
@@ -175,11 +183,13 @@ test("independent config restores on load and QuickLoad, updates new pages immed
   hooks.interface();
   assert.equal(observers.length, 1, "repeated interface readiness keeps one observer");
   assert.equal(observers[0].observed.length, 2, "repeated readiness does not duplicate page observations");
+  assert.equal(sourcesInstalled, 1, "restoring settings and rendering never reinstall the optional integration");
 });
 
 test("render remains the page-change fallback without MutationObserver or the page registry", async () => {
   for (const hasObserver of [false, true]) {
     const hooks = {}, calls = { pinning: 0, wide: 0 };
+    let sourcesInstalled = 0;
     let now = 0;
     globalThis.performance = { now: () => now };
     globalThis.document = { getElementById: () => null };
@@ -191,6 +201,10 @@ test("render remains the page-change fallback without MutationObserver or the pa
     if (!hasObserver) game.pages = { forEach() { assert.fail("a browser without observers does not inspect page roots"); } };
     const ctx = {
       async loadModule(path) {
+        if (path === "item-sources-and-uses.mjs") return { installItemSourcesAndUses(actualCtx, actualGame) {
+          assert.equal(actualCtx, ctx); assert.equal(actualGame, game);
+          sourcesInstalled++;
+        } };
         return path === "page-pinning.mjs"
           ? { installPagePinning: () => () => calls.pinning++ }
           : { installWideLayout: () => () => calls.wide++ };
@@ -217,5 +231,6 @@ test("render remains the page-change fallback without MutationObserver or the pa
     now = 201; game.render();
     assert.equal(calls.pinning, baseline + 2);
     assert.equal(calls.wide, wideCount);
+    assert.equal(sourcesInstalled, 1);
   }
 });

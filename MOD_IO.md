@@ -6,7 +6,7 @@ Kroky's Better UI
 
 ## Summary
 
-Keep headers visible while scrolling and fit more readable cards across wide desktop screens.
+Keep headers visible, fit more readable cards across wide screens, and optionally inspect recipe item sources and uses.
 
 ## Description
 
@@ -45,6 +45,15 @@ The setting works independently of pinning, defaults to on and is saved per char
 It applies at viewport widths of 1,200 pixels and above; narrower screens keep their existing layout.
 Native production views, Combat, Cooking, Firemaking, Music and Agility retain their normal page widths.
 
+**General → Show Sources and Uses on Recipe Icons** adds a small blue **?** to item output and ingredient icons on native and Workforce skill cards.
+It defaults to off and is saved per character.
+Clicking **?** opens the item's dialog from [Show Item Sources And Uses](https://mod.io/g/melvoridle/m/show-item-sources-and-uses), calculating the information only when clicked.
+Ordinary icon clicks keep their existing behavior, and ingredients with a gold shop-coin overlay keep Quick Buy without a **?**.
+Currencies, XP and spell artwork without a specific item do not receive a **?**.
+The integration is optional, with no hard dependency.
+If Show Item Sources And Uses is missing, disabled or lacks the required API, the toggle is disabled with an explanation while retaining your saved preference.
+Install or enable a compatible version and reload the game to make it available.
+
 Open **Mod Settings → Kroky's Better UI → General → Enable Page Pinning** to enable or disable the feature.
 The toggle defaults to on.
 Disabling it hides the button and restores the normal layout while retaining your pin preference.
@@ -55,9 +64,16 @@ The mod works independently of Workforce and also pins Workforce's controls and 
 
 ## Version
 
-1.0.0
+1.1.0
 
 ## Changelog
+
+### 1.1.0
+
+- Add an optional, per-character toggle for sources-and-uses buttons on native and Workforce recipe output and ingredient icons.
+- Open the existing Show Item Sources And Uses dialog on demand without changing ordinary icon actions.
+- Keep gold shop-coin ingredients on Quick Buy and skip icons without a specific item.
+- Disable the toggle with an explanation when the optional provider is unavailable or incompatible, while preserving its saved preference.
 
 ### 1.0.0
 
@@ -72,4 +88,4 @@ The mod works independently of Workforce and also pins Workforce's controls and 
 
 ## Upload
 
-Upload **krokys-better-ui-1.0.0.zip** with `manifest.json`, `setup.mjs`, `page-pinning.mjs` and `wide-layout.mjs` at the archive root.
+Upload **krokys-better-ui-1.1.0.zip** with `manifest.json`, `setup.mjs`, `page-pinning.mjs`, `wide-layout.mjs` and `item-sources-and-uses.mjs` at the archive root.

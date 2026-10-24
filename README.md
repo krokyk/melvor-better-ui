@@ -1,8 +1,8 @@
 # Kroky's Better UI
 
-Version: **1.0.0**.
+Version: **1.1.0**.
 
-Page header pinning and responsive desktop card grids for Melvor Idle, including Kroky's Workforce layouts when installed.
+Page header pinning, responsive desktop card grids and optional recipe item sources and uses for Melvor Idle, including Kroky's Workforce layouts when installed.
 The mod works independently of Workforce.
 
 Open **Mod Settings → Kroky's Better UI → General → Enable Page Pinning** to enable or disable the feature.
@@ -70,11 +70,21 @@ Native production views, Combat, Cooking, Firemaking, Music and Agility retain t
 Below 1,200 pixels the wide-layout setting leaves the existing layout unchanged.
 Disabling the setting restores the normal widths immediately.
 
+Open **Mod Settings → Kroky's Better UI → General → Show Sources and Uses on Recipe Icons** to add a small blue **?** to item output and ingredient icons on native and Workforce skill cards.
+The setting defaults to off and is saved per character.
+Clicking **?** opens the item's dialog from [Show Item Sources And Uses](https://mod.io/g/melvoridle/m/show-item-sources-and-uses); ordinary icon clicks keep their existing behavior.
+Ingredients with a gold shop-coin overlay keep Quick Buy without a **?**.
+Currencies, XP and spell artwork without a specific item do not receive a **?**.
+Sources and uses are calculated only when clicked.
+This integration is optional and does not add a hard dependency.
+If Show Item Sources And Uses is missing, disabled or lacks the required API, the toggle is disabled with an explanation while retaining your saved preference.
+Install or enable a compatible version and reload the game to make the toggle available.
+
 ## Installation
 
-Load this folder with Melvor's Creator Toolkit, or import `krokys-better-ui-1.0.0.zip` through **Creator Toolkit → Local Mods**.
+Load this folder with Melvor's Creator Toolkit, or import `krokys-better-ui-1.1.0.zip` through **Creator Toolkit → Local Mods**.
 Enable the mod and reload the game.
-The release archive contains `manifest.json`, `setup.mjs`, `page-pinning.mjs` and `wide-layout.mjs` at its root.
+The release archive contains `manifest.json`, `setup.mjs`, `page-pinning.mjs`, `wide-layout.mjs` and `item-sources-and-uses.mjs` at its root.
 Ready-to-paste listing text and release notes are in [MOD_IO.md](MOD_IO.md).
 
 ## Development checks
