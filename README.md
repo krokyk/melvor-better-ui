@@ -16,6 +16,7 @@ New users start unpinned.
 Existing Workforce pin preferences migrate automatically without changing the original values.
 
 The pinned stack uses at most half the viewport height and scrolls internally when necessary.
+Page navigation applies the pinned layout before the browser paints, while routine updates retain a 200 ms cadence.
 Combat's native XP table stays connected, and dropdown menus remain accessible outside scrolling sections.
 Pinned skills show Level and XP progress bars, enhancement icons, Melvor and Abyssal mastery pools, their native actions, and Skill tree together in a dark row below the main page header.
 **General → Enable Compact Skill Header** controls this arrangement independently of pinning and wide layouts.

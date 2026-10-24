@@ -5,7 +5,7 @@ import { setup } from "../setup.mjs";
 
 const originalPerformance = globalThis.performance;
 afterEach(() => {
-  for (const name of ["game", "Game"]) delete globalThis[name];
+  for (const name of ["game", "Game", "document", "MutationObserver"]) delete globalThis[name];
   globalThis.performance = originalPerformance;
 });
 
@@ -24,16 +24,29 @@ test("setup loads its packaged modules through Melvor's standalone module URLs",
   assert.deepEqual(loaded, ["page-pinning.mjs", "wide-layout.mjs"]);
 });
 
-test("independent config restores on load and QuickLoad, applies toggles immediately, and bounds only pinning render updates", async () => {
+test("independent config restores on load and QuickLoad, updates new pages immediately, and throttles same-page pinning", async () => {
   const hooks = {}, values = new Map(), fields = new Map();
   const updates = { pinning: [], compact: [], wide: [] };
+  const renderEvents = [];
+  const pageA = { id: "melvorD:Smithing", containerID: "smithing-container" }, pageB = { id: "melvorD:Mining", containerID: "mining-container" };
+  const parent = {}, card = {}, roots = new Map([pageA, pageB].map(page => {
+    const node = { hidden: false, parentElement: parent, children: [card], classList: { contains: name => name === "d-none" && node.hidden } };
+    return [page.containerID, node];
+  }));
+  const observers = [];
+  globalThis.document = { getElementById: id => roots.get(id) ?? null };
+  globalThis.MutationObserver = class {
+    constructor(callback) { this.callback = callback; this.observed = []; observers.push(this); }
+    observe(node, options) { this.observed.push({ node, options }); }
+  };
   let now = 0;
   globalThis.performance = { now: () => now };
   globalThis.Game = class {
     decode(config) { for (const [name, value] of Object.entries(config)) values.set(name, value); }
-    render() { return "native render"; }
+    render() { renderEvents.push("native"); return "native render"; }
   };
   globalThis.game = new Game();
+  game.pages = { forEach: callback => [pageA, pageB, { containerID: "missing-container" }].forEach(callback) };
   const ctx = {
     async loadModule(path) {
       const pinning = path === "page-pinning.mjs";
@@ -41,6 +54,7 @@ test("independent config restores on load and QuickLoad, applies toggles immedia
       return { [pinning ? "installPagePinning" : "installWideLayout"](actualCtx, actualGame, isEnabled, isCompactHeaderEnabled) {
         assert.equal(actualCtx, ctx); assert.equal(actualGame, game);
         return () => {
+          renderEvents.push(pinning ? "pinning" : "wide");
           updates[pinning ? "pinning" : "wide"].push(isEnabled());
           if (pinning) updates.compact.push(isCompactHeaderEnabled());
         };
@@ -79,10 +93,14 @@ test("independent config restores on load and QuickLoad, applies toggles immedia
     assert.equal(field.default, true);
   }
   game.render(); assert.deepEqual(updates, { pinning: [], compact: [], wide: [] });
+  assert.equal(observers.length, 0, "page observation waits for the interface");
   assert.equal(compact.onChange(false), undefined);
   game.decode({ [pinning.name]: false, [compact.name]: false, [wide.name]: true }); hooks.character();
   assert.deepEqual(updates, { pinning: [], compact: [], wide: [] }, "saved settings and toggles wait until the interface is ready");
   hooks.interface(); assert.deepEqual(updates, { pinning: [false], compact: [false], wide: [true] });
+  assert.equal(observers.length, 1);
+  assert.deepEqual(observers[0].observed.map(entry => entry.node), [...roots.values()], "only registered page roots are observed, not their parent or cards");
+  for (const { options } of observers[0].observed) assert.deepEqual(options, { attributes: true, attributeFilter: ["class"] });
   assert.equal(pinning.onChange(true), undefined);
   assert.equal(updates.pinning.at(-1), true, "onChange applies before the settings API stores its value");
   assert.equal(updates.wide.length, 1, "pinning toggles do not reapply the wide layout");
@@ -107,6 +125,43 @@ test("independent config restores on load and QuickLoad, applies toggles immedia
   assert.equal(updates.pinning.length, count + 1); assert.equal(updates.wide.length, wideCount);
   assert.equal(updates.compact.length, count + 1);
   assert.equal(updates.pinning.at(-1), true); assert.equal(updates.wide.at(-1), false);
+  const renderPage = (time, page, expectedEvents) => {
+    now = time; game.openPage = page; renderEvents.length = 0;
+    assert.equal(game.render(), "native render");
+    assert.deepEqual(renderEvents, expectedEvents, `page ${page.id} at ${time}ms renders natively before any pinning update`);
+    assert.equal(updates.wide.length, wideCount, "page transitions never reapply the CSS wide layout");
+  };
+  renderPage(201, pageA, ["native", "pinning"]);
+  renderPage(202, pageA, ["native"]);
+  renderPage(203, pageB, ["native", "pinning"]);
+  renderPage(204, pageA, ["native", "pinning"]);
+  renderPage(403, pageA, ["native"]);
+  renderPage(404, pageA, ["native", "pinning"]);
+  const notifyPage = (time, page, shown, expectedEvents) => {
+    const previous = game.openPage, records = [];
+    if (previous !== page) {
+      roots.get(previous.containerID).hidden = true;
+      records.push({ type: "attributes", attributeName: "class", target: roots.get(previous.containerID) });
+    }
+    now = time; game.openPage = page; roots.get(page.containerID).hidden = !shown; renderEvents.length = 0;
+    records.push({ type: "attributes", attributeName: "class", target: roots.get(page.containerID) });
+    observers[0].callback(records);
+    assert.deepEqual(renderEvents, expectedEvents, "visible new pages update before the next native render");
+    assert.equal(updates.wide.length, wideCount, "page visibility changes never reapply the CSS wide layout");
+  };
+  notifyPage(405, pageB, false, []);
+  notifyPage(405, pageB, true, ["pinning"]);
+  notifyPage(405, pageB, true, []);
+  renderPage(406, pageB, ["native"]);
+  notifyPage(407, pageA, true, ["pinning"]);
+  notifyPage(408, pageB, true, ["pinning"]);
+  renderPage(607, pageB, ["native"]);
+  renderPage(608, pageB, ["native", "pinning"]);
+  const missingPage = { id: "mod:Missing", containerID: "missing-container" };
+  game.openPage = missingPage; renderEvents.length = 0;
+  observers[0].callback([{ type: "attributes", attributeName: "class", target: roots.get(pageB.containerID) }]);
+  assert.deepEqual(renderEvents, [], "an unavailable new page root waits for the native-render fallback");
+  renderPage(609, missingPage, ["native", "pinning"]);
   for (const field of fields.values()) assert.equal(typeof field.onChange("false"), "string");
   game.decode({ [pinning.name]: false, [compact.name]: false, [wide.name]: true });
   assert.equal(updates.pinning.at(-1), false); assert.equal(updates.wide.at(-1), true);
@@ -117,4 +172,50 @@ test("independent config restores on load and QuickLoad, applies toggles immedia
   game.decode({ [pinning.name]: undefined, [compact.name]: undefined, [wide.name]: undefined });
   assert.equal(updates.pinning.at(-1), true); assert.equal(updates.wide.at(-1), true);
   assert.equal(updates.compact.at(-1), true);
+  hooks.interface();
+  assert.equal(observers.length, 1, "repeated interface readiness keeps one observer");
+  assert.equal(observers[0].observed.length, 2, "repeated readiness does not duplicate page observations");
+});
+
+test("render remains the page-change fallback without MutationObserver or the page registry", async () => {
+  for (const hasObserver of [false, true]) {
+    const hooks = {}, calls = { pinning: 0, wide: 0 };
+    let now = 0;
+    globalThis.performance = { now: () => now };
+    globalThis.document = { getElementById: () => null };
+    if (hasObserver) globalThis.MutationObserver = class { observe() { assert.fail("missing registered pages cannot be observed"); } };
+    else delete globalThis.MutationObserver;
+    globalThis.Game = class { decode() {} render() { return "native"; } };
+    globalThis.game = new Game();
+    game.openPage = { id: "melvorD:Smithing" };
+    if (!hasObserver) game.pages = { forEach() { assert.fail("a browser without observers does not inspect page roots"); } };
+    const ctx = {
+      async loadModule(path) {
+        return path === "page-pinning.mjs"
+          ? { installPagePinning: () => () => calls.pinning++ }
+          : { installWideLayout: () => () => calls.wide++ };
+      },
+      settings: { section: () => ({ add() {}, get: () => true }) },
+      onModsLoaded(fn) { hooks.mods = fn; },
+      onCharacterLoaded() {},
+      onInterfaceReady(fn) { hooks.interface = fn; },
+      patch(Class, method) {
+        return { after(fn) {
+          const original = Class.prototype[method];
+          Class.prototype[method] = function (...args) { const result = original.apply(this, args); fn.call(this, result, ...args); return result; };
+        } };
+      },
+    };
+    await setup(ctx); hooks.mods(); hooks.interface();
+    assert.equal(game.render(), "native");
+    const baseline = calls.pinning, wideCount = calls.wide;
+    game.openPage = { id: "melvorD:Mining" };
+    now = 1; game.render();
+    assert.equal(calls.pinning, baseline + 1);
+    now = 200; game.render();
+    assert.equal(calls.pinning, baseline + 1);
+    now = 201; game.render();
+    assert.equal(calls.pinning, baseline + 2);
+    assert.equal(calls.wide, wideCount);
+  }
 });

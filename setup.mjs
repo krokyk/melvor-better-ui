@@ -7,9 +7,15 @@ export async function setup(ctx) {
     const wideSettingName = "wide-layout-enabled";
     const compactSettingName = "compact-skill-header-enabled";
     let enabled = true, interfaceReady = false, nextUpdate = 0;
+    let lastPage, pageObserver;
     let wideEnabled = true, compactEnabled = true;
     const updatePinning = installPagePinning(ctx, game, () => enabled, () => compactEnabled);
     const updateWideLayout = installWideLayout(ctx, game, () => wideEnabled);
+    const refreshPinning = () => {
+      lastPage = game.openPage;
+      nextUpdate = performance.now() + 200;
+      updatePinning();
+    };
     settings.add({
       type: "switch", name: settingName, label: "Enable Page Pinning", default: true,
       hint: "Show the thumbtack button in the page header. Disable to restore the normal layout while keeping your pin preference.",
@@ -44,12 +50,27 @@ export async function setup(ctx) {
       if (interfaceReady) { updatePinning(); updateWideLayout(); }
     };
     ctx.onCharacterLoaded(restore);
-    ctx.onInterfaceReady(() => { interfaceReady = true; restore(); });
+    ctx.onInterfaceReady(() => {
+      interfaceReady = true;
+      restore();
+      if (pageObserver || typeof MutationObserver !== "function" || !game.pages?.forEach) return;
+      // Page visibility changes finish before this callback runs and before the browser paints.
+      pageObserver = new MutationObserver(() => {
+        if (game.openPage === lastPage) return;
+        const page = document.getElementById(game.openPage?.containerID);
+        if (page && !page.classList.contains("d-none")) refreshPinning();
+      });
+      game.pages.forEach(page => {
+        const node = document.getElementById(page.containerID);
+        if (node) pageObserver.observe(node, { attributes: true, attributeFilter: ["class"] });
+      });
+    });
     ctx.patch(Game, "decode").after(restore);
     ctx.patch(Game, "render").after(() => {
-      if (!interfaceReady || performance.now() < nextUpdate) return;
-      nextUpdate = performance.now() + 200;
-      updatePinning();
+      if (!interfaceReady) return;
+      const now = performance.now();
+      if (game.openPage === lastPage && now < nextUpdate) return;
+      refreshPinning();
     });
   });
 }
