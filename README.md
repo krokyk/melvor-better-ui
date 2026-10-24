@@ -23,6 +23,7 @@ Pinned skills show Level and XP progress bars, enhancement icons, Melvor and Aby
 It defaults to on and is saved per character.
 Disabling it restores the native skill-header placement while keeping headers pinned.
 Stats use the text labels Level and XP, and the native skill-tree button is labelled Skill tree.
+Level, XP and Abyssal stat bars retain their native green, blue and red colours.
 Level and mastery-pool bars have fixed widths, and XP bars use a wide fixed width below the level cap.
 Capped XP bars fit the accumulated XP number and keep that width until its digit count changes.
 Each mastery pool shows its actual current and maximum values inside its progress bar.

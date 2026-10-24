@@ -24,13 +24,15 @@ const styles = `
 .kroky-page-header-details upgrade-chain-display > span { display: none !important; }
 .kroky-page-header-details upgrade-chain-display img { width: 24px; height: 24px; cursor: help; }
 .kroky-page-header-details upgrade-chain-display img:focus-visible { outline: 2px solid var(--info, #5cace5); outline-offset: 2px; }
-.kroky-page-header-details .kroky-summary-progress { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 14rem; height: 1.25rem; padding: .05rem .3rem; border: 1px solid var(--success, #28c394); border-radius: .2rem; background: linear-gradient(to right, var(--success, #28c394) var(--kroky-summary-fill, 0%), var(--dark, #232a35) var(--kroky-summary-fill, 0%)) !important; color: white; font-size: .75rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.kroky-page-header-details .kroky-summary-progress { --kroky-summary-color: var(--success, #30c78d); display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 14rem; height: 1.25rem; padding: .05rem .3rem; border: 1px solid var(--kroky-summary-color); border-radius: .2rem; background: linear-gradient(to right, var(--kroky-summary-color) var(--kroky-summary-fill, 0%), var(--dark, #232a35) var(--kroky-summary-fill, 0%)) !important; color: white; font-size: .75rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.kroky-page-header-details .kroky-summary-progress.bg-info { --kroky-summary-color: var(--info, #5cace5); }
+.kroky-page-header-details .kroky-summary-progress.bg-danger { --kroky-summary-color: var(--danger, #e56767); }
 .kroky-header-level .kroky-summary-progress { width: 4.5rem; }
 .kroky-page-header-details .kroky-summary-xp-capped { width: calc(var(--kroky-summary-xp-chars) * 1ch + .6rem); }
 .kroky-summary-pool { display: flex; align-items: center; gap: .3rem; }
 .kroky-summary-pool img { width: 24px; height: 24px; }
 .kroky-summary-percent { color: white; font-size: .75rem; font-weight: 400; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.kroky-summary-pool .kroky-summary-progress { width: 12.5rem; border-color: var(--warning, #ffb822); background: linear-gradient(to right, var(--warning, #ffb822) var(--kroky-summary-fill, 0%), var(--dark, #232a35) var(--kroky-summary-fill, 0%)) !important; }
+.kroky-page-header-details .kroky-summary-pool .kroky-summary-progress { --kroky-summary-color: var(--warning, #e5ae67); width: 12.5rem; }
 .kroky-summary-actions { display: flex; align-items: center; }
 .kroky-skill-header-compact .kroky-summary-mastery-native { display: none !important; }
 .kroky-skill-header-compact > .block > .progress { display: none; }
