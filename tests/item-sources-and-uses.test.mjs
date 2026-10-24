@@ -154,6 +154,25 @@ function fixture(provider = "available", saved = false, install = installItemSou
 
 function sourceButton(icon) { return icon.querySelector(".kroky-item-source-button"); }
 
+test("only Summoning output loses its shortcut while ingredients and other products retain theirs", () => {
+  const f = fixture("available", true), costs = new Element(), products = new Element();
+  costs.className = "kroky-production-costs"; products.className = "kroky-production-products";
+  f.skillRoot.append(costs, products);
+  const ingredient = new f.QuantityIcon(), product = new f.QuantityIcon();
+  costs.append(ingredient); products.append(product);
+  ingredient.setItem(f.items[0], 1); product.setItem(f.items[1], 1); f.hooks.interface();
+  assert.ok(sourceButton(product), "ordinary production outputs keep their shortcut");
+  f.nativeRoot.id = "summoning-container";
+  ingredient.setItem(f.items[0], 1); product.setItem(f.items[1], 1);
+  assert.equal(sourceButton(ingredient).hidden, false);
+  assert.equal(sourceButton(product).hidden, true);
+  const tablet = new f.QuantityIcon(); products.append(tablet); tablet.setItem(f.items[1], 1);
+  assert.equal(sourceButton(tablet), null, "produced Summoning tablets do not gain a question mark");
+  sourceButton(ingredient).click(); assert.deepEqual(f.calls, [f.items[0].id]);
+  f.nativeRoot.id = "smithing-container"; product.setItem(f.items[1], 1);
+  assert.equal(sourceButton(product).hidden, false, "the exclusion is limited to Summoning products");
+});
+
 test("provider detection supports Melvor's lexical const mod binding", async () => {
   const source = await readFile(new URL("../item-sources-and-uses.mjs", import.meta.url), "utf8");
   const f = fixture("missing", false, (ctx, game) => {
@@ -293,11 +312,15 @@ test("main artwork remains plain while recipe ingredient and product item icons 
   assert.equal(f.patches.some(([, method]) => ["setUnlocked", "setFishUnlocked", "updateRecipeCosts"].includes(method)), false);
 });
 
-test("question marks are positioned at the top right of recipe item icons", () => {
-  const f = fixture("available", true); f.hooks.interface();
+test("question marks mirror the native shop overlay at the top right", () => {
+  const f = fixture("available", true), icon = new f.QuantityIcon();
+  f.skillRoot.append(icon); icon.setItem(f.items[0], 1); f.hooks.interface();
+  assert.equal(sourceButton(icon).classList.contains("info-icon-overlay"), true);
+  assert.equal(sourceButton(icon).classList.contains("skill-icon-xxs"), true);
   const rule = f.head.querySelector("style").textContent.match(/\.kroky-item-source-button:not\(\[hidden\]\)\s*\{([^}]+)\}/s)?.[1];
-  assert.ok(rule); assert.match(rule, /top:\s*0\s*;/); assert.match(rule, /right:\s*0\s*;/);
-  assert.doesNotMatch(rule, /left:\s*0\s*;/);
+  assert.ok(rule);
+  assert.match(rule, /left:\s*auto\s*;/); assert.match(rule, /right:\s*-6px\s*;/);
+  assert.doesNotMatch(rule, /(?:^|[;\s])(?:position|top|bottom|width|height|margin)\s*:/);
 });
 
 test("Workforce output tiles are enabled while original native Smithing icons remain untouched", () => {

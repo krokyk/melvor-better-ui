@@ -8,6 +8,7 @@ const targets = [
 ].join(",");
 
 const styles = `
+#sidebar .nav-main-link.kroky-sidebar-selected { background-color: #343a46; }
 .kroky-page-pin { display: inline-flex; align-items: center; justify-content: center; gap: .35rem; flex: 0 0 auto; min-width: 32px; min-height: 32px; padding: .3rem .4rem; white-space: nowrap; }
 .kroky-page-pin[aria-pressed="false"] > i { transform: rotate(-45deg); }
 .kroky-page-pin:enabled:is(:hover, :focus-visible) { filter: brightness(1.2); }
@@ -90,8 +91,30 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
   const progressStyles = new Map();
   const cappedXPWidths = new Map();
   const poolGroups = new Map();
+  const sidebarLinks = new Map();
   let summaryStats, masteryOptions, masteryActions, masteryPools, summaryUpgrades;
   let currentPage, container, wrapper, stationary, header, root, button, observer, compactHeader;
+
+  const updateSidebarSelection = page => {
+    for (const [link, original] of sidebarLinks) {
+      link.classList.remove("kroky-sidebar-selected");
+      if (original === null) link.removeAttribute("aria-current");
+      else link.setAttribute("aria-current", original);
+    }
+    sidebarLinks.clear();
+    const navs = typeof skillNav === "undefined" ? undefined : skillNav.navs;
+    const skill = navs?.has(page?.action) ? page.action : page?.skills?.length === 1 ? page.skills[0] : undefined;
+    const pages = game.getPagesForSkill?.(skill);
+    // Native SkillNav creates one entry per page in this same order.
+    for (const [index, { name }] of (navs?.get(skill) ?? []).entries()) {
+      if (pages && pages[index] !== page) continue;
+      const link = name?.closest(".nav-main-link");
+      if (!link || sidebarLinks.has(link)) continue;
+      sidebarLinks.set(link, link.getAttribute("aria-current"));
+      link.classList.add("kroky-sidebar-selected");
+      link.setAttribute("aria-current", "page");
+    }
+  };
 
   const refreshTooltips = node => {
     // Reconnecting native enhancement displays recreates their tooltips without content.
@@ -424,6 +447,7 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
     const page = game.openPage;
     if (page !== currentPage || document.getElementById(page?.containerID) !== container) {
       restore();
+      updateSidebarSelection(page);
       currentPage = page;
       container = document.getElementById(page?.containerID);
     }

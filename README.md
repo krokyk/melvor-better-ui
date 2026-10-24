@@ -4,6 +4,8 @@ Version: **1.1.0**.
 
 Page header pinning, responsive desktop card grids and optional recipe item sources and uses for Melvor Idle, including Kroky's Workforce layouts when installed.
 The mod works independently of Workforce.
+The currently viewed skill has a lighter grey background in the left navigation.
+The highlight follows navigation and works when page pinning is disabled.
 
 Open **Mod Settings → Kroky's Better UI → General → Enable Page Pinning** to enable or disable the feature.
 The setting defaults to on and is saved per character.
@@ -70,9 +72,10 @@ Native production views, Combat, Cooking, Firemaking, Music and Agility retain t
 Below 1,200 pixels the wide-layout setting leaves the existing layout unchanged.
 Disabling the setting restores the normal widths immediately.
 
-Open **Mod Settings → Kroky's Better UI → General → Show Sources and Uses on Recipe Icons** to add a small blue **?** at the top right of ingredient and product item icons in Workforce recipe panels.
+Open **Mod Settings → Kroky's Better UI → General → Show Sources and Uses on Recipe Icons** to add a small blue **?** just outside the top-right corner of ingredient and product item icons in Workforce recipe panels, mirroring the native shop-coin overlay.
 It also covers Workforce's small Woodcutting, Mining and Fishing product/stock tiles and native Firemaking and Cooking recipe item icons.
 Main card artwork stays plain.
+Produced Summoning tablets have no **?**; their ingredients and other skills' products retain their shortcuts.
 Other native views, including Smithing and Fletching recipe-selection lists, stay unchanged.
 The setting defaults to off and is saved per character.
 Clicking **?** opens the item's dialog from [Show Item Sources And Uses](https://mod.io/g/melvoridle/m/show-item-sources-and-uses); ordinary icon clicks keep their existing behavior.

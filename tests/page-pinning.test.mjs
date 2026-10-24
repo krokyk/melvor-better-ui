@@ -3,7 +3,7 @@ import { afterEach, test } from "node:test";
 import { installPagePinning } from "../page-pinning.mjs";
 
 afterEach(() => {
-  for (const name of ["document", "window", "getComputedStyle", "ResizeObserver", "$", "tippy"]) delete globalThis[name];
+  for (const name of ["document", "window", "getComputedStyle", "ResizeObserver", "$", "tippy", "skillNav"]) delete globalThis[name];
 });
 
 class Element {
@@ -65,6 +65,7 @@ class Element {
   }
   querySelectorAll(selector) { return this.childNodes.flatMap(node => [...(node.matches(selector) ? [node] : []), ...node.querySelectorAll(selector)]); }
   querySelector(selector) { return this.querySelectorAll(selector)[0] ?? null; }
+  closest(selector) { return this.matches(selector) ? this : this.parentElement?.closest(selector) ?? null; }
   compareDocumentPosition(node) {
     let top = this;
     while (top.parentNode) top = top.parentNode;
@@ -73,6 +74,55 @@ class Element {
     return all.indexOf(this) < all.indexOf(node) ? 4 : 2;
   }
 }
+
+test("viewed skill has a grey sidebar fill independent of pinning and restores prior navigation state", () => {
+  const smithing = {}, fishing = {}, sidebar = new Element(), smithingLink = new Element("a"), fishingLink = new Element("a");
+  sidebar.id = "sidebar";
+  smithingLink.className = fishingLink.className = "nav-main-link";
+  smithingLink.setAttribute("aria-current", "step");
+  const smithingName = new Element("span"), fishingName = new Element("span");
+  smithingName.className = "text-success";
+  smithingLink.append(smithingName); fishingLink.append(fishingName); sidebar.append(smithingLink, fishingLink);
+  globalThis.skillNav = { navs: new Map([[smithing, [{ name: smithingName }, { name: smithingName }]], [fishing, [{ name: fishingName }]]]) };
+  const f = fixture([], false, () => false);
+  f.html.querySelector("body").append(sidebar);
+  f.skill.page.action = smithing; f.game.openPage = f.skill.page; f.update();
+  assert.equal(smithingLink.classList.contains("kroky-sidebar-selected"), true);
+  assert.equal(smithingLink.getAttribute("aria-current"), "page");
+  assert.equal(smithingName.className, "text-success", "gameplay-active text colours are preserved");
+  assert.equal(f.root.classList.contains("kroky-page-pinned"), false);
+  const rule = f.html.querySelector("style").textContent.match(/#sidebar \.nav-main-link\.kroky-sidebar-selected\s*\{([^}]+)\}/)?.[1];
+  assert.match(rule ?? "", /background-color:\s*#343a46/);
+  assert.doesNotMatch(rule, /outline|border|box-shadow/);
+  const second = f.page("Fishing"); second.page.action = fishing; f.game.openPage = second.page; f.update();
+  assert.equal(smithingLink.classList.contains("kroky-sidebar-selected"), false);
+  assert.equal(smithingLink.getAttribute("aria-current"), "step");
+  assert.equal(fishingLink.classList.contains("kroky-sidebar-selected"), true);
+  assert.equal(fishingLink.getAttribute("aria-current"), "page");
+  f.game.openPage = f.page("Bank", false).page; f.update();
+  assert.equal(f.html.querySelectorAll(".kroky-sidebar-selected").length, 0);
+  assert.equal(fishingLink.getAttribute("aria-current"), null);
+  f.game.openPage = { id: "mod:SingleSkill", skills: [smithing] }; f.update();
+  assert.equal(smithingLink.classList.contains("kroky-sidebar-selected"), true, "single-skill pages without an action are supported");
+  f.game.openPage = { id: "melvorD:Combat", action: {}, skills: [smithing, fishing] }; f.update();
+  assert.equal(f.html.querySelectorAll(".kroky-sidebar-selected").length, 0, "shared Combat pages do not guess an individual skill");
+});
+
+test("a skill shared by Combat and Alt Magic highlights only the viewed page's sidebar row", () => {
+  const f = fixture([], false, () => false), magic = {}, combat = f.page("Combat", false), altMagic = f.page("AltMagic");
+  const combatLink = new Element("a"), altMagicLink = new Element("a"), combatName = new Element("span"), altMagicName = new Element("span");
+  combatLink.className = altMagicLink.className = "nav-main-link";
+  combatLink.append(combatName); altMagicLink.append(altMagicName); f.html.querySelector("body").append(combatLink, altMagicLink);
+  globalThis.skillNav = { navs: new Map([[magic, [{ name: combatName }, { name: altMagicName }]]]) };
+  f.game.getPagesForSkill = skill => skill === magic ? [combat.page, altMagic.page] : undefined;
+  altMagic.page.action = magic; f.game.openPage = altMagic.page; f.update();
+  assert.equal(altMagicLink.classList.contains("kroky-sidebar-selected"), true);
+  assert.equal(altMagicLink.getAttribute("aria-current"), "page");
+  assert.equal(combatLink.classList.contains("kroky-sidebar-selected"), false);
+  assert.equal(combatLink.getAttribute("aria-current"), null);
+  f.game.openPage = f.page("Bank", false).page; f.update();
+  assert.equal(altMagicLink.getAttribute("aria-current"), null);
+});
 
 function fixture(initialStorage = [], initialPage = true, isEnabled = () => true, isCompactHeaderEnabled = () => true) {
   const html = new Element("html"), head = new Element("head"), body = new Element("body");

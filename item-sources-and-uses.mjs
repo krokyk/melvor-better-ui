@@ -26,7 +26,7 @@ export function installItemSourcesAndUses(ctx, game) {
       const hint = document.createElement("small");
       hint.className = "d-block";
       hint.textContent = available
-        ? "Add a blue ? to the top right of recipe ingredient and product icons. Main artwork and shop coin shortcuts stay unchanged."
+        ? "Add a blue ? just outside the top-right corner of recipe item icons, mirroring the shop-coin overlay. Main artwork and shop coin shortcuts stay unchanged."
         : unavailable;
       label.append(hint);
       root.append(input, label);
@@ -54,12 +54,13 @@ export function installItemSourcesAndUses(ctx, game) {
     const binding = bindings.get(image);
     if (!binding || !image.closest(recipeAreas)) return;
     const item = binding.item;
-    const eligible = item && !binding.quickBuy && !image.classList.contains("kroky-production-image");
+    const summoningProduct = image.closest("#summoning-container") && image.closest(".kroky-production-products");
+    const eligible = item && !binding.quickBuy && !summoningProduct && !image.classList.contains("kroky-production-image");
     if (!eligible && !binding.button) return;
     if (!binding.button) {
       const button = document.createElement("button");
       button.type = "button";
-      button.className = "kroky-item-source-button btn btn-link text-info p-0";
+      button.className = "kroky-item-source-button info-icon-overlay skill-icon-xxs btn btn-link text-info p-0";
       button.textContent = "?";
       for (const event of ["click", "dblclick", "keydown", "keyup"]) button.addEventListener(event, event => event.stopPropagation());
       button.addEventListener("click", event => {
@@ -127,7 +128,7 @@ export function installItemSourcesAndUses(ctx, game) {
       style.id = "kroky-item-sources-style";
       style.textContent = `
         .kroky-item-source-button { display: none; }
-        .kroky-item-sources-enabled .kroky-item-source-button:not([hidden]) { display: block; position: absolute; top: 0; right: 0; z-index: 1; width: 18px; height: 18px; line-height: 18px; font-size: 14px; font-weight: bold; border-radius: 50%; background: #232a35; text-decoration: none; }
+        .kroky-item-sources-enabled .kroky-item-source-button:not([hidden]) { display: block; left: auto; right: -6px; z-index: 1; border: 0; line-height: 1; font-size: .875rem; font-weight: bold; border-radius: 50%; background: #232a35; text-decoration: none; }
       `;
       document.head.append(style);
     }
