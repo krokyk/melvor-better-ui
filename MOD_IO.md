@@ -45,7 +45,10 @@ The setting works independently of pinning, defaults to on and is saved per char
 It applies at viewport widths of 1,200 pixels and above; narrower screens keep their existing layout.
 Native production views, Combat, Cooking, Firemaking, Music and Agility retain their normal page widths.
 
-**General → Show Sources and Uses on Recipe Icons** adds a small blue **?** to item output and ingredient icons on native and Workforce skill cards.
+**General → Show Sources and Uses on Recipe Icons** adds a small blue **?** at the top right of ingredient and product item icons in Workforce recipe panels.
+It also covers Workforce's small Woodcutting, Mining and Fishing product/stock tiles and native Firemaking and Cooking recipe item icons.
+Main card artwork stays plain.
+Other native views, including Smithing and Fletching recipe-selection lists, stay unchanged.
 It defaults to off and is saved per character.
 Clicking **?** opens the item's dialog from [Show Item Sources And Uses](https://mod.io/g/melvoridle/m/show-item-sources-and-uses), calculating the information only when clicked.
 Ordinary icon clicks keep their existing behavior, and ingredients with a gold shop-coin overlay keep Quick Buy without a **?**.
@@ -70,7 +73,9 @@ The mod works independently of Workforce and also pins Workforce's controls and 
 
 ### 1.1.0
 
-- Add an optional, per-character toggle for sources-and-uses buttons on native and Workforce recipe output and ingredient icons.
+- Add an optional, per-character toggle for blue **?** buttons at the top right of ingredient and product item icons in Workforce recipe panels.
+- Include Workforce's small Woodcutting, Mining and Fishing product/stock tiles and native Firemaking and Cooking recipe item icons.
+- Keep main card artwork and other native views unchanged.
 - Open the existing Show Item Sources And Uses dialog on demand without changing ordinary icon actions.
 - Keep gold shop-coin ingredients on Quick Buy and skip icons without a specific item.
 - Disable the toggle with an explanation when the optional provider is unavailable or incompatible, while preserving its saved preference.

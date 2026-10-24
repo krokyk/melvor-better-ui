@@ -70,7 +70,10 @@ Native production views, Combat, Cooking, Firemaking, Music and Agility retain t
 Below 1,200 pixels the wide-layout setting leaves the existing layout unchanged.
 Disabling the setting restores the normal widths immediately.
 
-Open **Mod Settings → Kroky's Better UI → General → Show Sources and Uses on Recipe Icons** to add a small blue **?** to item output and ingredient icons on native and Workforce skill cards.
+Open **Mod Settings → Kroky's Better UI → General → Show Sources and Uses on Recipe Icons** to add a small blue **?** at the top right of ingredient and product item icons in Workforce recipe panels.
+It also covers Workforce's small Woodcutting, Mining and Fishing product/stock tiles and native Firemaking and Cooking recipe item icons.
+Main card artwork stays plain.
+Other native views, including Smithing and Fletching recipe-selection lists, stay unchanged.
 The setting defaults to off and is saved per character.
 Clicking **?** opens the item's dialog from [Show Item Sources And Uses](https://mod.io/g/melvoridle/m/show-item-sources-and-uses); ordinary icon clicks keep their existing behavior.
 Ingredients with a gold shop-coin overlay keep Quick Buy without a **?**.

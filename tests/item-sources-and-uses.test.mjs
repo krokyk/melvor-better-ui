@@ -20,7 +20,6 @@ class Element {
       toggle: (name, value) => value ? this.classList.add(name) : this.classList.remove(name),
     };
   }
-  get lastElementChild() { return this.children.at(-1); }
   append(...nodes) {
     for (const node of nodes) { node.remove(); this.children.push(node); node.parentElement = this; }
   }
@@ -28,13 +27,12 @@ class Element {
     if (this.parentElement) this.parentElement.children.splice(this.parentElement.children.indexOf(this), 1);
     this.parentElement = undefined;
   }
-  replaceWith(node) {
-    const parent = this.parentElement, index = parent.children.indexOf(this);
-    node.remove(); parent.children[index] = node; node.parentElement = parent; this.parentElement = undefined;
-  }
   matches(selector) {
-    return selector.startsWith(".") ? this.classList.contains(selector.slice(1))
-      : selector.startsWith("#") ? this.id === selector.slice(1) : this.tagName.toLowerCase() === selector;
+    return selector.split(",").some(value => {
+      value = value.trim();
+      return value.startsWith(".") ? this.classList.contains(value.slice(1))
+        : value.startsWith("#") ? this.id === value.slice(1) : this.tagName.toLowerCase() === value;
+    });
   }
   closest(selector) { return this.matches(selector) ? this : this.parentElement?.closest(selector); }
   querySelectorAll(selector) { return this.children.flatMap(node => [...(node.matches(selector) ? [node] : []), ...node.querySelectorAll(selector)]); }
@@ -55,12 +53,13 @@ class Element {
 }
 
 function fixture(provider = "available", saved = false, install = installItemSourcesAndUses) {
-  const html = new Element("html"), head = new Element("head"), page = new Element(), skillRoot = new Element();
-  page.id = "page-container"; skillRoot.id = "smithing-container"; html.append(head, page); page.append(skillRoot);
+  const html = new Element("html"), head = new Element("head"), page = new Element(), nativeRoot = new Element(), workforce = new Element("section"), skillRoot = new Element();
+  page.id = "page-container"; nativeRoot.id = "smithing-container"; workforce.className = "kroky-production"; skillRoot.className = "kroky-production-recipe-details";
+  html.append(head, page); page.append(nativeRoot); nativeRoot.append(workforce); workforce.append(skillRoot);
   const items = ["Iron", "Coal", "ShopIngredient", "PotionI", "PotionIV"].map(name => ({ id: `test:${name}`, name }));
   items[2].buyable = true;
   const calls = [], observers = [], patches = [], hooks = {}, fields = new Map(), values = new Map();
-  globalThis.document = { head, createElement: tag => new Element(tag), getElementById: id => html.querySelector(`#${id}`) };
+  globalThis.document = { head, createElement: tag => new Element(tag), getElementById: id => html.querySelector(`#${id}`), querySelectorAll: selector => html.querySelectorAll(selector) };
   globalThis.MutationObserver = class {
     constructor(callback) { this.callback = callback; this.nodes = new Map(); observers.push(this); }
     observe(node, options) { this.nodes.set(node, options); }
@@ -69,9 +68,6 @@ function fixture(provider = "available", saved = false, install = installItemSou
   globalThis.Game = class { decode(value) { values.set("recipe-item-sources-enabled", value); } render() {} };
   const game = new Game();
   game.items = { getObjectByID: id => items.find(item => item.id === id) };
-  game.shop = { getQuickBuyPurchase: item => item?.buyable ? { item } : undefined };
-  game.skills = [{ name: "Smithing" }];
-  game.getPagesForSkill = () => [{ containerID: skillRoot.id }];
   game.herblore = { tier: 0, getPotionTier() { return this.tier; } };
   if (provider === "available") globalThis.mod = { api: { ShowItemSourcesAndUses: { showList(id) { calls.push(id); } } } };
   else if (provider === "incompatible") globalThis.mod = { api: { ShowItemSourcesAndUses: { showList: true } } };
@@ -96,22 +92,17 @@ function fixture(provider = "available", saved = false, install = installItemSou
       this.autoBuyIcon.classList.toggle("d-none", !(allowQuickBuy && item?.buyable));
     }
   }
-  class RecipeCosts extends Element {
-    constructor() { super("recipe-option"); this.recipeCost = new Element("span"); this.append(this.recipeCost); }
-    getRecipeIngredients(recipe) {
-      return { getItemQuantityArray: () => recipe.itemCosts, getCurrencyQuantityArray: () => recipe.currencyCosts };
-    }
-    updateRecipeCosts(recipe, skill) {
-      const costs = this.getRecipeIngredients(recipe, skill);
-      for (const node of [...this.recipeCost.children]) node.remove();
-      for (const { item, currency } of [...costs.getItemQuantityArray(), ...costs.getCurrencyQuantityArray()]) {
-        const image = new Element("img"); image.alt = (item ?? currency).name; this.recipeCost.append(image);
-      }
-      return "native cost result";
-    }
+  class ChanceIcon extends QuantityIcon {
+    constructor() { super(); this.tagName = "ITEM-CHANCE-ICON"; }
+    setItem(item) { this.item = item; }
   }
-  class RecipeOption extends RecipeCosts {
-    constructor() { super(); this.tagName = "ITEM-RECIPE-OPTION"; this.recipeImage = new Element("img"); this.append(this.recipeImage); }
+  class StockpileIcon extends QuantityIcon {
+    constructor() { super(); this.tagName = "COOKING-STOCKPILE-ICON"; }
+    setItem(item) { this.item = item; }
+    unsetItem() { this.item = undefined; }
+  }
+  class RecipeOption extends Element {
+    constructor() { super("item-recipe-option"); this.recipeImage = new Element("img"); this.append(this.recipeImage); }
     setUnlocked(recipe) { this.recipeImage.alt = recipe.product?.name; }
   }
   class HerbloreOption extends Element {
@@ -123,7 +114,7 @@ function fixture(provider = "available", saved = false, install = installItemSou
     setFishUnlocked(fish) { this.fishImage.alt = fish.product.name; }
     setFishLocked() { this.fishImage.alt = "Locked"; }
   }
-  const classes = new Map([["item-quantity-icon", QuantityIcon], ["item-current-icon", CurrentIcon], ["recipe-option", RecipeCosts], ["item-recipe-option", RecipeOption],
+  const classes = new Map([["item-quantity-icon", QuantityIcon], ["item-current-icon", CurrentIcon], ["item-chance-icon", ChanceIcon], ["cooking-stockpile-icon", StockpileIcon], ["item-recipe-option", RecipeOption],
     ["herblore-recipe-option", HerbloreOption], ["fishing-area-menu-button", FishOption]]);
   globalThis.customElements = { get: tag => classes.get(tag) };
   const ctx = {
@@ -158,7 +149,7 @@ function fixture(provider = "available", saved = false, install = installItemSou
   install(ctx, game);
   const field = fields.get("recipe-item-sources-enabled");
   const toggle = enabled => { const input = field.root.querySelector("input"); input.checked = enabled; input.dispatch("change"); };
-  return { game, items, calls, observers, patches, hooks, field, values, page, skillRoot, head, QuantityIcon, CurrentIcon, RecipeOption, HerbloreOption, FishOption, toggle };
+  return { game, items, calls, observers, patches, hooks, field, values, page, nativeRoot, workforce, skillRoot, head, QuantityIcon, CurrentIcon, ChanceIcon, StockpileIcon, RecipeOption, HerbloreOption, FishOption, toggle };
 }
 
 function sourceButton(icon) { return icon.querySelector(".kroky-item-source-button"); }
@@ -196,7 +187,7 @@ test("the available integration starts off, restores per-character settings and 
   f.hooks.interface(); assert.equal(sourceButton(icon), null); assert.equal(f.observers.length, 0);
   assert.equal(typeof f.field.config.onChange("true"), "string");
   f.toggle(true); assert.ok(sourceButton(icon)); assert.equal(f.page.classList.contains("kroky-item-sources-enabled"), true);
-  assert.equal(f.observers.length, 1); assert.deepEqual(f.observers[0].nodes.get(f.skillRoot), { childList: true, subtree: true });
+  assert.equal(f.observers.length, 1); assert.deepEqual(f.observers[0].nodes.get(f.workforce), { childList: true, subtree: true });
   f.toggle(false); assert.equal(f.page.classList.contains("kroky-item-sources-enabled"), false);
   assert.equal(f.observers[0].nodes.size, 0);
   sourceButton(icon).click(); assert.deepEqual(f.calls, [], "a disabled feature cannot invoke the provider through retained markup");
@@ -244,6 +235,23 @@ test("shared native icon images keep their direct-child sizing and original orde
   assert.deepEqual(icon.container.children, [icon.itemImage, icon.autoBuyIcon, sourceButton(icon)]);
 });
 
+test("visible source buttons stay accessible after Workforce restores an image role during item updates", () => {
+  const f = fixture("available", true), product = new f.QuantityIcon(), hero = new f.CurrentIcon();
+  const quantity = new Element("small"); product.container.append(quantity); hero.itemImage.classList.add("kroky-production-image");
+  f.skillRoot.append(product, hero); product.container.setAttribute("role", "img"); hero.container.setAttribute("role", "img");
+  product.setItem(f.items[0], 1); hero.setItem(f.items[0], 0, f.game); f.hooks.interface();
+  assert.equal(product.container.getAttribute("role"), "group", "a visible nested button is exposed to assistive technology");
+  product.setItem(f.items[1], 2); product.container.setAttribute("role", "img"); quantity.textContent = "2";
+  f.observers[0].callback([{ target: quantity, addedNodes: [{ nodeType: 3 }] }]);
+  assert.equal(product.container.getAttribute("role"), "group", "the native quantity mutation repairs a later Workforce role overwrite");
+  assert.equal(hero.container.getAttribute("role"), "img"); assert.equal(sourceButton(hero), null);
+  product.setItem(f.items[2], 1, true); product.container.setAttribute("role", "img");
+  f.observers[0].callback([{ target: quantity, addedNodes: [{ nodeType: 3 }] }, { target: hero.container, addedNodes: [] }]);
+  assert.equal(sourceButton(product).hidden, true); assert.equal(product.container.getAttribute("role"), "img");
+  assert.equal(hero.container.getAttribute("role"), "img", "main artwork without a button keeps its native role");
+  assert.deepEqual(f.calls, [], "accessibility updates never request item information");
+});
+
 test("detached bindings decorate when cards mount, while other pages and text-only updates are ignored", () => {
   const f = fixture("available", true); f.hooks.interface();
   const detached = new f.QuantityIcon(); detached.setItem(f.items[0], 1);
@@ -257,43 +265,69 @@ test("detached bindings decorate when cards mount, while other pages and text-on
   assert.deepEqual(f.calls, [], "binding and scanning never calculate sources or uses");
 });
 
-test("only registered concrete items receive a button, and reused locked recipe artwork loses its old action", () => {
+test("only registered concrete items receive a button and stale item bindings cannot open a dialog", () => {
   const f = fixture("available", true); f.hooks.interface();
   const icon = new f.QuantityIcon(); f.skillRoot.append(icon);
   icon.setItem({ id: f.items[0].id, name: "Unregistered clone" }, 1); assert.equal(sourceButton(icon), null);
   icon.setItem({ id: "test:Missing", name: "Spell artwork" }, 1); assert.equal(sourceButton(icon), null);
-  const fish = new f.FishOption(); f.skillRoot.append(fish); fish.setFishUnlocked({ product: f.items[0] });
-  const button = sourceButton(fish); assert.ok(button);
-  fish.setFishLocked(); assert.equal(button.hidden, true); button.click(); assert.deepEqual(f.calls, []);
-  fish.setFishUnlocked({ product: f.items[1] }); assert.equal(button.hidden, false); button.click(); assert.deepEqual(f.calls, [f.items[1].id]);
+  icon.setItem(f.items[0], 1); const button = sourceButton(icon); assert.ok(button);
+  icon.setItem({ id: "test:Missing", name: "Removed item" }, 1);
+  assert.equal(button.hidden, true); button.click(); assert.deepEqual(f.calls, []);
+  icon.setItem(f.items[1], 1); assert.equal(button.hidden, false); button.click(); assert.deepEqual(f.calls, [f.items[1].id]);
 });
 
-test("native recipe selection resolves its product and Herblore uses the currently displayed potion tier", () => {
-  const f = fixture("available", true), ordinary = new f.RecipeOption(), potion = new f.HerbloreOption();
-  f.skillRoot.append(ordinary, potion); ordinary.setUnlocked({ product: f.items[0] });
+test("main artwork remains plain while recipe ingredient and product item icons receive buttons", () => {
+  const f = fixture("available", true), ordinary = new f.RecipeOption(), potion = new f.HerbloreOption(), fish = new f.FishOption();
+  const hero = new f.CurrentIcon(), product = new f.QuantityIcon();
+  hero.classList.add("kroky-production-stock"); hero.itemImage.classList.add("kroky-production-image");
+  f.skillRoot.append(ordinary, potion, fish, hero, product); ordinary.setUnlocked({ product: f.items[0] });
   const recipe = { id: "test:PotionRecipe", potions: [f.items[3], f.items[4]] };
-  potion.setUnlocked(recipe); f.hooks.interface();
-  sourceButton(ordinary).click(); sourceButton(potion).click();
-  assert.deepEqual(f.calls, [f.items[0].id, f.items[3].id]);
-  f.game.herblore.tier = 1; potion.setUnlocked(recipe); sourceButton(potion).click();
-  assert.equal(f.calls.at(-1), f.items[4].id); assert.equal(potion.querySelectorAll(".kroky-item-source-button").length, 1);
+  potion.setUnlocked(recipe); fish.setFishUnlocked({ product: f.items[0] }); hero.setItem(f.items[3], 0, f.game); product.setItem(f.items[3], 1);
+  f.hooks.interface();
+  for (const art of [ordinary, potion, fish, hero]) assert.equal(sourceButton(art) === null, true, "main artwork never receives a question mark");
+  assert.equal(ordinary.recipeImage.parentElement, ordinary); assert.equal(potion.recipeImage.parentElement, potion);
+  assert.equal(fish.fishImage.parentElement, fish); assert.equal(hero.itemImage.parentElement, hero.container);
+  sourceButton(product).click(); assert.deepEqual(f.calls, [f.items[3].id]);
+  f.game.herblore.tier = 1; potion.setUnlocked(recipe); product.setItem(f.items[4], 1); sourceButton(product).click();
+  assert.equal(f.calls.at(-1), f.items[4].id); assert.equal(sourceButton(potion), null);
+  assert.equal(f.patches.some(([, method]) => ["setUnlocked", "setFishUnlocked", "updateRecipeCosts"].includes(method)), false);
 });
 
-test("native recipe cost images resolve ordered ingredients, exclude shop items and leave currency images untouched", () => {
-  const f = fixture("available", true), option = new f.RecipeOption(); f.skillRoot.append(option); f.hooks.interface();
-  let nativeSelections = 0; option.onclick = () => nativeSelections++;
-  const recipe = { itemCosts: [{ item: f.items[1], quantity: 2 }, { item: f.items[2], quantity: 1 }],
-    currencyCosts: [{ currency: { name: "GP" }, quantity: 100 }] };
-  assert.equal(option.updateRecipeCosts(recipe, f.game.skills[0]), "native cost result");
-  const [ingredient, shopIngredient, currency] = option.recipeCost.querySelectorAll("img");
-  assert.equal(ingredient.alt, "Coal"); assert.equal(shopIngredient.alt, "ShopIngredient"); assert.equal(currency.alt, "GP");
-  const button = sourceButton(ingredient.parentElement); assert.ok(button);
-  assert.equal(shopIngredient.parentElement, option.recipeCost, "shop ingredients retain their native markup without a question mark");
-  assert.equal(currency.parentElement, option.recipeCost, "a trailing currency image is never treated as an item");
-  assert.equal(option.recipeCost.querySelectorAll(".kroky-item-source-button").length, 1);
-  button.click(); assert.deepEqual(f.calls, [f.items[1].id]); assert.equal(nativeSelections, 0);
-  ingredient.click(); assert.equal(nativeSelections, 1, "ordinary ingredient clicks still select the native recipe");
-  recipe.itemCosts = [{ item: f.items[0], quantity: 1 }]; option.updateRecipeCosts(recipe, f.game.skills[0]);
-  assert.equal(option.recipeCost.querySelectorAll(".kroky-item-source-button").length, 1);
-  sourceButton(option.recipeCost).click(); assert.equal(f.calls.at(-1), f.items[0].id);
+test("question marks are positioned at the top right of recipe item icons", () => {
+  const f = fixture("available", true); f.hooks.interface();
+  const rule = f.head.querySelector("style").textContent.match(/\.kroky-item-source-button:not\(\[hidden\]\)\s*\{([^}]+)\}/s)?.[1];
+  assert.ok(rule); assert.match(rule, /top:\s*0\s*;/); assert.match(rule, /right:\s*0\s*;/);
+  assert.doesNotMatch(rule, /left:\s*0\s*;/);
+});
+
+test("Workforce output tiles are enabled while original native Smithing icons remain untouched", () => {
+  const f = fixture("available", true), original = new f.QuantityIcon(); f.nativeRoot.append(original); original.setItem(f.items[0], 1);
+  const outputs = [];
+  for (const [id, stockClass] of [["woodcutting-tree-container", "kroky-woodcutting-stock"], ["mining-ores-container", "kroky-mining-stock"], ["fishing-area-menu-container", "kroky-fishing-stock"]]) {
+    const area = new Element(), stock = new f.CurrentIcon(); area.id = id; stock.className = stockClass;
+    f.page.append(area); area.append(stock); stock.setItem(f.items[0], 0, f.game); outputs.push(stock);
+  }
+  f.hooks.interface();
+  assert.equal(sourceButton(original), null); assert.equal(original.itemImage.parentElement, original.container);
+  assert.equal(f.observers[0].nodes.has(f.nativeRoot), false, "the original Smithing page is not observed");
+  for (const stock of outputs) { assert.ok(sourceButton(stock)); sourceButton(stock).click(); }
+  assert.deepEqual(f.calls, [f.items[0].id, f.items[0].id, f.items[0].id]);
+});
+
+test("native Firemaking and Cooking ingredients and products are supported without decorating shop shortcuts", () => {
+  const f = fixture("available", true), nativeIcons = [];
+  for (const id of ["firemaking-container", "cooking-container"]) {
+    const area = new Element(); area.id = id; f.page.append(area);
+    const ingredient = new f.QuantityIcon(), product = new f.ChanceIcon(), stockpile = new f.StockpileIcon(), shop = new f.QuantityIcon();
+    area.append(ingredient, product, stockpile, shop); ingredient.setItem(f.items[0], 1); product.setItem(f.items[1]); stockpile.setItem(f.items[3]); shop.setItem(f.items[2], 1, true);
+    nativeIcons.push({ area, ingredient, product, stockpile, shop });
+  }
+  f.hooks.interface();
+  for (const { area, ingredient, product, stockpile, shop } of nativeIcons) {
+    assert.equal(f.observers[0].nodes.has(area), true);
+    for (const icon of [ingredient, product, stockpile]) { assert.ok(sourceButton(icon)); assert.equal(icon.itemImage.parentElement, icon.container); }
+    assert.equal(sourceButton(shop), null);
+    sourceButton(product).click(); assert.equal(f.calls.at(-1), f.items[1].id);
+    stockpile.unsetItem(); assert.equal(sourceButton(stockpile).hidden, true);
+  }
 });

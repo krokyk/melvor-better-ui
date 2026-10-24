@@ -1,12 +1,14 @@
 const settingName = "recipe-item-sources-enabled";
 const unavailable = "Requires Show Item Sources And Uses to be installed and enabled with a compatible API. Reload after changing mods.";
+const recipeAreas = ".kroky-production-recipe-details, .kroky-woodcutting-stock, .kroky-mining-stock, .kroky-fishing-stock, #firemaking-container, #cooking-container";
+const observedAreas = ".kroky-production, #woodcutting-tree-container, #mining-ores-container, #fishing-area-menu-container, #firemaking-container, #cooking-container";
 
 export function installItemSourcesAndUses(ctx, game) {
   const getProvider = () => typeof mod === "undefined" ? undefined : mod.api?.ShowItemSourcesAndUses;
   const available = typeof getProvider()?.showList === "function";
   const settings = ctx.settings.section("General");
   let enabled = false, ready = false, observer;
-  const bindings = new WeakMap(), roots = new Set();
+  const bindings = new WeakMap();
 
   settings.add({
     type: "custom", name: settingName, label: "Show Sources and Uses on Recipe Icons", default: false,
@@ -24,7 +26,7 @@ export function installItemSourcesAndUses(ctx, game) {
       const hint = document.createElement("small");
       hint.className = "d-block";
       hint.textContent = available
-        ? "Add a blue ? to recipe items and ingredients. Shop coin shortcuts keep their Quick Buy action."
+        ? "Add a blue ? to the top right of recipe ingredient and product icons. Main artwork and shop coin shortcuts stay unchanged."
         : unavailable;
       label.append(hint);
       root.append(input, label);
@@ -41,20 +43,20 @@ export function installItemSourcesAndUses(ctx, game) {
   });
   if (!available) return;
 
+  function exposeButton(container) {
+    // Image roles hide their children from assistive technology.
+    if (container?.getAttribute("role") !== "img") return;
+    const button = container.querySelector(".kroky-item-source-button");
+    if (button && !button.hidden) container.setAttribute("role", "group");
+  }
+
   function decorate(image) {
     const binding = bindings.get(image);
-    if (!binding || !image.closest(".kroky-item-sources-skill")) return;
+    if (!binding || !image.closest(recipeAreas)) return;
     const item = binding.item;
-    const eligible = item && !binding.quickBuy;
+    const eligible = item && !binding.quickBuy && !image.classList.contains("kroky-production-image");
     if (!eligible && !binding.button) return;
     if (!binding.button) {
-      const nativeIcon = image.parentElement.classList.contains("info-icon");
-      const wrapper = nativeIcon ? image.parentElement : document.createElement("span");
-      if (!nativeIcon) {
-        wrapper.className = "kroky-item-source-icon";
-        image.replaceWith(wrapper);
-        wrapper.append(image);
-      }
       const button = document.createElement("button");
       button.type = "button";
       button.className = "kroky-item-source-button btn btn-link text-info p-0";
@@ -70,7 +72,7 @@ export function installItemSourcesAndUses(ctx, game) {
           SwalLocale.fire({ icon: "error", title: "Sources and uses unavailable", text: "Show Item Sources And Uses could not display this item." });
         }
       });
-      wrapper.append(button);
+      image.parentElement.append(button);
       binding.button = button;
     }
     const button = binding.button;
@@ -81,6 +83,7 @@ export function installItemSourcesAndUses(ctx, game) {
         button.title = label;
         button.setAttribute("aria-label", label);
       }
+      exposeButton(image.parentElement);
     }
   }
 
@@ -99,20 +102,6 @@ export function installItemSourcesAndUses(ctx, game) {
     ["item-chance-icon", "setItem", "itemImage", item => item],
     ["cooking-stockpile-icon", "setItem", "itemImage", item => item],
     ["cooking-stockpile-icon", "unsetItem", "itemImage", () => undefined],
-    ["artisan-menu", "setProduct", "productImage", item => item],
-    ["item-recipe-option", "setUnlocked", "recipeImage", recipe => recipe.product],
-    ["herblore-recipe-option", "setUnlocked", "recipeImage", recipe => recipe.potions[game.herblore.getPotionTier(recipe)]],
-    ["woodcutting-tree", "setTree", "treeImage", tree => tree.product],
-    ["mining-rock", "setRock", "rockImage", rock => rock.product],
-    ["fishing-area-menu-button", "setFishUnlocked", "fishImage", fish => fish.product],
-    ["fishing-area-menu-button", "setFishLocked", "fishImage", () => undefined],
-    ["fishing-area-menu", "setSelectedFish", "fishImage", fish => fish.product],
-    ["fishing-area-menu", "setUnselected", "fishImage", () => undefined],
-    ["cooking-menu", "setSelectedRecipe", "productImage", recipe => recipe?.product],
-    ["cooking-recipe-selection", "setRecipe", "productImage", recipe => recipe.product],
-    ["harvesting-vein-product", "setProduct", "productImage", product => product.item],
-    ["farming-plot", "updatePlotState", "seedImage", plot => plot.state === 2 ? plot.plantedRecipe?.seedCost.item : plot.state === 3 ? plot.plantedRecipe?.product : undefined],
-    ["farming-plot", "updateSelectedSeed", "selectSeedDropdownImage", plot => plot.selectedRecipe?.seedCost.item],
   ];
   for (const [tag, method, field, getItem, hasCoin] of hooks) {
     const Class = customElements.get(tag);
@@ -122,21 +111,6 @@ export function installItemSourcesAndUses(ctx, game) {
       bind(this[field], getItem(target), coin && !coin.hidden && !coin.classList.contains("d-none"));
     });
   }
-  const RecipeOption = customElements.get("recipe-option");
-  if (typeof RecipeOption?.prototype.updateRecipeCosts === "function") {
-    ctx.patch(RecipeOption, "updateRecipeCosts").after(function (_result, recipe, skill) {
-      const items = this.getRecipeIngredients(recipe, skill).getItemQuantityArray();
-      this.recipeCost.querySelectorAll("img").forEach((image, index) => {
-        const item = items[index]?.item;
-        bind(image, item, item && game.shop.getQuickBuyPurchase(item) !== undefined);
-      });
-    });
-  }
-  const Constellation = customElements.get("constellation-menu");
-  if (typeof Constellation?.prototype.createRewardItemIcon === "function") {
-    ctx.patch(Constellation, "createRewardItemIcon").after(function (_result, item) { bind(this.rewardsContainer.lastElementChild, item); });
-  }
-
   function scan(node) {
     if (node.nodeType !== 1) return;
     if (node.tagName === "IMG") decorate(node);
@@ -152,23 +126,18 @@ export function installItemSourcesAndUses(ctx, game) {
       const style = document.createElement("style");
       style.id = "kroky-item-sources-style";
       style.textContent = `
-        .kroky-item-source-icon { display: contents; }
         .kroky-item-source-button { display: none; }
-        .kroky-item-sources-enabled .kroky-item-source-icon { display: inline-flex; position: relative; vertical-align: middle; }
-        .kroky-item-sources-enabled .kroky-item-source-button:not([hidden]) { display: block; position: absolute; top: 0; left: 0; z-index: 1; width: 18px; height: 18px; line-height: 18px; font-size: 14px; font-weight: bold; border-radius: 50%; background: #232a35; text-decoration: none; }
+        .kroky-item-sources-enabled .kroky-item-source-button:not([hidden]) { display: block; position: absolute; top: 0; right: 0; z-index: 1; width: 18px; height: 18px; line-height: 18px; font-size: 14px; font-weight: bold; border-radius: 50%; background: #232a35; text-decoration: none; }
       `;
       document.head.append(style);
     }
-    game.skills.forEach(skill => {
-      for (const page of game.getPagesForSkill(skill) ?? []) {
-        const root = document.getElementById(page.containerID);
-        if (root) { root.classList.add("kroky-item-sources-skill"); roots.add(root); }
+    if (!observer && typeof MutationObserver === "function") observer = new MutationObserver(records => {
+      for (const record of records) {
+        exposeButton(record.target?.closest?.(".info-icon"));
+        for (const node of record.addedNodes) scan(node);
       }
     });
-    if (!observer && typeof MutationObserver === "function") observer = new MutationObserver(records => {
-      for (const record of records) for (const node of record.addedNodes) scan(node);
-    });
-    for (const root of roots) {
+    for (const root of document.querySelectorAll(observedAreas)) {
       scan(root);
       observer?.observe(root, { childList: true, subtree: true });
     }
