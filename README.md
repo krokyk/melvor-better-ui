@@ -2,7 +2,7 @@
 
 Version: **1.1.0**.
 
-Page header pinning, responsive desktop card grids and optional recipe item sources and uses for Melvor Idle, including Kroky's Workforce layouts when installed.
+Page header pinning, responsive desktop card grids, six-slot quick equip and optional recipe item sources and uses for Melvor Idle, including Kroky's Workforce layouts when installed.
 The mod works independently of Workforce.
 The currently viewed skill has a lighter grey background in the left navigation.
 The highlight follows navigation and works when page pinning is disabled.
@@ -86,11 +86,22 @@ This integration is optional and does not add a hard dependency.
 If Show Item Sources And Uses is missing, disabled or lacks the required API, the toggle is disabled with an explanation while retaining your saved preference.
 Install or enable a compatible version and reload the game to make the toggle available.
 
+Click an equipment slot in Combat or the top-bar equipment menu to open six quick-equip shortcuts in a three-column, two-row grid.
+The native Set buttons are replaced by a **Bank** chest button beside the shortcuts.
+Open it to search bank items that are compatible with the equipment slot and meet their equip requirements.
+Drag an item onto a shortcut to assign or replace it without equipping it.
+For keyboard or touch input, select a bank item and then activate the target shortcut.
+Click an assigned shortcut to equip its item through the game's normal equipment checks.
+The **X** just outside the equipped item's top-right corner unequips the item through the native action.
+There is no shortcut-delete action; dropping another item replaces the assignment.
+The first three shortcuts retain their native save data.
+The additional three are saved with Better UI character data separately for each equipment set and equipment slot.
+
 ## Installation
 
 Load this folder with Melvor's Creator Toolkit, or import `krokys-better-ui-1.1.0.zip` through **Creator Toolkit → Local Mods**.
 Enable the mod and reload the game.
-The release archive contains `manifest.json`, `setup.mjs`, `page-pinning.mjs`, `wide-layout.mjs` and `item-sources-and-uses.mjs` at its root.
+The release archive contains `manifest.json`, `setup.mjs`, `page-pinning.mjs`, `wide-layout.mjs`, `quick-equip.mjs` and `item-sources-and-uses.mjs` at its root.
 Ready-to-paste listing text and release notes are in [MOD_IO.md](MOD_IO.md).
 
 ## Development checks

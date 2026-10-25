@@ -6,7 +6,7 @@ Kroky's Better UI
 
 ## Summary
 
-Keep headers visible, fit more readable cards across wide screens, and optionally inspect recipe item sources and uses.
+Keep headers visible, fit more readable cards across wide screens, use six quick-equip shortcuts, and optionally inspect recipe item sources and uses.
 
 ## Description
 
@@ -59,6 +59,15 @@ The integration is optional, with no hard dependency.
 If Show Item Sources And Uses is missing, disabled or lacks the required API, the toggle is disabled with an explanation while retaining your saved preference.
 Install or enable a compatible version and reload the game to make it available.
 
+Equipment slots in Combat and the top-bar equipment menu have six quick-equip shortcuts in a three-column, two-row grid.
+The **Bank** chest button beside them opens a searchable picker of compatible bank equipment that meets its equip requirements.
+Drag an item onto a shortcut to assign or replace it without equipping it.
+For keyboard or touch input, select a bank item and then activate the target shortcut.
+Click a shortcut to equip its item with the native equipment checks.
+The native unequip **X** moves just outside the equipped item's top-right corner, and Set buttons are removed.
+There is no shortcut-delete action; assign another item to replace one.
+Existing three-slot assignments are preserved, and the additional three are saved per character, equipment set and equipment slot in Better UI data.
+
 Open **Mod Settings → Kroky's Better UI → General → Enable Page Pinning** to enable or disable the feature.
 The toggle defaults to on.
 Disabling it hides the button and restores the normal layout while retaining your pin preference.
@@ -75,6 +84,9 @@ The mod works independently of Workforce and also pins Workforce's controls and 
 
 ### 1.1.0
 
+- Expand equipment-slot quick equip to six shortcuts in Combat and the top-bar equipment menu.
+- Replace Set buttons with a searchable bank picker for assigning compatible equipment by drag and drop or keyboard and touch selection.
+- Move the native unequip X onto the equipped item's top-right corner and preserve existing shortcuts and native equipment checks.
 - Highlight the currently viewed skill in the left navigation with a lighter grey background.
 - Add an optional, per-character toggle for blue **?** buttons just outside recipe item icons' top-right corners, mirroring the native shop-coin overlay.
 - Include Workforce's small Woodcutting, Mining and Fishing product/stock tiles and native Firemaking and Cooking recipe item icons.
@@ -96,4 +108,4 @@ The mod works independently of Workforce and also pins Workforce's controls and 
 
 ## Upload
 
-Upload **krokys-better-ui-1.1.0.zip** with `manifest.json`, `setup.mjs`, `page-pinning.mjs`, `wide-layout.mjs` and `item-sources-and-uses.mjs` at the archive root.
+Upload **krokys-better-ui-1.1.0.zip** with `manifest.json`, `setup.mjs`, `page-pinning.mjs`, `wide-layout.mjs`, `quick-equip.mjs` and `item-sources-and-uses.mjs` at the archive root.

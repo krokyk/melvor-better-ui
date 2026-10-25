@@ -1,6 +1,7 @@
 export async function setup(ctx) {
   const { installPagePinning } = await ctx.loadModule("page-pinning.mjs");
   const { installWideLayout } = await ctx.loadModule("wide-layout.mjs");
+  const { installQuickEquip } = await ctx.loadModule("quick-equip.mjs");
   const { installItemSourcesAndUses } = await ctx.loadModule("item-sources-and-uses.mjs");
   ctx.onModsLoaded(() => {
     const settings = ctx.settings.section("General");
@@ -44,6 +45,7 @@ export async function setup(ctx) {
         if (interfaceReady) updateWideLayout();
       },
     });
+    installQuickEquip(ctx, game);
     installItemSourcesAndUses(ctx, game);
     const restore = () => {
       enabled = settings.get(settingName) !== false;
