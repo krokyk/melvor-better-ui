@@ -72,24 +72,30 @@ With the setting enabled, equipment slots in Combat and the top-bar equipment me
 **General → Enable 3 Extra Quick Slots** defaults to on, is saved per character and adds a second row for six shortcuts in total.
 Disabling it keeps the three native shortcuts and Bank picker while retaining the additional assignments for re-enabling.
 The **Bank** chest button beside them opens a searchable picker of compatible bank equipment that meets its equip requirements.
+The quick slots, Bank and optional Unequip Current button are centred together above the item grid.
 Drag an item onto a shortcut to assign or replace it without equipping it.
 **General → Equipment Stats Layout** selects **Vanilla** or **Compact**, defaults to Compact and is saved per character.
-Both layouts show stats beside the picker without opening another dialog, with the selected name below Search Bank and above the item grid.
+Both layouts show stats beside the picker without opening another dialog, with the selected name in the preview header.
 Vanilla uses the game's three-column View Item Stats format with artwork and descriptions, offensive stats and defensive stats side by side.
-Compact stacks those details in a narrower panel.
+Compact uses two columns, with the name, artwork, description, special attacks and requirements on the left and offensive stats above defensive stats on the right.
 The preview opens on the left when necessary and moves below the picker on narrow screens.
-The preview and bank list use the available popup height within the viewport and scroll when their contents overflow.
-Items without available stats show only their name.
+Each preview box fits the width and height of its own content, independently of the bank list.
+The viewport limits its maximum size, with scrolling only when necessary.
+Items without available stats retain their name and artwork when present.
 **General → Show Item Stats in Equipment** selects **By clicking on item** or **By hovering over item**, defaults to click and is saved per character.
 Both layouts include complete offensive and defensive tables with zero values and applicable damage resistances.
-Compact places these tables before descriptions and special attacks.
 The inspected item's values and changes from equipped gear occupy separate numeric columns.
 Comparisons use the active equipment set and the picker's equipment slot, including every item displaced by two-handed equipment.
 Improvements appear green and reductions red, with a lower attack interval treated as an improvement.
 Inspection does not assign or equip the item.
 For keyboard assignment, focus a bank item and press Space, then focus a target shortcut and press Enter or Space.
 Click a shortcut to equip its item with the native equipment checks.
-The native unequip action uses a red minus in a red outlined square just outside the equipped item's top-right corner, and Set buttons are removed.
+**General → Show Unequip Button on Equipment Icons** defaults to off and is saved per character.
+With it disabled, **Unequip Current** appears beside **Bank** in the quick-equip popup.
+For an empty equipment slot, the popup button stays visible but is dimmed and disabled.
+Enabling it moves the same action to a red minus in a red outlined square just outside the equipped item's top-right corner.
+Both positions use the game's normal unequip checks and preserve shortcut assignments.
+Native Set buttons are removed.
 There is no shortcut-delete action; assign another item to replace one.
 Existing three-slot assignments are preserved, and the additional three are saved per character, equipment set and equipment slot in Better UI data.
 
@@ -113,10 +119,11 @@ The mod works independently of Workforce and also pins Workforce's controls and 
 - Enable or disable three extra quick slots per character while retaining the Bank picker and saved assignments.
 - Replace Set buttons with a searchable bank picker for assigning compatible equipment by drag and drop or keyboard selection.
 - Inspect bank equipment in a side preview with a per-character click or hover selection.
-- Choose a Vanilla three-column inline preview or a Compact stacked preview with separate item-value and equipped-difference columns.
+- Choose a Vanilla three-column inline preview or a Compact two-column preview with complete item details and separate item-value and equipped-difference columns.
+- Fit preview boxes to their content and centre the quick-equip controls above the bank grid.
 - Indent radio choices beneath their setting headings.
 - Choose a stats icon, click or hover on skill-card main artwork independently of recipe Sources and Uses and ingredient navigation.
-- Replace the unequip X with a red minus in a red outlined square on the equipped item's top-right corner and preserve native equipment checks.
+- Keep Unequip Current beside Bank by default, with an optional per-character toggle for red minus-square controls on equipment icons.
 - Enable or disable Enhanced Equipment Menu per character, restoring the native menu immediately while retaining all shortcut assignments.
 - Highlight the currently viewed skill in the left navigation with a lighter grey background.
 - Add an optional, per-character toggle for blue **?** buttons just outside recipe item icons' top-right corners, mirroring the native shop-coin overlay.

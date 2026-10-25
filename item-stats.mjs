@@ -95,35 +95,36 @@ export function createItemStatsPreview(item, game, options = {}) {
     || (item?.specialAttacks?.length ?? 0) > 0 || requirements.length > 0 || (item?.hasDescription && !!item.modifiedDescription);
   const Tooltip = customElements.get("equipment-tooltip");
   const equipment = typeof EquipmentItem === "function" && item instanceof EquipmentItem;
-  const fullStats = options.fullStats && hasStats && typeof EquipmentStats === "function" && (equipment || stats.length > 0);
-  const vanilla = fullStats && options.layout === "vanilla";
-  const details = fullStats ? document.createElement("div") : element;
-  if (fullStats) {
+  const equipmentPreview = !!options.fullStats;
+  const fullStats = equipmentPreview && hasStats && typeof EquipmentStats === "function" && (equipment || stats.length > 0);
+  const details = equipmentPreview ? document.createElement("div") : element;
+  if (equipmentPreview) {
+    element.classList.add(options.layout === "vanilla" ? "kroky-item-stats-vanilla" : "kroky-item-stats-compact");
     details.className = "kroky-equipment-item-details";
-    const tables = equipmentStatsTables(item, game, options);
-    if (vanilla) {
-      element.classList.add("kroky-item-stats-vanilla");
-      element.append(details, tables);
-      const name = document.createElement("h5");
-      name.className = "kroky-equipment-preview-name"; name.textContent = item.name;
-      details.append(name);
-      if (item.media) {
-        const image = document.createElement("img");
-        image.className = "kroky-equipment-preview-art"; image.src = item.media; image.alt = "";
-        details.append(image);
-      }
-    } else element.append(tables, details);
+    element.append(details);
+    const name = document.createElement("h5");
+    name.className = "kroky-equipment-preview-name"; name.textContent = item?.name ?? "";
+    details.append(name);
+    if (item?.media) {
+      const image = document.createElement("img");
+      image.className = "kroky-equipment-preview-art"; image.src = item.media; image.alt = "";
+      details.append(image);
+    }
+    if (fullStats) {
+      element.classList.add("kroky-item-stats-with-tables");
+      element.append(equipmentStatsTables(item, game, options));
+    }
   }
   if (hasStats && equipment && typeof Tooltip?.prototype.setItem === "function") {
     const tooltip = document.createElement("equipment-tooltip");
     tooltip.setItem(item, !fullStats);
-    if (vanilla) {
+    if (equipmentPreview) {
       if (tooltip.itemName) tooltip.itemName.hidden = true;
-      if (tooltip.itemDamageType) tooltip.itemDamageType.hidden = true;
+      if (fullStats && tooltip.itemDamageType) tooltip.itemDamageType.hidden = true;
     }
     details.append(tooltip);
   } else {
-    if (!vanilla) {
+    if (!equipmentPreview) {
       const name = document.createElement("strong");
       name.className = "d-block text-warning"; name.textContent = item?.name ?? "";
       details.append(name);

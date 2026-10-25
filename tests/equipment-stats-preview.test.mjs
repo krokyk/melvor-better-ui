@@ -62,10 +62,13 @@ function fixture() {
   globalThis.Equipment = class { static getEquipStatDescription(stat) { return `${stat.key}: ${stat.value}`; } };
   const calls = { tooltip: [], removed: [], modal: 0 }, elements = [];
   class Tooltip extends Element {
-    constructor() { super("equipment-tooltip"); }
+    constructor() {
+      super("equipment-tooltip"); this.itemName = new Element("span"); this.itemDamageType = new Element("span");
+      this.append(this.itemName, this.itemDamageType);
+    }
     setItem(item, showStats) {
       calls.tooltip.push({ item, showStats });
-      this.textContent = item.name;
+      this.itemName.textContent = item.name; this.itemDamageType.textContent = item.damageType?.name ?? "";
       if (showStats) for (const stat of item.equipmentStats) { const line = new Element("small"); line.textContent = Equipment.getEquipStatDescription(stat); this.append(line); }
       if (item.hasDescription) { const line = new Element("small"); line.innerHTML = item.modifiedDescription; this.append(line); }
     }
@@ -119,7 +122,11 @@ test("full equipment preview includes native offensive and defensive tables with
   const f = fixture(), result = f.preview();
   assert.match(result.element.textContent, /Offensive Stats/);
   assert.match(result.element.textContent, /Defensive Stats/);
-  assert.ok(result.element.textContent.indexOf("Offensive Stats") < result.element.textContent.indexOf("Long special attack details"), "complete stats remain above long item descriptions");
+  assert.ok(result.element.classList.contains("kroky-item-stats-compact"));
+  assert.ok(result.element.classList.contains("kroky-item-stats-with-tables"));
+  const details = result.element.querySelector(".kroky-equipment-item-details"), tables = result.element.querySelector(".kroky-equipment-stats-tables");
+  assert.equal(details.parentElement, result.element); assert.equal(tables.parentElement, result.element);
+  assert.equal(result.element.children.indexOf(details), 0, "details and the stacked tables occupy separate Compact columns");
   assert.equal(result.hasStats, true);
   for (const key of numericKeys) assert.ok(value(result, key));
   assert.equal(value(result, "rangedAttackBonus").textContent, "0");
@@ -157,25 +164,30 @@ test("stats keep inspected values and equipped differences in separate stable nu
   assert.equal(zero.classList.contains("text-success"), false);
 });
 
-test("Vanilla uses inline item artwork and lore beside the same comparison tables as Compact", () => {
+test("Compact and Vanilla both include complete item artwork and lore beside the same comparison tables", () => {
   const f = fixture();
   f.candidate.media = "ultima-godsword.png";
   const create = layout => createItemStatsPreview(f.candidate, f.game, { fullStats: true, layout, equipment: f.equipment, slot: f.weapon });
   const compact = create("compact"), vanilla = create("vanilla");
   assert.equal(compact.element.classList.contains("kroky-item-stats-vanilla"), false);
+  assert.equal(compact.element.classList.contains("kroky-item-stats-compact"), true);
   assert.equal(vanilla.element.classList.contains("kroky-item-stats-vanilla"), true);
-  for (const [result, detailsFirst] of [[vanilla, true], [compact, false]]) {
+  for (const result of [vanilla, compact]) {
     const details = result.element.querySelector(".kroky-equipment-item-details");
     const tables = result.element.querySelector(".kroky-equipment-stats-tables");
     assert.ok(details, "full previews retain a dedicated item-details section");
     assert.ok(tables);
     assert.equal(details.parentElement, result.element); assert.equal(tables.parentElement, result.element);
-    assert.equal(result.element.children.indexOf(details) < result.element.children.indexOf(tables), detailsFirst, "Vanilla puts details first while Compact keeps its tables above lore");
+    assert.ok(result.element.children.indexOf(details) < result.element.children.indexOf(tables), "both layouts place the complete details beside the tables");
     assert.match(details.textContent, /Ultima Godsword/);
     assert.match(details.textContent, /Long special attack details/);
+    assert.equal(details.querySelector(".kroky-equipment-preview-name").textContent, f.candidate.name);
+    const artwork = details.querySelector(".kroky-equipment-preview-art");
+    assert.ok(artwork); assert.equal(artwork.tagName, "IMG"); assert.equal(artwork.src, f.candidate.media);
+    const nativeTooltip = details.querySelector("equipment-tooltip");
+    assert.equal(nativeTooltip.itemName.hidden, true, "the preview header is the visible item name");
+    assert.equal(nativeTooltip.itemDamageType.hidden, true, "the offensive table already shows damage type");
   }
-  const artwork = vanilla.element.querySelector(".kroky-equipment-preview-art");
-  assert.ok(artwork); assert.equal(artwork.tagName, "IMG"); assert.equal(artwork.src, f.candidate.media);
   const stats = result => result.element.querySelectorAll("[data-stat]").map(line => ({
     key: line.dataset.stat,
     value: line.querySelector(".kroky-equipment-stat-value")?.textContent,
@@ -258,4 +270,26 @@ test("name-only fallback remains available for items with no stats", () => {
   const f = fixture(), plain = { id: "test:Plain", name: "Plain Item" };
   const result = createItemStatsPreview(plain, f.game, { fullStats: true, equipment: f.equipment, slot: f.weapon });
   assert.equal(result.hasStats, false); assert.equal(result.element.textContent, "Plain Item");
+});
+
+test("equipment previews retain name and artwork without stats or the native stats aggregation API", () => {
+  const f = fixture(), plain = { id: "test:Plain", name: "Plain Item", media: "plain.png" };
+  for (const layout of ["compact", "vanilla"]) {
+    const result = createItemStatsPreview(plain, f.game, { fullStats: true, layout });
+    assert.equal(result.hasStats, false);
+    assert.ok(result.element.classList.contains(`kroky-item-stats-${layout}`));
+    assert.equal(result.element.classList.contains("kroky-item-stats-with-tables"), false);
+    assert.equal(result.element.querySelector(".kroky-equipment-preview-name").textContent, plain.name);
+    assert.equal(result.element.querySelector(".kroky-equipment-preview-art").src, plain.media);
+    assert.equal(result.element.querySelector(".kroky-equipment-stats-tables"), null);
+  }
+  delete globalThis.EquipmentStats;
+  f.candidate.media = "ultima-godsword.png";
+  const result = createItemStatsPreview(f.candidate, f.game, { fullStats: true, layout: "compact" });
+  assert.equal(result.hasStats, true);
+  assert.equal(result.element.classList.contains("kroky-item-stats-with-tables"), false);
+  assert.equal(result.element.querySelector(".kroky-equipment-preview-art").src, f.candidate.media);
+  assert.match(result.element.querySelector(".kroky-equipment-item-details").textContent, /meleeStrengthBonus: 365/);
+  assert.equal(result.element.querySelector(".kroky-equipment-stats-tables"), null);
+  assert.equal(f.calls.modal, 0);
 });

@@ -2,6 +2,7 @@ const storageKey = "quick-equip-extra-slots";
 const dragType = "application/x-kroky-quick-equip";
 const settingName = "quick-equip-enabled";
 const extraSlotsSettingName = "extra-quick-slots-enabled";
+const directUnequipSettingName = "unequip-on-equipment-icons";
 const statsSettingName = "equipment-item-stats-mode";
 const statsDisplaySettingName = "equipment-preview-stats-mode";
 
@@ -11,7 +12,7 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
   if (!QuickEquip || !GridIcon) return;
   const menus = new WeakMap(), owners = new WeakMap(), bindings = new WeakMap();
   const settings = ctx.settings.section("General");
-  let extra = {}, storageReady = false, storageError = false, enabled = true, extraSlotsEnabled = true, statsMode = "click", statsLayout = "compact";
+  let extra = {}, storageReady = false, storageError = false, enabled = true, extraSlotsEnabled = true, directUnequipEnabled = false, statsMode = "click", statsLayout = "compact";
   settings.add({
     type: "switch", name: settingName, label: "Enhanced Equipment Menu", default: true,
     hint: "Use enhanced quick slots and a searchable Bank picker in Combat and the top-bar equipment menu. Disable to restore the native menu while retaining your shortcuts.",
@@ -29,6 +30,14 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
     },
   });
   settings.add({
+    type: "switch", name: directUnequipSettingName, label: "Show Unequip Button on Equipment Icons", default: false,
+    hint: "Show a red minus-square on equipment icons. When disabled, Unequip Current appears beside Bank in the quick-equip popup.",
+    onChange(value) {
+      if (typeof value !== "boolean") return "Choose enabled or disabled.";
+      directUnequipEnabled = value; syncInterface();
+    },
+  });
+  settings.add({
     type: "radio-group", name: statsSettingName, label: "Show Item Stats in Equipment", default: "click",
     hint: "Preview items beside the Bank picker in the Enhanced Equipment Menu. Drag items to assign shortcuts.",
     options: [{ value: "click", label: "By clicking on item" }, { value: "hover", label: "By hovering over item" }],
@@ -39,7 +48,7 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
   });
   settings.add({
     type: "radio-group", name: statsDisplaySettingName, label: "Equipment Stats Layout", default: "compact",
-    hint: "Vanilla shows item details, offensive stats and defensive stats in three columns. Compact stacks them beside the picker. Both show item values and equipped differences.",
+    hint: "Vanilla uses three columns. Compact puts complete item details beside the stacked stats in two columns. Both fit their content and show item values and equipped differences.",
     options: [{ value: "vanilla", label: "Vanilla" }, { value: "compact", label: "Compact" }],
     onChange(value) {
       if (!["vanilla", "compact"].includes(value)) return "Choose Vanilla or Compact.";
@@ -77,6 +86,7 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
     }
     enabled = settings.get(settingName) !== false;
     extraSlotsEnabled = settings.get(extraSlotsSettingName) !== false;
+    directUnequipEnabled = settings.get(directUnequipSettingName) === true;
     const savedMode = settings.get(statsSettingName);
     statsMode = ["click", "hover"].includes(savedMode) ? savedMode : "click";
     const savedDisplayMode = settings.get(statsDisplaySettingName);
@@ -91,27 +101,29 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
     const style = document.createElement("style");
     style.id = "kroky-quick-equip-style";
     style.textContent = `
-      .kroky-quick-equip-actions { display: flex; align-items: center; gap: .5rem; }
+      .kroky-equipment-floating { pointer-events: none !important; }
+      .kroky-equipment-floating .tippy-box { background: transparent !important; border: 0 !important; box-shadow: none !important; }
+      .kroky-equipment-floating .tippy-content { padding: 0; pointer-events: none; }
+      .kroky-equipment-floating .tippy-arrow { display: none; }
+      .kroky-quick-equip-actions { display: flex; align-items: center; justify-content: center; gap: .5rem; }
       .kroky-quick-equip-grid { display: grid !important; grid-template-columns: repeat(3, 44px); gap: 4px; margin: .25rem 0; }
       .kroky-quick-equip-slot { width: 44px; height: 44px; padding: 3px; border-radius: .25rem !important; }
       .kroky-quick-equip-slot img { width: 28px; height: 28px; margin: 0; pointer-events: none; }
       .kroky-quick-equip-slot.kroky-drop-target { border-color: #5cace5; background: #34485b; }
       .kroky-quick-equip-bank { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px; }
       .kroky-quick-equip-bank img { width: 32px; height: 32px; }
+      .kroky-quick-equip-unequip-current { max-width: 4.5rem; padding: .25rem; white-space: normal; font-size: .75rem; line-height: 1.2; }
+      .kroky-quick-equip-unequip-current:disabled { opacity: .4; cursor: default; }
       #swal2-html-container .custom-radio > input[name^="KrokyBetterUI:"] + label { margin-left: 2rem !important; }
-      .kroky-quick-equip-layout { --kroky-stats-width: min(22rem, calc(100vw - 21.75rem)); display: grid; grid-template-columns: minmax(0, 18rem); grid-template-rows: minmax(0, 1fr); gap: .75rem; width: max-content; max-width: calc(100vw - 3rem); max-height: calc(100vh - 2rem); }
-      .kroky-quick-equip-layout.kroky-stats-vanilla { --kroky-stats-width: min(66rem, calc(100vw - 21.75rem)); }
-      .kroky-quick-equip-layout.kroky-has-stats { grid-template-columns: minmax(0, 18rem) minmax(0, var(--kroky-stats-width)); }
-      .kroky-quick-equip-layout.kroky-has-stats.kroky-preview-left { grid-template-columns: minmax(0, var(--kroky-stats-width)) minmax(0, 18rem); }
-      .kroky-quick-equip-column { display: flex; flex-direction: column; grid-row: 1; grid-column: 1; min-height: 0; width: min(18rem, calc(100vw - 3rem)); }
-      .kroky-has-stats.kroky-preview-left > .kroky-quick-equip-column { grid-column: 2; }
-      .kroky-quick-equip-picker { display: flex; flex: 1; min-height: 0; margin-top: .5rem; }
-      .kroky-quick-equip-bank-pane { display: flex; flex-direction: column; width: min(18rem, calc(100vw - 3rem)); min-height: 0; flex: 1; }
-      .kroky-quick-equip-bank-pane > input, .kroky-quick-equip-selected-name { flex-shrink: 0; }
-      .kroky-quick-equip-selected-name { display: block; font-weight: bold; margin: .4rem 0; }
-      .kroky-quick-equip-preview { grid-row: 1; grid-column: 2; width: var(--kroky-stats-width); min-height: 0; overflow: auto; padding: .75rem; border: 1px solid #59616e; border-radius: .25rem; background: #232a35; text-align: left; font-size: .875rem; }
-      .kroky-preview-left > .kroky-quick-equip-preview { grid-column: 1; }
-      .kroky-quick-equip-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); grid-auto-rows: 44px; align-content: start; gap: 4px; min-height: 0; flex: 1; overflow-y: auto; margin-top: .5rem; }
+      .kroky-quick-equip-layout { --kroky-stats-width: min(44rem, calc(100vw - 22.75rem)); display: flex; align-items: flex-start; gap: .75rem; width: max-content; max-width: calc(100vw - 2rem); }
+      .kroky-quick-equip-layout.kroky-stats-vanilla { --kroky-stats-width: min(66rem, calc(100vw - 22.75rem)); }
+      .kroky-quick-equip-layout.kroky-preview-left { flex-direction: row-reverse; }
+      .kroky-quick-equip-column { display: flex; flex-direction: column; flex: 0 0 auto; min-height: 0; width: min(20rem, calc(100vw - 2rem)); max-height: calc(100vh - 2rem); padding: .5rem; border: 1px solid #59616e; border-radius: .25rem; background: #222; pointer-events: auto; }
+      .kroky-quick-equip-picker { display: flex; flex: 0 1 auto; min-height: 0; margin-top: .5rem; }
+      .kroky-quick-equip-bank-pane { display: flex; flex-direction: column; width: 100%; min-height: 0; flex: 1; }
+      .kroky-quick-equip-bank-pane > input { flex-shrink: 0; }
+      .kroky-quick-equip-preview { flex: 0 1 auto; align-self: flex-start; width: max-content; max-width: var(--kroky-stats-width); max-height: calc(100vh - 2rem); overflow: auto; padding: .75rem; border: 1px solid #59616e; border-radius: .25rem; background: #232a35; text-align: left; font-size: .875rem; pointer-events: auto; }
+      .kroky-quick-equip-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); grid-auto-rows: 44px; align-content: start; gap: 4px; min-height: 0; flex: 0 1 auto; overflow-y: auto; margin-top: .5rem; }
       .kroky-equipment-stats-table { width: 100%; margin-bottom: .75rem; border-collapse: collapse; table-layout: fixed; font-size: .8rem; }
       .kroky-equipment-stats-heading { margin: 0 0 .4rem; padding: .25rem; background: #343c4a; text-align: center; font-size: .875rem; }
       .kroky-equipment-stats-table th, .kroky-equipment-stats-table td { padding: .25rem .15rem; vertical-align: top; }
@@ -119,23 +131,26 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
       .kroky-equipment-stats-table td { text-align: right; white-space: nowrap; }
       .kroky-equipment-stat-value-cell { width: 22%; }
       .kroky-equipment-stat-difference-cell { width: 20%; }
-      .kroky-item-stats-vanilla { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; align-items: start; }
+      .kroky-item-stats-compact.kroky-item-stats-with-tables { display: grid; grid-template-columns: fit-content(22rem) fit-content(22rem); gap: 1rem; align-items: start; width: max-content; max-width: 100%; }
+      .kroky-equipment-item-details { min-width: 0; max-width: 22rem; }
+      .kroky-item-stats-compact .kroky-equipment-stats-tables { min-width: 18rem; max-width: 22rem; }
+      .kroky-item-stats-vanilla.kroky-item-stats-with-tables { display: grid; grid-template-columns: repeat(3, fit-content(22rem)); gap: 1rem; align-items: start; width: max-content; max-width: 100%; }
       .kroky-item-stats-vanilla .kroky-equipment-item-details { grid-column: 1; grid-row: 1; min-width: 0; }
       .kroky-item-stats-vanilla .kroky-equipment-stats-tables { display: contents; }
       .kroky-item-stats-vanilla .kroky-equipment-stats-section:first-child { grid-column: 2; grid-row: 1; min-width: 0; }
       .kroky-item-stats-vanilla .kroky-equipment-stats-section:last-child { grid-column: 3; grid-row: 1; min-width: 0; }
-      .kroky-item-stats-vanilla .kroky-equipment-stats-section { padding: .5rem; border-radius: .25rem; background: #343c4a; }
-      .kroky-item-stats-vanilla .kroky-equipment-item-details > .mt-1 { padding: .5rem; border-radius: .25rem; background: #343c4a; text-align: center; }
+      .kroky-item-stats-vanilla .kroky-equipment-stats-section { min-width: 18rem; max-width: 22rem; padding: .5rem; border-radius: .25rem; background: #343c4a; }
+      .kroky-equipment-item-details > .mt-1 { padding: .5rem; border-radius: .25rem; background: #343c4a; text-align: center; }
       .kroky-equipment-preview-name { padding: .5rem; border-radius: .25rem; background: #343c4a; text-align: center; font-size: 1rem; }
       .kroky-equipment-preview-art { display: block; width: 100%; height: 12rem; object-fit: contain; margin: .75rem 0; padding: 1rem; border-radius: .25rem; background: #343c4a; }
       .kroky-quick-equip-bank-item { position: relative; min-height: 44px; padding: 3px; }
       .kroky-quick-equip-bank-item img { width: 28px; height: 28px; pointer-events: none; }
       .kroky-quick-equip-bank-item[aria-pressed="true"] { border-color: #5cace5; background: #34485b; }
-      .kroky-quick-equip-slot[hidden], .kroky-quick-equip-bank-item[hidden], .kroky-quick-equip-picker[hidden], .kroky-quick-equip-preview[hidden], .kroky-quick-equip-selected-name[hidden], .kroky-quick-unequip[hidden] { display: none; }
+      .kroky-quick-equip-slot[hidden], .kroky-quick-equip-bank-item[hidden], .kroky-quick-equip-picker[hidden], .kroky-quick-equip-preview[hidden], .kroky-quick-unequip[hidden] { display: none; }
       .kroky-quick-equip-status { display: block; max-width: 18rem; margin-top: .25rem; }
       .kroky-quick-unequip { display: inline-flex; align-items: center; justify-content: center; left: auto !important; right: -6px; z-index: 1; border: 1px solid currentColor; border-radius: 2px; background: #232a35; line-height: 1; font-size: .75rem; font-weight: bold; text-decoration: none; }
-      @media (max-width: 1000px) { .kroky-item-stats-vanilla { display: block; } .kroky-item-stats-vanilla .kroky-equipment-stats-tables { display: block; } }
-      @media (max-width: 700px) { .kroky-quick-equip-layout.kroky-has-stats.kroky-preview-left, .kroky-quick-equip-layout.kroky-has-stats, .kroky-quick-equip-layout { --kroky-stats-width: min(22rem, calc(100vw - 3rem)); display: flex; flex-direction: column; overflow-y: auto; } .kroky-quick-equip-column, .kroky-quick-equip-preview { flex-shrink: 0; } .kroky-quick-equip-layout.kroky-stats-vanilla { --kroky-stats-width: min(66rem, calc(100vw - 3rem)); } }
+      @media (max-width: 1000px) { .kroky-item-stats-vanilla.kroky-item-stats-with-tables, .kroky-item-stats-compact.kroky-item-stats-with-tables { display: block; } .kroky-item-stats-vanilla .kroky-equipment-stats-tables { display: block; } }
+      @media (max-width: 700px) { .kroky-quick-equip-layout.kroky-preview-left, .kroky-quick-equip-layout { --kroky-stats-width: calc(100vw - 2rem); flex-direction: column; max-height: calc(100vh - 2rem); overflow-y: auto; } .kroky-quick-equip-column, .kroky-quick-equip-preview { flex-shrink: 0; } .kroky-quick-equip-layout.kroky-stats-vanilla { --kroky-stats-width: calc(100vw - 2rem); } }
     `;
     document.head.append(style);
   });
@@ -231,7 +246,6 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
     if (!view.preview) return;
     view.preview.replaceChildren(); view.preview.hidden = true;
     view.layout.classList.remove("kroky-has-stats");
-    view.selectedName.textContent = ""; view.selectedName.hidden = true;
     for (const entry of view.bankItems) entry.button.setAttribute("aria-pressed", "false");
     const tooltip = owners.get(view.menu)?.quickEquipTooltip;
     if (view.expandedPreview) {
@@ -244,15 +258,15 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
     if (!canAssign(view, item)) return;
     view.pendingItem = undefined;
     view.previewedItem = item;
-    view.selectedName.textContent = item.name; view.selectedName.hidden = false;
     for (const entry of view.bankItems) entry.button.setAttribute("aria-pressed", String(entry.button === button));
     view.layout.classList.toggle("kroky-stats-vanilla", statsLayout === "vanilla");
     const result = createItemStatsPreview?.(item, game, { fullStats: true, layout: statsLayout, equipment: view.player.equipment, slot: view.equipped.slot });
-    view.preview.replaceChildren(...(result?.hasStats ? [result.element] : []));
-    view.preview.hidden = !result?.hasStats;
-    view.layout.classList.toggle("kroky-has-stats", !!result?.hasStats);
+    const hasPreview = !!result?.element;
+    view.preview.replaceChildren(...(hasPreview ? [result.element] : []));
+    view.preview.hidden = !hasPreview;
+    view.layout.classList.toggle("kroky-has-stats", hasPreview);
     const owner = owners.get(view.menu), tooltip = owner?.quickEquipTooltip;
-    if (result?.hasStats) {
+    if (hasPreview) {
       const rect = owner?.image.getBoundingClientRect();
       view.layout.classList.toggle("kroky-preview-left", !!rect && rect.left + rect.width / 2 > document.documentElement.clientWidth / 2);
       if (!view.expandedPreview) {
@@ -319,6 +333,7 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
     view.status.textContent = "";
   }
   function enableMenu(view) {
+    owners.get(view.menu)?.quickEquipTooltip?.popper?.classList.add("kroky-equipment-floating");
     if (view.active) return;
     view.active = true;
     view.menu.classList.add("kroky-quick-equip");
@@ -337,6 +352,7 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
   function restoreMenu(view) {
     if (!view.active) return;
     closePicker(view);
+    owners.get(view.menu)?.quickEquipTooltip?.popper?.classList.remove("kroky-equipment-floating");
     view.active = false;
     for (const entry of view.nativeButtons) {
       entry.parent.prepend(entry.equip);
@@ -403,13 +419,11 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
           view.search.className = "form-control form-control-sm"; view.search.placeholder = "Search Bank";
           view.search.setAttribute("aria-label", "Search compatible bank equipment");
           const bankPane = document.createElement("div"); bankPane.className = "kroky-quick-equip-bank-pane";
-          view.selectedName = document.createElement("small"); view.selectedName.className = "kroky-quick-equip-selected-name"; view.selectedName.hidden = true;
-          view.selectedName.setAttribute("role", "status");
           view.preview = document.createElement("aside"); view.preview.className = "kroky-quick-equip-preview"; view.preview.hidden = true;
           view.preview.setAttribute("aria-label", "Item stats preview");
           view.items = document.createElement("div"); view.items.className = "kroky-quick-equip-items";
           view.search.addEventListener("input", () => { clearPreview(view); filterBank(view); });
-          bankPane.append(view.search, view.selectedName, view.items);
+          bankPane.append(view.search, view.items);
           view.picker.append(bankPane); view.column.append(view.picker); view.layout.append(view.preview);
         }
         view.search.value = ""; view.picker.hidden = false;
@@ -439,6 +453,8 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
     for (const { equip } of view.entries) equip.onclick = null;
     this.unequipButton.onclick = null;
     closePicker(view); redraw(view);
+    const owner = owners.get(this);
+    if (owner) updateUnequip(owner, player, equipped);
   });
   function updateUnequip(icon, player, equipped) {
     let binding = bindings.get(icon);
@@ -466,6 +482,7 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
     if (!enabled) {
       if (!binding.active) return;
       binding.active = false;
+      binding.placement = undefined;
       binding.parent.append(button);
       button.className = binding.buttonClass; button.textContent = binding.buttonText;
       restoreAttributes(button, binding.buttonAttributes);
@@ -476,18 +493,29 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
     }
     if (!binding.active) {
       binding.active = true;
-      button.className = "kroky-quick-unequip info-icon-overlay skill-icon-xxs btn btn-link text-danger p-0";
-      button.type = "button"; button.textContent = "−"; button.title = "Unequip";
-      icon.container.append(button);
+      button.type = "button";
       icon.image.setAttribute("tabindex", "0");
       icon.image.setAttribute("role", "button");
       icon.image.setAttribute("aria-label", `Quick equip: ${equipped.slot.emptyName}`);
     }
-    const label = `Unequip ${equipped.item.name}`;
+    const placement = directUnequipEnabled ? "direct" : "popup";
+    if (binding.placement !== placement) {
+      binding.placement = placement;
+      button.className = directUnequipEnabled
+        ? "kroky-quick-unequip info-icon-overlay skill-icon-xxs btn btn-link text-danger p-0"
+        : "btn btn-sm btn-outline-danger kroky-quick-equip-unequip-current";
+      button.textContent = directUnequipEnabled ? "−" : "Unequip Current";
+      button.title = directUnequipEnabled ? "Unequip" : "Unequip Current";
+    }
+    const parent = directUnequipEnabled ? icon.container : menus.get(icon.quickEquip)?.actions ?? binding.parent;
+    if (button.parentElement !== parent || (!directUnequipEnabled && parent.children[parent.children.length - 1] !== button)) parent.append(button);
+    const label = equipped.isEmpty ? "Unequip Current" : `Unequip ${equipped.item.name}`;
     if (button.getAttribute("aria-label") !== label) button.setAttribute("aria-label", label);
-    const hidden = player !== game.combat.player || equipped.isEmpty || !icon.quickEquipEnabled;
+    const unavailable = player !== game.combat.player || !icon.quickEquipEnabled;
+    const hidden = unavailable || (directUnequipEnabled && equipped.isEmpty);
     if (button.hidden !== hidden) button.hidden = hidden;
-    if (button.disabled !== hidden) button.disabled = hidden;
+    const disabled = unavailable || equipped.isEmpty;
+    if (button.disabled !== disabled) button.disabled = disabled;
     if (button.onclick) button.onclick = null;
   }
   ctx.patch(GridIcon, "setEquipped").after(function (_result, player, equipped) { updateUnequip(this, player, equipped); });
