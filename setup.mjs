@@ -3,7 +3,6 @@ export async function setup(ctx) {
   const { installWideLayout } = await ctx.loadModule("wide-layout.mjs");
   const { installItemSourcesAndUses } = await ctx.loadModule("item-sources-and-uses.mjs");
   ctx.onModsLoaded(() => {
-    installItemSourcesAndUses(ctx, game);
     const settings = ctx.settings.section("General");
     const settingName = "page-pinning-enabled";
     const wideSettingName = "wide-layout-enabled";
@@ -45,6 +44,7 @@ export async function setup(ctx) {
         if (interfaceReady) updateWideLayout();
       },
     });
+    installItemSourcesAndUses(ctx, game);
     const restore = () => {
       enabled = settings.get(settingName) !== false;
       wideEnabled = settings.get(wideSettingName) !== false;

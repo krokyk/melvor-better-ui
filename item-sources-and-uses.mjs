@@ -21,7 +21,7 @@ export function installItemSourcesAndUses(ctx, game) {
       input.disabled = !available;
       input.addEventListener("change", onChange);
       const label = document.createElement("label");
-      label.htmlFor = name; label.className = "custom-control-label font-weight-normal";
+      label.htmlFor = name; label.className = "font-weight-normal flex-wrap justify-content-start ml-2 custom-control-label";
       label.textContent = config.label;
       const hint = document.createElement("small");
       hint.className = "d-block";
