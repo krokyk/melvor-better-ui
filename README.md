@@ -104,23 +104,25 @@ Disabling it keeps the three native shortcuts and Bank picker while retaining th
 The native Set buttons are replaced by a **Bank** chest button beside the shortcuts.
 Open it to search bank items that are compatible with the equipment slot and meet their equip requirements.
 Drag an item onto a shortcut to assign or replace it without equipping it.
-Click a bank item to inspect it in a preview beside the picker.
-The preview opens on the left when the right side has no room, while narrow screens place it below the picker.
+**General → Equipment Stats Layout** selects **Vanilla** or **Compact**, defaults to Compact and is saved per character.
+Both layouts inspect the item beside the picker without opening another dialog.
+Vanilla uses the game's three-column View Item Stats format with artwork and descriptions, offensive stats and defensive stats side by side.
+Compact stacks those details in a narrower panel.
+The preview opens on the left when the right side has no room and below the picker on narrow screens.
 The preview and bank list use the available popup height within the viewport and scroll when their contents overflow.
 The selected item's name appears below Search Bank and above the item grid.
 Items without available stats show only their name.
 **General → Show Item Stats in Equipment** selects **By clicking on item** or **By hovering over item** for the preview.
 Click is the default, and the selection is saved per character.
-**General → Equipment Preview Stats** chooses **Item values**, **Differences from equipped** or **Item values and differences**.
-Item values and differences is the default, and the selection is saved per character.
-The preview includes complete offensive and defensive tables with zero values and applicable damage resistances.
-Tables appear before descriptions and special attacks so long descriptions do not hide the stats.
+Both layouts include complete offensive and defensive tables with zero values and applicable damage resistances.
+The inspected item's values and changes from equipped gear occupy separate numeric columns.
+Compact places tables before descriptions and special attacks so long descriptions do not hide the stats.
 Comparisons use the active equipment set and the picker's equipment slot, including items displaced by two-handed equipment.
 Improvements appear green and reductions red, with a lower attack interval treated as an improvement.
 Inspecting an item does not assign or equip it.
 For keyboard assignment, focus a bank item and press Space, then focus a target shortcut and press Enter or Space.
 Click an assigned shortcut to equip its item through the game's normal equipment checks.
-The **X** just outside the equipped item's top-right corner unequips the item through the native action.
+The red minus in a red outlined square just outside the equipped item's top-right corner unequips the item through the native action.
 There is no shortcut-delete action; dropping another item replaces the assignment.
 The first three shortcuts retain their native save data.
 The additional three are saved with Better UI character data separately for each equipment set and equipment slot.

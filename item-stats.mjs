@@ -6,9 +6,8 @@ function equipmentStatsTables(item, game, options) {
   const values = new EquipmentStats(item.equipmentStats);
   const equipment = options.equipment ?? game.combat?.player?.equipment;
   const slot = options.slot ?? item.validSlots?.[0];
-  const mode = ["item", "difference", "both"].includes(options.mode) ? options.mode : "both";
   let current, next;
-  if (mode !== "item" && equipment && typeof equipment.addEquipmentStats === "function" && typeof equipment.getItemsAddedOnEquip === "function") {
+  if (equipment && typeof equipment.addEquipmentStats === "function" && typeof equipment.getItemsAddedOnEquip === "function") {
     current = new EquipmentStats(); next = new EquipmentStats();
     equipment.addEquipmentStats(current); equipment.addEquipmentStats(next);
     for (const removed of equipment.getItemsAddedOnEquip(item, slot)) {
@@ -24,8 +23,6 @@ function equipmentStatsTables(item, game, options) {
   const numeric = value => typeof numberWithCommas === "function" ? numberWithCommas(value) : String(value);
   const percent = value => typeof formatPercent === "function" ? formatPercent(value) : `${value}%`;
   const seconds = value => typeof templateLangString === "function" ? templateLangString("MENU_TEXT_SECONDS_SHORT", { seconds: String(value / 1000) }) : `${value / 1000}s`;
-  const showValues = mode !== "difference" || !current;
-  const showDifferences = mode !== "item" && !!current;
   function section(key, fallback) {
     const block = document.createElement("section"), heading = document.createElement("h5"), table = document.createElement("table");
     block.className = "kroky-equipment-stats-section";
@@ -35,24 +32,23 @@ function equipmentStatsTables(item, game, options) {
     return table;
   }
   function row(table, key, label, value, difference, { skill, format = numeric, lowerBetter = false } = {}) {
-    const line = document.createElement("tr"), name = document.createElement("th"), amount = document.createElement("td");
+    const line = document.createElement("tr"), name = document.createElement("th"), amount = document.createElement("td"), change = document.createElement("td");
     line.dataset.stat = key; name.scope = "row";
+    amount.className = "kroky-equipment-stat-value-cell"; change.className = "kroky-equipment-stat-difference-cell";
     if (skill?.media) {
       const image = document.createElement("img"); image.className = "skill-icon-xxs m-0 mr-1"; image.src = skill.media; image.alt = skill.name ?? "";
       name.append(image);
     }
     const text = document.createElement("span"); text.textContent = label; name.append(text);
-    if (showValues) {
-      const absolute = document.createElement("span"); absolute.className = "kroky-equipment-stat-value font-w600";
-      absolute.textContent = format(value); amount.append(absolute);
-    }
-    if (showDifferences && (difference !== 0 || mode === "difference")) {
+    const absolute = document.createElement("span"); absolute.className = "kroky-equipment-stat-value font-w600";
+    absolute.textContent = format(value); amount.append(absolute);
+    if (current) {
       const delta = document.createElement("span"); delta.className = "kroky-equipment-stat-difference";
       delta.textContent = `${difference > 0 ? "+" : ""}${format(difference)}`;
       if (difference !== 0) delta.classList.add((lowerBetter ? difference < 0 : difference > 0) ? "text-success" : "text-danger");
-      amount.append(delta);
+      change.append(delta);
     }
-    line.append(name, amount); table.append(line);
+    line.append(name, amount, change); table.append(line);
   }
   const offensive = section("COMBAT_MISC_42", "Offensive Stats");
   const weapon = typeof WeaponItem === "function" ? item instanceof WeaponItem : !!item.damageType || item.equipmentStats.some(stat => stat.key === "attackSpeed");
@@ -60,6 +56,7 @@ function equipmentStatsTables(item, game, options) {
     if (item.damageType) {
       const line = document.createElement("tr"), name = document.createElement("th"), value = document.createElement("td");
       line.dataset.stat = "damageType"; name.scope = "row"; name.textContent = lang("DAMAGE_TYPE", "Damage Type");
+      value.colSpan = 2;
       value.textContent = item.damageType.name; line.append(name, value); offensive.append(line);
     }
     const difference = current ? (next.attackSpeed || 4000) - (current.attackSpeed || 4000) : 0;
@@ -99,27 +96,50 @@ export function createItemStatsPreview(item, game, options = {}) {
   const Tooltip = customElements.get("equipment-tooltip");
   const equipment = typeof EquipmentItem === "function" && item instanceof EquipmentItem;
   const fullStats = options.fullStats && hasStats && typeof EquipmentStats === "function" && (equipment || stats.length > 0);
-  if (fullStats) element.append(equipmentStatsTables(item, game, options));
+  const vanilla = fullStats && options.layout === "vanilla";
+  const details = fullStats ? document.createElement("div") : element;
+  if (fullStats) {
+    details.className = "kroky-equipment-item-details";
+    const tables = equipmentStatsTables(item, game, options);
+    if (vanilla) {
+      element.classList.add("kroky-item-stats-vanilla");
+      element.append(details, tables);
+      const name = document.createElement("h5");
+      name.className = "kroky-equipment-preview-name"; name.textContent = item.name;
+      details.append(name);
+      if (item.media) {
+        const image = document.createElement("img");
+        image.className = "kroky-equipment-preview-art"; image.src = item.media; image.alt = "";
+        details.append(image);
+      }
+    } else element.append(tables, details);
+  }
   if (hasStats && equipment && typeof Tooltip?.prototype.setItem === "function") {
     const tooltip = document.createElement("equipment-tooltip");
     tooltip.setItem(item, !fullStats);
-    element.append(tooltip);
+    if (vanilla) {
+      if (tooltip.itemName) tooltip.itemName.hidden = true;
+      if (tooltip.itemDamageType) tooltip.itemDamageType.hidden = true;
+    }
+    details.append(tooltip);
   } else {
-    const name = document.createElement("strong");
-    name.className = "d-block text-warning"; name.textContent = item?.name ?? "";
-    element.append(name);
+    if (!vanilla) {
+      const name = document.createElement("strong");
+      name.className = "d-block text-warning"; name.textContent = item?.name ?? "";
+      details.append(name);
+    }
     if (hasStats) {
       if (item.hasDescription && item.modifiedDescription) {
         const description = document.createElement("small");
         description.className = "d-block text-info"; description.innerHTML = item.modifiedDescription;
-        element.append(description);
+        details.append(description);
       }
       for (const stat of fullStats ? [] : stats) {
         if (!Number.isFinite(stat.value) || stat.value === 0) continue;
         const line = document.createElement("div");
         line.textContent = typeof Equipment === "function" && typeof Equipment.getEquipStatDescription === "function" ? Equipment.getEquipStatDescription(stat) : `${stat.key}: ${stat.value}`;
         line.className = stat.value < 0 ? "text-danger" : "text-success";
-        element.append(line);
+        details.append(line);
       }
     }
   }
@@ -128,14 +148,14 @@ export function createItemStatsPreview(item, game, options = {}) {
     const line = document.createElement("div"); line.className = "font-size-sm mt-1";
     line.append(...requirement.getNodes("skill-icon-xs mr-2"));
     if (typeof requirement.isMet === "function") line.classList.add(requirement.isMet() ? "text-success" : "text-danger");
-    element.append(line);
+    details.append(line);
   }
   if (hasStats && item?.consumesChargesOn && typeof game.itemCharges?.getCharges === "function") {
     const charges = game.itemCharges.getCharges(item), line = document.createElement("small");
     line.className = "d-block text-success";
     const quantity = typeof numberWithCommas === "function" ? numberWithCommas(charges) : String(charges);
     line.textContent = typeof templateLangString === "function" ? templateLangString("MENU_TEXT_CHARGES_REMAINING", { charges: quantity }) : `${quantity} charges remaining`;
-    element.append(line);
+    details.append(line);
   }
   return { element, hasStats: !!hasStats };
 }

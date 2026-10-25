@@ -11,7 +11,7 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
   if (!QuickEquip || !GridIcon) return;
   const menus = new WeakMap(), owners = new WeakMap(), bindings = new WeakMap();
   const settings = ctx.settings.section("General");
-  let extra = {}, storageReady = false, storageError = false, enabled = true, extraSlotsEnabled = true, statsMode = "click", statsDisplayMode = "both";
+  let extra = {}, storageReady = false, storageError = false, enabled = true, extraSlotsEnabled = true, statsMode = "click", statsLayout = "compact";
   settings.add({
     type: "switch", name: settingName, label: "Enhanced Equipment Menu", default: true,
     hint: "Use enhanced quick slots and a searchable Bank picker in Combat and the top-bar equipment menu. Disable to restore the native menu while retaining your shortcuts.",
@@ -38,12 +38,12 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
     },
   });
   settings.add({
-    type: "radio-group", name: statsDisplaySettingName, label: "Equipment Preview Stats", default: "both",
-    hint: "Compare with the equipment set and slot opened in this picker.",
-    options: [{ value: "item", label: "Item values" }, { value: "difference", label: "Differences from equipped" }, { value: "both", label: "Item values and differences" }],
+    type: "radio-group", name: statsDisplaySettingName, label: "Equipment Stats Layout", default: "compact",
+    hint: "Vanilla shows item details, offensive stats and defensive stats in three columns. Compact stacks them beside the picker. Both show item values and equipped differences.",
+    options: [{ value: "vanilla", label: "Vanilla" }, { value: "compact", label: "Compact" }],
     onChange(value) {
-      if (!["item", "difference", "both"].includes(value)) return "Choose item values, differences, or both.";
-      statsDisplayMode = value; syncInterface();
+      if (!["vanilla", "compact"].includes(value)) return "Choose Vanilla or Compact.";
+      statsLayout = value; syncInterface();
     },
   });
   const rememberAttributes = (node, names) => Object.fromEntries(names.map(name => [name, node.getAttribute(name)]));
@@ -80,7 +80,7 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
     const savedMode = settings.get(statsSettingName);
     statsMode = ["click", "hover"].includes(savedMode) ? savedMode : "click";
     const savedDisplayMode = settings.get(statsDisplaySettingName);
-    statsDisplayMode = ["item", "difference", "both"].includes(savedDisplayMode) ? savedDisplayMode : "both";
+    statsLayout = ["vanilla", "compact"].includes(savedDisplayMode) ? savedDisplayMode : "compact";
     syncInterface();
   }
   ctx.onCharacterLoaded(() => { storageReady = true; restore(); });
@@ -99,31 +99,43 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
       .kroky-quick-equip-bank { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px; }
       .kroky-quick-equip-bank img { width: 32px; height: 32px; }
       #swal2-html-container .custom-radio > input[name^="KrokyBetterUI:"] + label { margin-left: 2rem !important; }
-      .kroky-quick-equip-layout { display: grid; grid-template-columns: minmax(0, 18rem); grid-template-rows: minmax(0, 1fr); gap: .75rem; width: max-content; max-width: calc(100vw - 3rem); max-height: calc(100vh - 2rem); }
-      .kroky-quick-equip-layout.kroky-has-stats { grid-template-columns: minmax(0, 18rem) minmax(0, 22rem); }
-      .kroky-quick-equip-layout.kroky-has-stats.kroky-preview-left { grid-template-columns: minmax(0, 22rem) minmax(0, 18rem); }
+      .kroky-quick-equip-layout { --kroky-stats-width: min(22rem, calc(100vw - 21.75rem)); display: grid; grid-template-columns: minmax(0, 18rem); grid-template-rows: minmax(0, 1fr); gap: .75rem; width: max-content; max-width: calc(100vw - 3rem); max-height: calc(100vh - 2rem); }
+      .kroky-quick-equip-layout.kroky-stats-vanilla { --kroky-stats-width: min(66rem, calc(100vw - 21.75rem)); }
+      .kroky-quick-equip-layout.kroky-has-stats { grid-template-columns: minmax(0, 18rem) minmax(0, var(--kroky-stats-width)); }
+      .kroky-quick-equip-layout.kroky-has-stats.kroky-preview-left { grid-template-columns: minmax(0, var(--kroky-stats-width)) minmax(0, 18rem); }
       .kroky-quick-equip-column { display: flex; flex-direction: column; grid-row: 1; grid-column: 1; min-height: 0; width: min(18rem, calc(100vw - 3rem)); }
       .kroky-has-stats.kroky-preview-left > .kroky-quick-equip-column { grid-column: 2; }
       .kroky-quick-equip-picker { display: flex; flex: 1; min-height: 0; margin-top: .5rem; }
       .kroky-quick-equip-bank-pane { display: flex; flex-direction: column; width: min(18rem, calc(100vw - 3rem)); min-height: 0; flex: 1; }
       .kroky-quick-equip-bank-pane > input, .kroky-quick-equip-selected-name { flex-shrink: 0; }
       .kroky-quick-equip-selected-name { display: block; font-weight: bold; margin: .4rem 0; }
-      .kroky-quick-equip-preview { grid-row: 1; grid-column: 2; width: min(22rem, calc(100vw - 3rem)); min-height: 0; overflow: auto; padding: .75rem; border: 1px solid #59616e; border-radius: .25rem; background: #232a35; text-align: left; font-size: .875rem; }
+      .kroky-quick-equip-preview { grid-row: 1; grid-column: 2; width: var(--kroky-stats-width); min-height: 0; overflow: auto; padding: .75rem; border: 1px solid #59616e; border-radius: .25rem; background: #232a35; text-align: left; font-size: .875rem; }
       .kroky-preview-left > .kroky-quick-equip-preview { grid-column: 1; }
       .kroky-quick-equip-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); grid-auto-rows: 44px; align-content: start; gap: 4px; min-height: 0; flex: 1; overflow-y: auto; margin-top: .5rem; }
-      .kroky-equipment-stats-table { width: 100%; margin-bottom: .75rem; border-collapse: collapse; font-size: .8rem; }
+      .kroky-equipment-stats-table { width: 100%; margin-bottom: .75rem; border-collapse: collapse; table-layout: fixed; font-size: .8rem; }
       .kroky-equipment-stats-heading { margin: 0 0 .4rem; padding: .25rem; background: #343c4a; text-align: center; font-size: .875rem; }
       .kroky-equipment-stats-table th, .kroky-equipment-stats-table td { padding: .25rem .15rem; vertical-align: top; }
-      .kroky-equipment-stats-table th { text-align: left; font-weight: normal; }
-      .kroky-equipment-stats-table td:last-child { text-align: right; white-space: nowrap; }
-      .kroky-equipment-stat-difference { margin-left: .35rem; }
+      .kroky-equipment-stats-table th { width: 58%; text-align: left; font-weight: normal; }
+      .kroky-equipment-stats-table td { text-align: right; white-space: nowrap; }
+      .kroky-equipment-stat-value-cell { width: 22%; }
+      .kroky-equipment-stat-difference-cell { width: 20%; }
+      .kroky-item-stats-vanilla { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; align-items: start; }
+      .kroky-item-stats-vanilla .kroky-equipment-item-details { grid-column: 1; grid-row: 1; min-width: 0; }
+      .kroky-item-stats-vanilla .kroky-equipment-stats-tables { display: contents; }
+      .kroky-item-stats-vanilla .kroky-equipment-stats-section:first-child { grid-column: 2; grid-row: 1; min-width: 0; }
+      .kroky-item-stats-vanilla .kroky-equipment-stats-section:last-child { grid-column: 3; grid-row: 1; min-width: 0; }
+      .kroky-item-stats-vanilla .kroky-equipment-stats-section { padding: .5rem; border-radius: .25rem; background: #343c4a; }
+      .kroky-item-stats-vanilla .kroky-equipment-item-details > .mt-1 { padding: .5rem; border-radius: .25rem; background: #343c4a; text-align: center; }
+      .kroky-equipment-preview-name { padding: .5rem; border-radius: .25rem; background: #343c4a; text-align: center; font-size: 1rem; }
+      .kroky-equipment-preview-art { display: block; width: 100%; height: 12rem; object-fit: contain; margin: .75rem 0; padding: 1rem; border-radius: .25rem; background: #343c4a; }
       .kroky-quick-equip-bank-item { position: relative; min-height: 44px; padding: 3px; }
       .kroky-quick-equip-bank-item img { width: 28px; height: 28px; pointer-events: none; }
       .kroky-quick-equip-bank-item[aria-pressed="true"] { border-color: #5cace5; background: #34485b; }
-      .kroky-quick-equip-slot[hidden], .kroky-quick-equip-bank-item[hidden], .kroky-quick-equip-picker[hidden], .kroky-quick-equip-preview[hidden], .kroky-quick-equip-selected-name[hidden] { display: none; }
+      .kroky-quick-equip-slot[hidden], .kroky-quick-equip-bank-item[hidden], .kroky-quick-equip-picker[hidden], .kroky-quick-equip-preview[hidden], .kroky-quick-equip-selected-name[hidden], .kroky-quick-unequip[hidden] { display: none; }
       .kroky-quick-equip-status { display: block; max-width: 18rem; margin-top: .25rem; }
-      .kroky-quick-unequip { left: auto !important; right: -6px; z-index: 1; border: 0; border-radius: 50%; background: #232a35; line-height: 1; font-weight: bold; }
-      @media (max-width: 700px) { .kroky-quick-equip-layout.kroky-has-stats.kroky-preview-left, .kroky-quick-equip-layout.kroky-has-stats, .kroky-quick-equip-layout { display: flex; flex-direction: column; overflow-y: auto; } .kroky-quick-equip-column, .kroky-quick-equip-preview { flex-shrink: 0; } }
+      .kroky-quick-unequip { display: inline-flex; align-items: center; justify-content: center; left: auto !important; right: -6px; z-index: 1; border: 1px solid currentColor; border-radius: 2px; background: #232a35; line-height: 1; font-size: .75rem; font-weight: bold; text-decoration: none; }
+      @media (max-width: 1000px) { .kroky-item-stats-vanilla { display: block; } .kroky-item-stats-vanilla .kroky-equipment-stats-tables { display: block; } }
+      @media (max-width: 700px) { .kroky-quick-equip-layout.kroky-has-stats.kroky-preview-left, .kroky-quick-equip-layout.kroky-has-stats, .kroky-quick-equip-layout { --kroky-stats-width: min(22rem, calc(100vw - 3rem)); display: flex; flex-direction: column; overflow-y: auto; } .kroky-quick-equip-column, .kroky-quick-equip-preview { flex-shrink: 0; } .kroky-quick-equip-layout.kroky-stats-vanilla { --kroky-stats-width: min(66rem, calc(100vw - 3rem)); } }
     `;
     document.head.append(style);
   });
@@ -234,7 +246,8 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
     view.previewedItem = item;
     view.selectedName.textContent = item.name; view.selectedName.hidden = false;
     for (const entry of view.bankItems) entry.button.setAttribute("aria-pressed", String(entry.button === button));
-    const result = createItemStatsPreview?.(item, game, { fullStats: true, mode: statsDisplayMode, equipment: view.player.equipment, slot: view.equipped.slot });
+    view.layout.classList.toggle("kroky-stats-vanilla", statsLayout === "vanilla");
+    const result = createItemStatsPreview?.(item, game, { fullStats: true, layout: statsLayout, equipment: view.player.equipment, slot: view.equipped.slot });
     view.preview.replaceChildren(...(result?.hasStats ? [result.element] : []));
     view.preview.hidden = !result?.hasStats;
     view.layout.classList.toggle("kroky-has-stats", !!result?.hasStats);
@@ -282,7 +295,8 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
       button.addEventListener("keydown", event => {
         if (event.key !== " " || !canAssign(view, item)) return;
         event.preventDefault(); event.stopPropagation();
-        previewItem(view, item, button); view.pendingItem = item;
+        previewItem(view, item, button);
+        view.pendingItem = item;
         view.status.textContent = `Choose a quick slot for ${item.name} with Enter or Space.`;
         view.entries[0].equip.focus();
       });
@@ -463,7 +477,7 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
     if (!binding.active) {
       binding.active = true;
       button.className = "kroky-quick-unequip info-icon-overlay skill-icon-xxs btn btn-link text-danger p-0";
-      button.type = "button"; button.textContent = "×"; button.title = "Unequip";
+      button.type = "button"; button.textContent = "−"; button.title = "Unequip";
       icon.container.append(button);
       icon.image.setAttribute("tabindex", "0");
       icon.image.setAttribute("role", "button");

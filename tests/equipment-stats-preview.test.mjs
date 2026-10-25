@@ -107,7 +107,7 @@ function fixture() {
     getItemsAddedOnEquip(item, slot = item.validSlots[0]) { calls.removed.push({ item, slot }); return this.getSlotsToUnequip(item, slot).map(required => ({ item: equippedItems[required.id].item, quantity: 1 })); },
   };
   const game = { normalDamage: normal, damageTypes: [normal, pure, abyssal, hiddenType], combat: { player: { equipment }, isDamageTypeInUse: () => false }, itemCharges: { getCharges: () => 0 } };
-  const preview = (mode = "both", item = candidate, slot = weapon) => createItemStatsPreview(item, game, { fullStats: true, mode, equipment, slot });
+  const preview = (item = candidate, slot = weapon) => createItemStatsPreview(item, game, { fullStats: true, equipment, slot });
   return { calls, elements, game, equipment, equippedItems, wear, weapon, shield, summon1, summon2, passive, normal, pure, abyssal, hiddenType, ancientClaw, currentShield, candidate, preview };
 }
 
@@ -128,17 +128,62 @@ test("full equipment preview includes native offensive and defensive tables with
   assert.equal(f.calls.modal, 0);
 });
 
-test("item values, differences, and both are distinct display modes", () => {
+test("stats keep inspected values and equipped differences in separate stable numeric columns", () => {
+  const f = fixture(), result = f.preview();
+  for (const line of result.element.querySelectorAll("[data-stat]")) {
+    if (line.dataset.stat === "damageType") {
+      assert.equal(line.children.length, 2, "categorical damage type uses one cell across the numeric columns");
+      assert.equal(line.children[1].colSpan, 2);
+      continue;
+    }
+    assert.equal(line.children.length, 3, `${line.dataset.stat} keeps label, item value and difference columns`);
+    const [label, inspected, change] = line.children;
+    assert.equal(label.tagName, "TH");
+    assert.equal(inspected.tagName, "TD"); assert.equal(change.tagName, "TD");
+    assert.ok(inspected.classList.contains("kroky-equipment-stat-value-cell"));
+    assert.ok(change.classList.contains("kroky-equipment-stat-difference-cell"));
+    const absolute = line.querySelector(".kroky-equipment-stat-value"), delta = line.querySelector(".kroky-equipment-stat-difference");
+    assert.ok(absolute, "every numeric row shows the inspected item value");
+    assert.ok(delta, "every numeric row shows its change from equipped gear");
+    assert.equal(absolute.parentElement, inspected, "item values never share the delta cell");
+    assert.equal(delta.parentElement, change, "colored deltas have a dedicated column");
+  }
+  assert.equal(value(result, "meleeStrengthBonus").textContent, "365");
+  assert.equal(difference(result, "meleeStrengthBonus").textContent, "+290");
+  assert.equal(value(result, "rangedAttackBonus").textContent, "0");
+  const zero = difference(result, "rangedAttackBonus");
+  assert.equal(zero.textContent, "0");
+  assert.equal(zero.classList.contains("text-danger"), false);
+  assert.equal(zero.classList.contains("text-success"), false);
+});
+
+test("Vanilla uses inline item artwork and lore beside the same comparison tables as Compact", () => {
   const f = fixture();
-  const item = f.preview("item");
-  assert.equal(value(item, "meleeStrengthBonus").textContent, "365");
-  assert.equal(row(item, "meleeStrengthBonus").querySelector(".kroky-equipment-stat-difference"), null);
-  const delta = f.preview("difference");
-  assert.equal(row(delta, "meleeStrengthBonus").querySelector(".kroky-equipment-stat-value"), null);
-  assert.equal(difference(delta, "meleeStrengthBonus").textContent, "+290");
-  const both = f.preview("both");
-  assert.equal(value(both, "meleeStrengthBonus").textContent, "365");
-  assert.equal(difference(both, "meleeStrengthBonus").textContent, "+290");
+  f.candidate.media = "ultima-godsword.png";
+  const create = layout => createItemStatsPreview(f.candidate, f.game, { fullStats: true, layout, equipment: f.equipment, slot: f.weapon });
+  const compact = create("compact"), vanilla = create("vanilla");
+  assert.equal(compact.element.classList.contains("kroky-item-stats-vanilla"), false);
+  assert.equal(vanilla.element.classList.contains("kroky-item-stats-vanilla"), true);
+  for (const [result, detailsFirst] of [[vanilla, true], [compact, false]]) {
+    const details = result.element.querySelector(".kroky-equipment-item-details");
+    const tables = result.element.querySelector(".kroky-equipment-stats-tables");
+    assert.ok(details, "full previews retain a dedicated item-details section");
+    assert.ok(tables);
+    assert.equal(details.parentElement, result.element); assert.equal(tables.parentElement, result.element);
+    assert.equal(result.element.children.indexOf(details) < result.element.children.indexOf(tables), detailsFirst, "Vanilla puts details first while Compact keeps its tables above lore");
+    assert.match(details.textContent, /Ultima Godsword/);
+    assert.match(details.textContent, /Long special attack details/);
+  }
+  const artwork = vanilla.element.querySelector(".kroky-equipment-preview-art");
+  assert.ok(artwork); assert.equal(artwork.tagName, "IMG"); assert.equal(artwork.src, f.candidate.media);
+  const stats = result => result.element.querySelectorAll("[data-stat]").map(line => ({
+    key: line.dataset.stat,
+    value: line.querySelector(".kroky-equipment-stat-value")?.textContent,
+    difference: line.querySelector(".kroky-equipment-stat-difference")?.textContent,
+    color: line.querySelector(".kroky-equipment-stat-difference")?.className,
+  }));
+  assert.deepEqual(stats(vanilla), stats(compact), "layout does not change values, comparison math or delta colors");
+  assert.equal(f.calls.modal, 0, "Vanilla is inline and never invokes the shared item-stats modal");
 });
 
 test("two-handed comparison removes both displaced items and marks slower attacks as a loss", () => {
@@ -161,7 +206,7 @@ test("comparisons use the picker slot for secondary summons and preserve weapon 
   const second = new EquipmentItem("Second Summon", [{ key: "meleeStrengthBonus", value: 20 }], [f.summon1, f.summon2]);
   const replacement = new EquipmentItem("New Summon", [{ key: "meleeStrengthBonus", value: 25 }], [f.summon1, f.summon2]);
   f.wear(f.summon1, first); f.wear(f.summon2, second);
-  const result = f.preview("both", replacement, f.summon2);
+  const result = f.preview(replacement, f.summon2);
   assert.equal(difference(result, "meleeStrengthBonus").textContent, "+5");
   assert.equal(f.calls.removed.at(-1).slot, f.summon2);
   const speed = result.element.querySelectorAll("[data-stat]").find(element => element.dataset.stat === "attackSpeed");
@@ -172,7 +217,7 @@ test("passive slots show item values without pretending their combat stats chang
   const f = fixture(), worn = new EquipmentItem("Passive Old", [{ key: "meleeStrengthBonus", value: 50 }], [f.passive]);
   const candidate = new EquipmentItem("Passive New", [{ key: "meleeStrengthBonus", value: 100 }], [f.passive]);
   f.wear(f.passive, worn);
-  const result = f.preview("both", candidate, f.passive);
+  const result = f.preview(candidate, f.passive);
   assert.equal(value(result, "meleeStrengthBonus").textContent, "100");
   const delta = row(result, "meleeStrengthBonus").querySelector(".kroky-equipment-stat-difference");
   assert.ok(!delta || /^\+?0$/.test(delta.textContent), "non-stat passive equipment must have no strength gain");
@@ -197,7 +242,7 @@ test("weapon comparison uses native unarmed speed and exposes native percentage 
 test("inactive conditional resistance rows stay hidden until used by the item, equipment or combat", () => {
   const f = fixture();
   const hidden = result => result.element.querySelectorAll("[data-stat]").some(element => element.dataset.stat.includes(f.hiddenType.id));
-  assert.equal(hidden(f.preview("item")), false);
+  assert.equal(hidden(f.preview()), false);
   f.currentShield.equipmentStats.push({ key: "resistance", damageType: f.hiddenType, value: 7 });
   const compared = f.preview();
   assert.equal(hidden(compared), true, "displaced equipment with resistance must expose its loss");
@@ -206,11 +251,11 @@ test("inactive conditional resistance rows stay hidden until used by the item, e
   assert.ok(resistance.querySelector(".kroky-equipment-stat-difference").classList.contains("text-danger"));
   f.currentShield.equipmentStats.pop();
   f.game.combat.isDamageTypeInUse = type => type === f.hiddenType;
-  assert.equal(hidden(f.preview("item")), true, "currently used damage types retain their zero resistance row");
+  assert.equal(hidden(f.preview()), true, "currently used damage types retain their zero resistance row");
 });
 
 test("name-only fallback remains available for items with no stats", () => {
   const f = fixture(), plain = { id: "test:Plain", name: "Plain Item" };
-  const result = createItemStatsPreview(plain, f.game, { fullStats: true, mode: "both", equipment: f.equipment, slot: f.weapon });
+  const result = createItemStatsPreview(plain, f.game, { fullStats: true, equipment: f.equipment, slot: f.weapon });
   assert.equal(result.hasStats, false); assert.equal(result.element.textContent, "Plain Item");
 });
