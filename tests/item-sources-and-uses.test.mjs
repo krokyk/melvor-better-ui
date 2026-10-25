@@ -23,6 +23,12 @@ class Element {
   append(...nodes) {
     for (const node of nodes) { node.remove(); this.children.push(node); node.parentElement = this; }
   }
+  replaceChildren(...nodes) { for (const node of [...this.children]) node.remove(); this.append(...nodes); }
+  before(node) {
+    const parent = this.parentElement;
+    if (!parent) return;
+    node.remove(); parent.children.splice(parent.children.indexOf(this), 0, node); node.parentElement = parent;
+  }
   remove() {
     if (this.parentElement) this.parentElement.children.splice(this.parentElement.children.indexOf(this), 1);
     this.parentElement = undefined;
@@ -52,7 +58,7 @@ class Element {
   click() { return this.dispatch("click"); }
 }
 
-function fixture(provider = "available", saved = false, install = installItemSourcesAndUses) {
+function fixture(provider = "available", saved = false, install = installItemSourcesAndUses, upgradeRegistered = true) {
   const html = new Element("html"), head = new Element("head"), page = new Element(), nativeRoot = new Element(), workforce = new Element("section"), skillRoot = new Element();
   page.id = "page-container"; nativeRoot.id = "smithing-container"; workforce.className = "kroky-production"; skillRoot.className = "kroky-production-recipe-details";
   html.append(head, page); page.append(nativeRoot); nativeRoot.append(workforce); workforce.append(skillRoot);
@@ -114,8 +120,31 @@ function fixture(provider = "available", saved = false, install = installItemSou
     setFishUnlocked(fish) { this.fishImage.alt = fish.product.name; }
     setFishLocked() { this.fishImage.alt = "Locked"; }
   }
+  class UpgradeMenu extends Element {
+    constructor() {
+      super("item-upgrade-menu"); this.itemCosts = new Element("span"); this.currencyCosts = new Element("span"); this.itemImage = new Element("img");
+      this.itemImage.className = "w-100"; this.itemTooltips = []; this.currencyTooltips = [];
+      this.append(this.itemImage, this.currencyCosts, this.itemCosts);
+    }
+    setUpgradeCosts(upgrade, bank, actualGame) {
+      assert.equal(actualGame, game);
+      this.currencyCosts.replaceChildren(); this.itemCosts.replaceChildren();
+      for (const tooltip of [...this.currencyTooltips, ...this.itemTooltips]) tooltip.destroyed = true;
+      this.currencyTooltips = []; this.itemTooltips = [];
+      for (const [costs, container, tooltips] of [[upgrade.currencyCosts, this.currencyCosts, this.currencyTooltips], [upgrade.itemCosts, this.itemCosts, this.itemTooltips]]) {
+        for (const cost of costs) {
+          const value = cost.item ?? cost.currency, image = new Element("img"), quantity = new Element("span");
+          image.className = "skill-icon-sm mr-1"; image.src = value.media;
+          quantity.textContent = `${cost.quantity}`; quantity.className = cost.item && bank.getQty(cost.item) < cost.quantity ? "text-danger" : "text-success";
+          tooltips.push({ target: image, content: value.name, destroyed: false }); container.append(image, quantity);
+        }
+      }
+      return "native upgrade costs";
+    }
+  }
   const classes = new Map([["item-quantity-icon", QuantityIcon], ["item-current-icon", CurrentIcon], ["item-chance-icon", ChanceIcon], ["cooking-stockpile-icon", StockpileIcon], ["item-recipe-option", RecipeOption],
-    ["herblore-recipe-option", HerbloreOption], ["fishing-area-menu-button", FishOption]]);
+    ["herblore-recipe-option", HerbloreOption], ["fishing-area-menu-button", FishOption], ["item-upgrade-menu", UpgradeMenu]]);
+  if (!upgradeRegistered) classes.delete("item-upgrade-menu");
   globalThis.customElements = { get: tag => classes.get(tag) };
   const ctx = {
     settings: { section(name) {
@@ -149,7 +178,7 @@ function fixture(provider = "available", saved = false, install = installItemSou
   install(ctx, game);
   const field = fields.get("recipe-item-sources-enabled");
   const toggle = enabled => { const input = field.root.querySelector("input"); input.checked = enabled; input.dispatch("change"); };
-  return { game, items, calls, observers, patches, hooks, field, values, page, nativeRoot, workforce, skillRoot, head, QuantityIcon, CurrentIcon, ChanceIcon, StockpileIcon, RecipeOption, HerbloreOption, FishOption, toggle };
+  return { game, items, calls, observers, patches, hooks, field, values, page, nativeRoot, workforce, skillRoot, head, QuantityIcon, CurrentIcon, ChanceIcon, StockpileIcon, RecipeOption, HerbloreOption, FishOption, UpgradeMenu, registerUpgrade: () => classes.set("item-upgrade-menu", UpgradeMenu), toggle };
 }
 
 function sourceButton(icon) { return icon.querySelector(".kroky-item-source-button"); }
@@ -353,4 +382,95 @@ test("native Firemaking and Cooking ingredients and products are supported witho
     sourceButton(product).click(); assert.equal(f.calls.at(-1), f.items[1].id);
     stockpile.unsetItem(); assert.equal(sourceButton(stockpile).hidden, true);
   }
+});
+
+function upgradeFixture(f) {
+  const modal = new Element(), menu = new f.UpgradeMenu(); modal.id = "modal-item-upgrade";
+  f.page.append(modal); modal.append(menu);
+  const upgrade = { currencyCosts: [{ currency: { id: "test:GP", name: "GP", media: "coins.png" }, quantity: 100000 }],
+    itemCosts: [{ item: f.items[0], quantity: 1 }, { item: f.items[1], quantity: 500 }, { item: f.items[2], quantity: 2 }] };
+  const bank = { getQty: item => item === f.items[0] ? 10 : 0 };
+  return { modal, menu, upgrade, bank };
+}
+
+test("upgrade material costs expose sources without changing currencies, main artwork, quantities or native tooltip targets", () => {
+  const f = fixture("available", true), { modal, menu, upgrade, bank } = upgradeFixture(f);
+  f.hooks.interface(); assert.equal(menu.setUpgradeCosts(upgrade, bank, f.game), "native upgrade costs");
+  assert.equal(menu.itemCosts.querySelectorAll(".kroky-item-source-button").length, 3);
+  assert.equal(menu.currencyCosts.querySelectorAll(".kroky-item-source-button").length, 0);
+  assert.equal(menu.itemImage.parentElement, menu, "large upgrade artwork stays in its native parent");
+  assert.equal(menu.itemImage.className, "w-100");
+  assert.equal(f.observers[0].nodes.has(modal), true, "only the existing upgrade modal joins the observed roots");
+  assert.deepEqual(menu.itemCosts.children.filter(node => node.tagName === "SPAN" && !node.querySelector("img")).map(node => [node.textContent, node.className]),
+    [["1", "text-success"], ["500", "text-danger"], ["2", "text-danger"]]);
+  for (const [index, tooltip] of menu.itemTooltips.entries()) {
+    const image = tooltip.target, wrapper = image.parentElement;
+    assert.equal(wrapper.classList.contains("kroky-upgrade-cost-icon"), true);
+    assert.equal(wrapper.children[0], image, "the original image remains the native tooltip target");
+    assert.equal(tooltip.destroyed, false); assert.equal(tooltip.content, upgrade.itemCosts[index].item.name);
+    sourceButton(wrapper).click(); assert.equal(f.calls.at(-1), upgrade.itemCosts[index].item.id);
+  }
+  assert.equal(menu.currencyTooltips[0].target.parentElement, menu.currencyCosts, "currency images retain their native parent");
+  assert.equal(menu.currencyTooltips[0].target.className, "skill-icon-sm mr-1");
+  assert.equal(menu.querySelectorAll(".kroky-item-source-button").length, 3, "no stat, mastery or output art gets a shortcut");
+});
+
+test("refreshing upgrade costs keeps the new material bindings and native cost lifecycle without duplicate shortcuts", () => {
+  const f = fixture("available", true), { menu, upgrade, bank } = upgradeFixture(f); f.hooks.interface();
+  menu.setUpgradeCosts(upgrade, bank, f.game);
+  const oldTooltips = [...menu.itemTooltips], oldImages = oldTooltips.map(tooltip => tooltip.target);
+  const next = { ...upgrade, itemCosts: [{ item: f.items[4], quantity: 2 }, { item: f.items[3], quantity: 3 }] };
+  menu.setUpgradeCosts(next, bank, f.game);
+  assert.equal(oldTooltips.every(tooltip => tooltip.destroyed), true, "native tooltip cleanup still runs");
+  assert.equal(menu.itemCosts.querySelectorAll(".kroky-item-source-button").length, 2);
+  assert.equal(menu.itemCosts.querySelectorAll("img").some(image => oldImages.includes(image)), false);
+  for (const [index, image] of menu.itemCosts.querySelectorAll("img").entries()) {
+    sourceButton(image.parentElement).click(); assert.equal(f.calls.at(-1), next.itemCosts[index].item.id);
+    f.observers[0].callback([{ target: menu.itemCosts, addedNodes: [image.parentElement] }]);
+  }
+  assert.equal(menu.itemCosts.querySelectorAll(".kroky-item-source-button").length, 2, "observed native changes do not add a second shortcut");
+});
+
+test("upgrade costs bound before readiness or while disabled decorate only when the existing source setting enables them", () => {
+  for (const saved of [false, true]) {
+    const f = fixture("available", saved), { menu, upgrade, bank } = upgradeFixture(f);
+    menu.setUpgradeCosts(upgrade, bank, f.game);
+    const images = [...menu.itemCosts.querySelectorAll("img")];
+    assert.equal(menu.itemCosts.querySelectorAll(".kroky-item-source-button").length, 0);
+    assert.equal(images.every(image => image.parentElement === menu.itemCosts), true, "disabled or unready integration leaves native images unwrapped");
+    f.hooks.interface(); if (!saved) f.toggle(true);
+    assert.equal(menu.itemCosts.querySelectorAll(".kroky-item-source-button").length, 3);
+    const buttons = [...menu.itemCosts.querySelectorAll(".kroky-item-source-button")];
+    f.toggle(false); for (const button of buttons) button.click(); assert.deepEqual(f.calls, []);
+    f.toggle(true);
+    assert.deepEqual(menu.itemCosts.querySelectorAll("img"), images);
+    assert.deepEqual(menu.itemCosts.querySelectorAll(".kroky-item-source-button"), buttons);
+    assert.equal(menu.currencyCosts.querySelectorAll(".kroky-item-source-button").length, 0);
+  }
+});
+
+test("missing source providers leave upgrade costs native and the source switch disabled with its explanation", () => {
+  const f = fixture("missing", true), { menu, upgrade, bank } = upgradeFixture(f);
+  menu.setUpgradeCosts(upgrade, bank, f.game);
+  assert.equal(menu.querySelectorAll(".kroky-item-source-button").length, 0);
+  assert.equal(menu.itemTooltips.every(tooltip => tooltip.target.parentElement === menu.itemCosts), true);
+  assert.equal(f.field.root.querySelector("input").disabled, true);
+  assert.match(f.field.root.querySelector("small").textContent, /Requires Show Item Sources And Uses.*installed and enabled/);
+  assert.equal(f.field.config.get(f.field.root), true, "a missing optional mod keeps the prior saved preference");
+  assert.equal(f.patches.length, 0);
+});
+
+test("late-defined upgrade menus receive their source hook at interface readiness only once", () => {
+  const f = fixture("available", true, installItemSourcesAndUses, false);
+  assert.equal(f.patches.some(([Class]) => Class === f.UpgradeMenu), false, "native initMenus has not defined the upgrade element yet");
+  f.registerUpgrade();
+  const { menu, upgrade, bank } = upgradeFixture(f);
+  f.hooks.interface(); menu.setUpgradeCosts(upgrade, bank, f.game);
+  assert.equal(menu.itemCosts.querySelectorAll(".kroky-item-source-button").length, 3);
+  f.hooks.interface(); f.hooks.interface(); menu.setUpgradeCosts(upgrade, bank, f.game);
+  assert.equal(f.patches.filter(([Class, method]) => Class === f.UpgradeMenu && method === "setUpgradeCosts").length, 1);
+  const buttons = menu.itemCosts.querySelectorAll(".kroky-item-source-button");
+  assert.equal(buttons.length, 3);
+  for (const button of buttons) button.click();
+  assert.deepEqual(f.calls, upgrade.itemCosts.map(({ item }) => item.id), "one click invokes the provider once after repeated interface readiness");
 });

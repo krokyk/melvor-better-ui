@@ -1,7 +1,7 @@
 const settingName = "recipe-item-sources-enabled";
 const unavailable = "Requires Show Item Sources And Uses to be installed and enabled with a compatible API. Reload after changing mods.";
-const recipeAreas = ".kroky-production-recipe-details, .kroky-woodcutting-stock, .kroky-mining-stock, .kroky-fishing-stock, #firemaking-container, #cooking-container";
-const observedAreas = ".kroky-production, #woodcutting-tree-container, #mining-ores-container, #fishing-area-menu-container, #firemaking-container, #cooking-container";
+const recipeAreas = ".kroky-production-recipe-details, .kroky-woodcutting-stock, .kroky-mining-stock, .kroky-fishing-stock, .kroky-upgrade-costs, #firemaking-container, #cooking-container";
+const observedAreas = ".kroky-production, #woodcutting-tree-container, #mining-ores-container, #fishing-area-menu-container, #modal-item-upgrade, #firemaking-container, #cooking-container";
 
 export function installItemSourcesAndUses(ctx, game) {
   const getProvider = () => typeof mod === "undefined" ? undefined : mod.api?.ShowItemSourcesAndUses;
@@ -26,7 +26,7 @@ export function installItemSourcesAndUses(ctx, game) {
       const hint = document.createElement("small");
       hint.className = "d-block";
       hint.textContent = available
-        ? "Add a blue ? just outside the top-right corner of recipe item icons, mirroring the shop-coin overlay. Main artwork and shop coin shortcuts stay unchanged."
+        ? "Add a blue ? just outside the top-right corner of recipe and upgrade-cost item icons, mirroring the shop-coin overlay. Main artwork and shop coin shortcuts stay unchanged."
         : unavailable;
       label.append(hint);
       root.append(input, label);
@@ -58,6 +58,11 @@ export function installItemSourcesAndUses(ctx, game) {
     const eligible = item && !binding.quickBuy && !summoningProduct && !image.classList.contains("kroky-production-image");
     if (!eligible && !binding.button) return;
     if (!binding.button) {
+      if (binding.upgradeCost) {
+        const wrapper = document.createElement("span");
+        wrapper.className = "kroky-upgrade-cost-icon skill-icon-sm mr-1";
+        image.before(wrapper); wrapper.append(image);
+      }
       const button = document.createElement("button");
       button.type = "button";
       button.className = "kroky-item-source-button info-icon-overlay skill-icon-xxs btn btn-link text-info p-0";
@@ -88,11 +93,12 @@ export function installItemSourcesAndUses(ctx, game) {
     }
   }
 
-  function bind(image, item, quickBuy = false) {
+  function bind(image, item, quickBuy = false, upgradeCost = false) {
     if (!image) return;
     const binding = bindings.get(image) ?? {};
     binding.item = item?.id && game.items.getObjectByID(item.id) === item ? item : undefined;
     binding.quickBuy = quickBuy;
+    binding.upgradeCost = upgradeCost;
     bindings.set(image, binding);
     if (ready && enabled) decorate(image);
   }
@@ -112,6 +118,19 @@ export function installItemSourcesAndUses(ctx, game) {
       bind(this[field], getItem(target), coin && !coin.hidden && !coin.classList.contains("d-none"));
     });
   }
+  let upgradeHookInstalled = false;
+  function installUpgradeHook() {
+    if (upgradeHookInstalled) return;
+    const UpgradeMenu = customElements.get("item-upgrade-menu");
+    if (typeof UpgradeMenu?.prototype.setUpgradeCosts !== "function") return;
+    ctx.patch(UpgradeMenu, "setUpgradeCosts").after(function (_result, upgrade) {
+      this.itemCosts.classList.add("kroky-upgrade-costs");
+      const images = this.itemCosts.querySelectorAll("img");
+      upgrade.itemCosts.forEach(({ item }, index) => bind(images[index], item, false, true));
+    });
+    upgradeHookInstalled = true;
+  }
+  installUpgradeHook();
   function scan(node) {
     if (node.nodeType !== 1) return;
     if (node.tagName === "IMG") decorate(node);
@@ -128,6 +147,8 @@ export function installItemSourcesAndUses(ctx, game) {
       style.id = "kroky-item-sources-style";
       style.textContent = `
         .kroky-item-source-button { display: none; }
+        .kroky-upgrade-cost-icon { position: relative; display: inline-block; vertical-align: middle; }
+        .kroky-upgrade-cost-icon > img { margin: 0 !important; }
         .kroky-item-sources-enabled .kroky-item-source-button:not([hidden]) { display: block; left: auto; right: -6px; z-index: 1; border: 0; line-height: 1; font-size: .875rem; font-weight: bold; border-radius: 50%; background: #232a35; text-decoration: none; }
       `;
       document.head.append(style);
@@ -145,6 +166,6 @@ export function installItemSourcesAndUses(ctx, game) {
   }
   const restore = () => { enabled = settings.get(settingName) === true; update(); };
   ctx.onCharacterLoaded(restore);
-  ctx.onInterfaceReady(() => { ready = true; restore(); });
+  ctx.onInterfaceReady(() => { ready = true; installUpgradeHook(); restore(); });
   ctx.patch(Game, "decode").after(restore);
 }

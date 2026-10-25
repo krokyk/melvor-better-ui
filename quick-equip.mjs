@@ -1,20 +1,39 @@
 const storageKey = "quick-equip-extra-slots";
 const dragType = "application/x-kroky-quick-equip";
 const settingName = "quick-equip-enabled";
+const extraSlotsSettingName = "extra-quick-slots-enabled";
+const statsSettingName = "equipment-item-stats-mode";
 
-export function installQuickEquip(ctx, game) {
+export function installQuickEquip(ctx, game, createItemStatsPreview) {
   const QuickEquip = customElements.get("quick-equip-tooltip");
   const GridIcon = customElements.get("equipment-grid-icon");
   if (!QuickEquip || !GridIcon) return;
   const menus = new WeakMap(), owners = new WeakMap(), bindings = new WeakMap();
   const settings = ctx.settings.section("General");
-  let extra = {}, storageReady = false, storageError = false, enabled = true;
+  let extra = {}, storageReady = false, storageError = false, enabled = true, extraSlotsEnabled = true, statsMode = "click";
   settings.add({
-    type: "switch", name: settingName, label: "Enable Quick Equip Rework", default: true,
-    hint: "Use six quick slots and a searchable Bank picker in Combat and the top-bar equipment menu. Disable to restore the native menu while retaining your shortcuts.",
+    type: "switch", name: settingName, label: "Enhanced Equipment Menu", default: true,
+    hint: "Use enhanced quick slots and a searchable Bank picker in Combat and the top-bar equipment menu. Disable to restore the native menu while retaining your shortcuts.",
     onChange(value) {
       if (typeof value !== "boolean") return "Choose enabled or disabled.";
       enabled = value; syncInterface();
+    },
+  });
+  settings.add({
+    type: "switch", name: extraSlotsSettingName, label: "Enable 3 Extra Quick Slots", default: true,
+    hint: "Show a second row of three shortcuts in the Enhanced Equipment Menu. Disable to hide that row while retaining its saved assignments.",
+    onChange(value) {
+      if (typeof value !== "boolean") return "Choose enabled or disabled.";
+      extraSlotsEnabled = value; syncInterface();
+    },
+  });
+  settings.add({
+    type: "radio-group", name: statsSettingName, label: "Show Item Stats in Equipment", default: "click",
+    hint: "Preview items beside the Bank picker in the Enhanced Equipment Menu. Drag items to assign shortcuts.",
+    options: [{ value: "click", label: "By clicking on item" }, { value: "hover", label: "By hovering over item" }],
+    onChange(value) {
+      if (!["click", "hover"].includes(value)) return "Choose click or hover.";
+      statsMode = value; syncInterface();
     },
   });
   const rememberAttributes = (node, names) => Object.fromEntries(names.map(name => [name, node.getAttribute(name)]));
@@ -47,6 +66,9 @@ export function installQuickEquip(ctx, game) {
       console.warn("[Better UI] Could not read the extra quick-equip slots. Saved data was kept.", error);
     }
     enabled = settings.get(settingName) !== false;
+    extraSlotsEnabled = settings.get(extraSlotsSettingName) !== false;
+    const savedMode = settings.get(statsSettingName);
+    statsMode = ["click", "hover"].includes(savedMode) ? savedMode : "click";
     syncInterface();
   }
   ctx.onCharacterLoaded(() => { storageReady = true; restore(); });
@@ -64,14 +86,21 @@ export function installQuickEquip(ctx, game) {
       .kroky-quick-equip-slot.kroky-drop-target { border-color: #5cace5; background: #34485b; }
       .kroky-quick-equip-bank { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px; }
       .kroky-quick-equip-bank img { width: 32px; height: 32px; }
-      .kroky-quick-equip-picker { width: min(18rem, calc(100vw - 3rem)); margin-top: .5rem; }
+      .kroky-quick-equip-layout { display: flex; align-items: flex-start; gap: .75rem; width: max-content; max-width: calc(100vw - 3rem); }
+      .kroky-quick-equip-column { width: min(18rem, calc(100vw - 3rem)); flex-shrink: 0; }
+      .kroky-quick-equip-picker { margin-top: .5rem; }
+      .kroky-quick-equip-bank-pane { width: min(18rem, calc(100vw - 3rem)); flex-shrink: 0; }
+      .kroky-quick-equip-layout.kroky-preview-left { flex-direction: row-reverse; }
+      .kroky-quick-equip-selected-name { display: block; font-weight: bold; margin: .4rem 0; }
+      .kroky-quick-equip-preview { width: 20rem; max-width: calc(100vw - 3rem); max-height: 25rem; overflow: auto; flex-shrink: 0; padding: .75rem; border: 1px solid #59616e; border-radius: .25rem; background: #232a35; text-align: left; font-size: .875rem; }
       .kroky-quick-equip-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 4px; max-height: 15rem; overflow-y: auto; margin-top: .5rem; }
       .kroky-quick-equip-bank-item { position: relative; min-height: 44px; padding: 3px; }
       .kroky-quick-equip-bank-item img { width: 28px; height: 28px; pointer-events: none; }
       .kroky-quick-equip-bank-item[aria-pressed="true"] { border-color: #5cace5; background: #34485b; }
-      .kroky-quick-equip-bank-item[hidden], .kroky-quick-equip-picker[hidden] { display: none; }
+      .kroky-quick-equip-slot[hidden], .kroky-quick-equip-bank-item[hidden], .kroky-quick-equip-picker[hidden], .kroky-quick-equip-preview[hidden], .kroky-quick-equip-selected-name[hidden] { display: none; }
       .kroky-quick-equip-status { display: block; max-width: 18rem; margin-top: .25rem; }
       .kroky-quick-unequip { left: auto !important; right: -6px; z-index: 1; border: 0; border-radius: 50%; background: #232a35; line-height: 1; font-weight: bold; }
+      @media (max-width: 700px) { .kroky-quick-equip-layout.kroky-preview-left, .kroky-quick-equip-layout { flex-direction: column; } }
     `;
     document.head.append(style);
   });
@@ -97,6 +126,7 @@ export function installQuickEquip(ctx, game) {
   }
   function redraw(view) {
     view.entries.forEach(({ equip, image }, index) => {
+      equip.hidden = index >= 3 && !extraSlotsEnabled;
       const item = getItem(view, index), empty = !item || item === game.emptyEquipmentItem;
       image.src = empty ? view.equipped.slot.emptyMedia : item.media;
       image.alt = "";
@@ -109,6 +139,7 @@ export function installQuickEquip(ctx, game) {
     });
   }
   function assign(view, index, item) {
+    if (index >= 3 && !extraSlotsEnabled) return;
     if (!canAssign(view, item)) {
       view.status.textContent = "This item is no longer available for this equipment slot. Reopen Bank to refresh.";
       return;
@@ -137,7 +168,7 @@ export function installQuickEquip(ctx, game) {
     redraw(view);
   }
   function activate(view, index) {
-    if (!isCurrent(view)) return;
+    if (!isCurrent(view) || (index >= 3 && !extraSlotsEnabled)) return;
     if (view.pendingItem) { assign(view, index, view.pendingItem); return; }
     const item = getItem(view, index);
     if (!fits(view, item) || item === game.emptyEquipmentItem || view.player.manager.bank.getQty(item) <= 0) return;
@@ -157,7 +188,44 @@ export function installQuickEquip(ctx, game) {
       entry.button.hidden = !entry.name.includes(query);
       if (!entry.button.hidden) count++;
     }
-    view.status.textContent = count ? "Drag an item to a quick slot, or select an item and then a slot." : "No matching equippable items in Bank.";
+    view.status.textContent = count ? "Drag an item to assign a quick slot. Keyboard: Space on an item, then Enter on a slot." : "No matching equippable items in Bank.";
+  }
+  function clearPreview(view) {
+    view.pendingItem = undefined;
+    view.previewedItem = undefined;
+    if (!view.preview) return;
+    view.preview.replaceChildren(); view.preview.hidden = true;
+    view.selectedName.textContent = ""; view.selectedName.hidden = true;
+    for (const entry of view.bankItems) entry.button.setAttribute("aria-pressed", "false");
+    const tooltip = owners.get(view.menu)?.quickEquipTooltip;
+    if (view.expandedPreview) {
+      tooltip?.setProps({ maxWidth: view.nativeMaxWidth });
+      view.expandedPreview = false;
+    }
+    tooltip?.popperInstance?.update();
+  }
+  function previewItem(view, item, button) {
+    if (!canAssign(view, item)) return;
+    view.pendingItem = undefined;
+    view.previewedItem = item;
+    view.selectedName.textContent = item.name; view.selectedName.hidden = false;
+    for (const entry of view.bankItems) entry.button.setAttribute("aria-pressed", String(entry.button === button));
+    const result = createItemStatsPreview?.(item, game);
+    view.preview.replaceChildren(...(result?.hasStats ? [result.element] : []));
+    view.preview.hidden = !result?.hasStats;
+    const owner = owners.get(view.menu), tooltip = owner?.quickEquipTooltip;
+    if (result?.hasStats) {
+      const rect = owner?.image.getBoundingClientRect();
+      view.layout.classList.toggle("kroky-preview-left", !!rect && rect.left + rect.width / 2 > document.documentElement.clientWidth / 2);
+      if (!view.expandedPreview) {
+        view.nativeMaxWidth = tooltip?.props.maxWidth;
+        view.expandedPreview = true;
+        tooltip?.setProps({ maxWidth: "none" });
+      }
+    } else if (view.expandedPreview) {
+      tooltip?.setProps({ maxWidth: view.nativeMaxWidth }); view.expandedPreview = false;
+    }
+    tooltip?.popperInstance?.update();
   }
   function populateBank(view) {
     view.bankItems = [];
@@ -181,10 +249,16 @@ export function installQuickEquip(ctx, game) {
         for (const entry of view.entries) entry.equip.classList.remove("kroky-drop-target");
       });
       button.addEventListener("click", () => {
-        if (!canAssign(view, item)) return;
-        view.pendingItem = item;
-        for (const entry of view.bankItems) entry.button.setAttribute("aria-pressed", String(entry.button === button));
-        view.status.textContent = `Choose a quick slot for ${item.name}.`;
+        previewItem(view, item, button);
+      });
+      for (const event of ["mouseenter", "focus"]) button.addEventListener(event, () => {
+        if (statsMode === "hover" && view.previewedItem !== item) previewItem(view, item, button);
+      });
+      button.addEventListener("keydown", event => {
+        if (event.key !== " " || !canAssign(view, item)) return;
+        event.preventDefault(); event.stopPropagation();
+        previewItem(view, item, button); view.pendingItem = item;
+        view.status.textContent = `Choose a quick slot for ${item.name} with Enter or Space.`;
         view.entries[0].equip.focus();
       });
       fragment.append(button);
@@ -194,6 +268,11 @@ export function installQuickEquip(ctx, game) {
     filterBank(view);
   }
   function closePicker(view) {
+    clearPreview(view);
+    if (view.anchoredPicker) {
+      owners.get(view.menu)?.quickEquipTooltip?.setProps({ placement: view.nativePlacement });
+      view.anchoredPicker = false;
+    }
     if (view.picker) view.picker.hidden = true;
     view.items?.replaceChildren(); view.bankItems = [];
     view.bank.setAttribute("aria-expanded", "false");
@@ -204,13 +283,17 @@ export function installQuickEquip(ctx, game) {
     if (view.active) return;
     view.active = true;
     view.menu.classList.add("kroky-quick-equip");
-    view.nativeParent.append(view.actions);
+    view.nativeParent.append(view.layout);
+    view.layout.append(view.column);
+    if (view.heading) view.column.append(view.heading);
+    view.column.append(view.actions);
     view.actions.append(view.menu.buttonContainer, view.bank);
     view.menu.buttonContainer.classList.add("kroky-quick-equip-grid");
     for (const { equip } of view.entries) equip.classList.add("kroky-quick-equip-slot");
     view.menu.buttonContainer.replaceChildren(...view.entries.map(entry => entry.equip));
-    view.nativeParent.append(view.status);
-    if (view.picker) view.nativeParent.append(view.picker);
+    view.column.append(view.status);
+    if (view.picker) view.column.append(view.picker);
+    if (view.preview) view.layout.append(view.preview);
   }
   function restoreMenu(view) {
     if (!view.active) return;
@@ -224,12 +307,15 @@ export function installQuickEquip(ctx, game) {
     }
     view.menu.buttonContainer.replaceChildren(...view.nativeChildren);
     view.menu.buttonContainer.classList.remove("kroky-quick-equip-grid");
+    if (view.heading) view.nativeParent.append(view.heading);
     view.nativeParent.append(view.menu.buttonContainer);
-    view.actions.remove(); view.status.remove(); view.picker?.remove();
+    view.layout.remove(); view.picker?.remove(); view.preview?.remove();
     view.menu.classList.remove("kroky-quick-equip");
   }
   function createMenu(menu) {
     const nativeParent = menu.buttonContainer.parentElement, nativeChildren = [...menu.buttonContainer.childNodes];
+    const heading = nativeParent.querySelector("lang-string"), layout = document.createElement("div"), column = document.createElement("div");
+    layout.className = "kroky-quick-equip-layout"; column.className = "kroky-quick-equip-column";
     const nativeButtons = menu.buttons.slice(0, 3).map(entry => ({ ...entry, parent: entry.equip.parentElement,
       attributes: rememberAttributes(entry.equip, ["title", "aria-label"]), imageAttributes: rememberAttributes(entry.image, ["alt"]) }));
     menu.addEventListener("click", event => { if (enabled) event.stopPropagation(); });
@@ -247,13 +333,17 @@ export function installQuickEquip(ctx, game) {
     }
     const status = document.createElement("small");
     status.className = "kroky-quick-equip-status"; status.setAttribute("role", "status");
-    const view = { menu, bank, status, entries, actions, nativeParent, nativeChildren, nativeButtons, bankItems: [] };
+    const view = { menu, bank, status, entries, actions, nativeParent, nativeChildren, nativeButtons, heading, layout, column, bankItems: [] };
     entries.forEach(({ equip }, index) => {
       // Native setEquipped replaces onclick for the first three buttons on each opening.
       equip.onclick = null;
       equip.addEventListener("click", () => activate(view, index));
+      equip.addEventListener("keydown", event => {
+        if (!view.pendingItem || !["Enter", " "].includes(event.key)) return;
+        event.preventDefault(); event.stopPropagation(); activate(view, index);
+      });
       equip.addEventListener("dragover", event => {
-        if (!canAssign(view, view.draggedItem)) return;
+        if ((index >= 3 && !extraSlotsEnabled) || !canAssign(view, view.draggedItem)) return;
         event.preventDefault(); event.dataTransfer.dropEffect = "copy";
         equip.classList.add("kroky-drop-target");
       });
@@ -273,11 +363,26 @@ export function installQuickEquip(ctx, game) {
           view.search = document.createElement("input"); view.search.type = "search";
           view.search.className = "form-control form-control-sm"; view.search.placeholder = "Search Bank";
           view.search.setAttribute("aria-label", "Search compatible bank equipment");
+          const bankPane = document.createElement("div"); bankPane.className = "kroky-quick-equip-bank-pane";
+          view.selectedName = document.createElement("small"); view.selectedName.className = "kroky-quick-equip-selected-name"; view.selectedName.hidden = true;
+          view.selectedName.setAttribute("role", "status");
+          view.preview = document.createElement("aside"); view.preview.className = "kroky-quick-equip-preview"; view.preview.hidden = true;
+          view.preview.setAttribute("aria-label", "Item stats preview");
           view.items = document.createElement("div"); view.items.className = "kroky-quick-equip-items";
-          view.search.addEventListener("input", () => filterBank(view));
-          view.picker.append(view.search, view.items); view.nativeParent.append(view.picker);
+          view.search.addEventListener("input", () => { clearPreview(view); filterBank(view); });
+          bankPane.append(view.search, view.selectedName, view.items);
+          view.picker.append(bankPane); view.column.append(view.picker); view.layout.append(view.preview);
         }
         view.search.value = ""; view.picker.hidden = false;
+        const owner = owners.get(menu), tooltip = owner?.quickEquipTooltip;
+        if (tooltip) {
+          const rect = owner.image.getBoundingClientRect();
+          const left = rect.left + rect.width / 2 > document.documentElement.clientWidth / 2;
+          view.layout.classList.toggle("kroky-preview-left", left);
+          view.nativePlacement = tooltip.props.placement; view.anchoredPicker = true;
+          // Keep the bank grid on the same edge while the side preview expands.
+          tooltip.setProps({ placement: left ? "bottom-end" : "bottom-start" });
+        }
         populateBank(view); view.search.focus();
       }
       owners.get(menu)?.quickEquipTooltip?.popperInstance?.update();

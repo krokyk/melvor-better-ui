@@ -2,7 +2,7 @@
 
 Version: **1.1.0**.
 
-Page header pinning, responsive desktop card grids, six-slot quick equip and optional recipe item sources and uses for Melvor Idle, including Kroky's Workforce layouts when installed.
+Page header pinning, responsive desktop card grids, up to six quick-equip slots and optional recipe item sources and uses for Melvor Idle, including Kroky's Workforce layouts when installed.
 The mod works independently of Workforce.
 The currently viewed skill has a lighter grey background in the left navigation.
 The highlight follows navigation and works when page pinning is disabled.
@@ -74,9 +74,11 @@ Disabling the setting restores the normal widths immediately.
 
 Open **Mod Settings → Kroky's Better UI → General → Show Sources and Uses on Recipe Icons** to add a small blue **?** just outside the top-right corner of ingredient and product item icons in Workforce recipe panels, mirroring the native shop-coin overlay.
 It also covers Workforce's small Woodcutting, Mining and Fishing product/stock tiles and native Firemaking and Cooking recipe item icons.
-Main card artwork stays plain.
+The native Upgrade Item dialog includes these shortcuts on material-cost icons, including the base equipment item, bars and gems.
+Coin and other currency costs and the large upgrade-result artwork remain unchanged.
+Main card artwork receives no Sources and Uses **?**.
 Produced Summoning tablets have no **?**; their ingredients and other skills' products retain their shortcuts.
-Other native views, including Smithing and Fletching recipe-selection lists, stay unchanged.
+Other native recipe-selection views, including Smithing and Fletching lists, stay unchanged.
 The setting defaults to off and is saved per character.
 Clicking **?** opens the item's dialog from [Show Item Sources And Uses](https://mod.io/g/melvoridle/m/show-item-sources-and-uses); ordinary icon clicks keep their existing behavior.
 Ingredients with a gold shop-coin overlay keep Quick Buy without a **?**.
@@ -86,13 +88,29 @@ This integration is optional and does not add a hard dependency.
 If Show Item Sources And Uses is missing, disabled or lacks the required API, the toggle is disabled with an explanation while retaining your saved preference.
 Install or enable a compatible version and reload the game to make the toggle available.
 
-**General → Enable Quick Equip Rework** controls the equipment menu changes, defaults to on and is saved per character.
+**General → Show Item Stats in Skills** chooses one way to inspect the main item artwork on skill cards that offer View Item Stats.
+The options are **As top-right corner icon**, **By clicking on item** and **By hovering over item**.
+Click is the default, and the selection is saved per character.
+The corner option uses the existing stats icon.
+These controls apply only to main artwork; recipe Sources and Uses buttons, ingredient navigation and gold-coin Quick Buy actions retain their existing behavior.
+
+**General → Enhanced Equipment Menu** controls the equipment menu changes, defaults to on and is saved per character.
 Disabling it immediately restores the native three shortcuts, Set buttons and popup unequip X while retaining all native and additional shortcut assignments.
-With the setting enabled, click an equipment slot in Combat or the top-bar equipment menu to open six quick-equip shortcuts in a three-column, two-row grid.
+With the setting enabled, click an equipment slot in Combat or the top-bar equipment menu to open a three-column quick-equip grid.
+**General → Enable 3 Extra Quick Slots** defaults to on and is saved per character.
+It adds a second row of three shortcuts for six slots in total.
+Disabling it keeps the three native shortcuts and Bank picker while retaining the additional assignments for re-enabling.
 The native Set buttons are replaced by a **Bank** chest button beside the shortcuts.
 Open it to search bank items that are compatible with the equipment slot and meet their equip requirements.
 Drag an item onto a shortcut to assign or replace it without equipping it.
-For keyboard or touch input, select a bank item and then activate the target shortcut.
+Click a bank item to inspect it in a preview beside the picker.
+The preview opens on the left when the right side has no room, while narrow screens place it below the picker.
+The selected item's name appears below Search Bank and above the item grid.
+Items without available stats show only their name.
+**General → Show Item Stats in Equipment** selects **By clicking on item** or **By hovering over item** for the preview.
+Click is the default, and the selection is saved per character.
+Inspecting an item does not assign or equip it.
+For keyboard assignment, focus a bank item and press Space, then focus a target shortcut and press Enter or Space.
 Click an assigned shortcut to equip its item through the game's normal equipment checks.
 The **X** just outside the equipped item's top-right corner unequips the item through the native action.
 There is no shortcut-delete action; dropping another item replaces the assignment.
@@ -103,7 +121,7 @@ The additional three are saved with Better UI character data separately for each
 
 Load this folder with Melvor's Creator Toolkit, or import `krokys-better-ui-1.1.0.zip` through **Creator Toolkit → Local Mods**.
 Enable the mod and reload the game.
-The release archive contains `manifest.json`, `setup.mjs`, `page-pinning.mjs`, `wide-layout.mjs`, `quick-equip.mjs` and `item-sources-and-uses.mjs` at its root.
+The release archive contains `manifest.json`, `setup.mjs`, `page-pinning.mjs`, `wide-layout.mjs`, `item-stats.mjs`, `quick-equip.mjs` and `item-sources-and-uses.mjs` at its root.
 Ready-to-paste listing text and release notes are in [MOD_IO.md](MOD_IO.md).
 
 ## Development checks

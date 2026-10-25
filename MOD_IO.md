@@ -6,7 +6,7 @@ Kroky's Better UI
 
 ## Summary
 
-Keep headers visible, fit more readable cards across wide screens, use six quick-equip shortcuts, and optionally inspect recipe item sources and uses.
+Keep headers visible, fit more readable cards across wide screens, use up to six quick-equip shortcuts, and optionally inspect recipe item sources and uses.
 
 ## Description
 
@@ -48,9 +48,11 @@ Native production views, Combat, Cooking, Firemaking, Music and Agility retain t
 
 **General → Show Sources and Uses on Recipe Icons** adds a small blue **?** just outside the top-right corner of ingredient and product item icons in Workforce recipe panels, mirroring the native shop-coin overlay.
 It also covers Workforce's small Woodcutting, Mining and Fishing product/stock tiles and native Firemaking and Cooking recipe item icons.
-Main card artwork stays plain.
+The native Upgrade Item dialog includes these shortcuts on material-cost icons, including the base equipment item, bars and gems.
+Coin and other currency costs and the large upgrade-result artwork remain unchanged.
+Main card artwork receives no Sources and Uses **?**.
 Produced Summoning tablets have no **?**; their ingredients and other skills' products retain their shortcuts.
-Other native views, including Smithing and Fletching recipe-selection lists, stay unchanged.
+Other native recipe-selection views, including Smithing and Fletching lists, stay unchanged.
 It defaults to off and is saved per character.
 Clicking **?** opens the item's dialog from [Show Item Sources And Uses](https://mod.io/g/melvoridle/m/show-item-sources-and-uses), calculating the information only when clicked.
 Ordinary icon clicks keep their existing behavior, and ingredients with a gold shop-coin overlay keep Quick Buy without a **?**.
@@ -59,12 +61,23 @@ The integration is optional, with no hard dependency.
 If Show Item Sources And Uses is missing, disabled or lacks the required API, the toggle is disabled with an explanation while retaining your saved preference.
 Install or enable a compatible version and reload the game to make it available.
 
-**General → Enable Quick Equip Rework** controls the equipment menu changes, defaults to on and is saved per character.
+**General → Show Item Stats in Skills** chooses **As top-right corner icon**, **By clicking on item** or **By hovering over item** on the main artwork of skill cards that offer View Item Stats.
+It defaults to click and is saved per character.
+The corner option uses the existing stats icon, while recipe Sources and Uses buttons, ingredient navigation and gold-coin Quick Buy actions retain their existing behavior.
+
+**General → Enhanced Equipment Menu** controls the equipment menu changes, defaults to on and is saved per character.
 Disabling it immediately restores the native three shortcuts, Set buttons and popup unequip X while retaining all native and additional shortcut assignments.
-With the setting enabled, equipment slots in Combat and the top-bar equipment menu have six quick-equip shortcuts in a three-column, two-row grid.
+With the setting enabled, equipment slots in Combat and the top-bar equipment menu have a three-column quick-equip grid.
+**General → Enable 3 Extra Quick Slots** defaults to on, is saved per character and adds a second row for six shortcuts in total.
+Disabling it keeps the three native shortcuts and Bank picker while retaining the additional assignments for re-enabling.
 The **Bank** chest button beside them opens a searchable picker of compatible bank equipment that meets its equip requirements.
 Drag an item onto a shortcut to assign or replace it without equipping it.
-For keyboard or touch input, select a bank item and then activate the target shortcut.
+Click a bank item to inspect its stats beside the picker, with the selected name below Search Bank and above the item grid.
+The preview opens on the left when necessary and moves below the picker on narrow screens.
+Items without available stats show only their name.
+**General → Show Item Stats in Equipment** selects **By clicking on item** or **By hovering over item**, defaults to click and is saved per character.
+Inspection does not assign or equip the item.
+For keyboard assignment, focus a bank item and press Space, then focus a target shortcut and press Enter or Space.
 Click a shortcut to equip its item with the native equipment checks.
 The native unequip **X** moves just outside the equipped item's top-right corner, and Set buttons are removed.
 There is no shortcut-delete action; assign another item to replace one.
@@ -86,14 +99,18 @@ The mod works independently of Workforce and also pins Workforce's controls and 
 
 ### 1.1.0
 
-- Expand equipment-slot quick equip to six shortcuts in Combat and the top-bar equipment menu.
-- Replace Set buttons with a searchable bank picker for assigning compatible equipment by drag and drop or keyboard and touch selection.
+- Expand equipment-slot quick equip to up to six shortcuts in Combat and the top-bar equipment menu.
+- Enable or disable three extra quick slots per character while retaining the Bank picker and saved assignments.
+- Replace Set buttons with a searchable bank picker for assigning compatible equipment by drag and drop or keyboard selection.
+- Inspect bank equipment in a side preview with a per-character click or hover selection.
+- Choose a stats icon, click or hover on skill-card main artwork independently of recipe Sources and Uses and ingredient navigation.
 - Move the native unequip X onto the equipped item's top-right corner and preserve existing shortcuts and native equipment checks.
-- Enable or disable the quick-equip rework per character, restoring the native menu immediately while retaining all shortcut assignments.
+- Enable or disable Enhanced Equipment Menu per character, restoring the native menu immediately while retaining all shortcut assignments.
 - Highlight the currently viewed skill in the left navigation with a lighter grey background.
 - Add an optional, per-character toggle for blue **?** buttons just outside recipe item icons' top-right corners, mirroring the native shop-coin overlay.
 - Include Workforce's small Woodcutting, Mining and Fishing product/stock tiles and native Firemaking and Cooking recipe item icons.
-- Keep main card artwork and other native views unchanged.
+- Include material-cost item icons in the native Upgrade Item dialog while retaining currency costs and large artwork unchanged.
+- Keep recipe Sources and Uses shortcuts off main artwork and retain other native recipe-selection views.
 - Open the existing Show Item Sources And Uses dialog on demand without changing ordinary icon actions.
 - Keep gold shop-coin ingredients on Quick Buy and skip icons without a specific item.
 - Disable the toggle with an explanation when the optional provider is unavailable or incompatible, while preserving its saved preference.
@@ -111,4 +128,4 @@ The mod works independently of Workforce and also pins Workforce's controls and 
 
 ## Upload
 
-Upload **krokys-better-ui-1.1.0.zip** with `manifest.json`, `setup.mjs`, `page-pinning.mjs`, `wide-layout.mjs`, `quick-equip.mjs` and `item-sources-and-uses.mjs` at the archive root.
+Upload **krokys-better-ui-1.1.0.zip** with `manifest.json`, `setup.mjs`, `page-pinning.mjs`, `wide-layout.mjs`, `item-stats.mjs`, `quick-equip.mjs` and `item-sources-and-uses.mjs` at the archive root.

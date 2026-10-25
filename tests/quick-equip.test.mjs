@@ -65,9 +65,9 @@ class Element {
   set textContent(text) { this.ownText = `${text}`; this.replaceChildren(); }
 }
 
-function fixture(saved, savedEnabled = true) {
+function fixture(saved, savedEnabled = true, savedStatsMode = "click", savedExtraSlots = true) {
   const html = new Element("html"), head = new Element("head"), body = new Element("body"); html.append(head, body);
-  const doc = new Element("document"); doc.nodeType = 9; doc.append(html); doc.head = head; doc.body = body;
+  const doc = new Element("document"); doc.nodeType = 9; doc.append(html); doc.head = head; doc.body = body; doc.documentElement = html; html.clientWidth = 1280;
   doc.createElement = tag => new Element(tag); doc.getElementById = id => doc.querySelector(`#${id}`);
   doc.createDocumentFragment = () => { const fragment = new Element("fragment"); fragment.nodeType = 11; return fragment; };
   globalThis.document = doc;
@@ -83,10 +83,10 @@ function fixture(saved, savedEnabled = true) {
   const weapon = { id: "test:Weapon", emptyName: "Weapon", emptyMedia: "weapon.png", allowQuantity: false }, quiver = { id: "test:Quiver", emptyName: "Quiver", emptyMedia: "quiver.png", allowQuantity: true };
   const empty = { id: "test:Empty", name: "Empty", media: "empty.png", fitsInSlot: () => false };
   const sword = new EquipmentItem("Sword"), axe = new EquipmentItem("Axe"), spear = new EquipmentItem("Spear"), bow = new EquipmentItem("Bow");
-  const arrows = new EquipmentItem("Arrows", [quiver]), locked = new EquipmentItem("Locked"), absent = new EquipmentItem("Absent"); locked.equipRequirements = ["locked"];
-  const items = [sword, axe, spear, bow, arrows, locked, absent], bankItems = new Map(items.filter(item => item !== absent).map(item => [item, { item, quantity: item === arrows ? 15 : 1 }]));
-  const calls = { equip: [], quick: [], set: [], unequip: [], writes: [], requirements: [], patches: [], scans: 0 }, hooks = {}, values = new Map();
-  const fields = new Map(), settingsValues = new Map([["quick-equip-enabled", savedEnabled]]);
+  const arrows = new EquipmentItem("Arrows", [quiver]), locked = new EquipmentItem("Locked"), absent = new EquipmentItem("Absent"), plain = new EquipmentItem("Plain"); locked.equipRequirements = ["locked"];
+  const items = [sword, axe, spear, bow, arrows, locked, absent, plain], bankItems = new Map(items.filter(item => item !== absent).map(item => [item, { item, quantity: item === arrows ? 15 : 1 }]));
+  const calls = { equip: [], quick: [], set: [], unequip: [], writes: [], requirements: [], patches: [], previews: [], scans: 0 }, hooks = {}, values = new Map();
+  const fields = new Map(), settingsValues = new Map([["quick-equip-enabled", savedEnabled], ["equipment-item-stats-mode", savedStatsMode], ["extra-quick-slots-enabled", savedExtraSlots]]);
   const bankValues = bankItems.values.bind(bankItems), bankForEach = bankItems.forEach.bind(bankItems), bankEntries = bankItems[Symbol.iterator].bind(bankItems);
   bankItems.values = () => { calls.scans++; return bankValues(); };
   bankItems.forEach = callback => { calls.scans++; return bankForEach(callback); };
@@ -109,9 +109,9 @@ function fixture(saved, savedEnabled = true) {
   const bank = { items: bankItems, getQty: item => bankItems.get(item)?.quantity ?? 0 };
   const game = { items: { getObjectByID: id => items.find(item => item.id === id) }, emptyEquipmentItem: empty, bank, combat: { player }, checkRequirements(requirements, notify) { calls.requirements.push({ requirements, notify }); return !requirements.includes("locked"); } };
   player.manager = { bank };
-  globalThis.Game = class { decode(next, enabled) { values.clear(); if (next !== undefined) values.set("quick-equip-extra-slots", next); if (enabled !== undefined) settingsValues.set("quick-equip-enabled", enabled); } };
+  globalThis.Game = class { decode(next, enabled, statsMode, extraSlots) { values.clear(); if (next !== undefined) values.set("quick-equip-extra-slots", next); if (enabled !== undefined) settingsValues.set("quick-equip-enabled", enabled); if (statsMode !== undefined) settingsValues.set("equipment-item-stats-mode", statsMode); if (extraSlots !== undefined) settingsValues.set("extra-quick-slots-enabled", extraSlots); } };
   globalThis.tippy = (target, props) => {
-    const tooltip = { props, setProps(next) { Object.assign(this.props, next); }, setContent(content) { this.props.content = content; }, show() {
+    const tooltip = { props: { maxWidth: 350, placement: "bottom", ...props }, setProps(next) { Object.assign(this.props, next); }, setContent(content) { this.props.content = content; }, show() {
       this.props.onShow?.();
       if (this.props.content instanceof Element) { body.append(this.props.content); this.props.content.connectedCallback?.(); }
     }, hide() {}, destroy() {} };
@@ -157,12 +157,21 @@ function fixture(saved, savedEnabled = true) {
     onCharacterLoaded(callback) { hooks.character = callback; }, onInterfaceReady(callback) { hooks.interface = callback; },
     patch(Class, method) { calls.patches.push({ Class, method }); return { after(callback) { const original = Class.prototype[method]; Class.prototype[method] = function (...args) { const result = original.apply(this, args); callback.call(this, result, ...args); return result; }; } }; },
   };
-  installQuickEquip(ctx, game);
+  const createItemStatsPreview = (item, actualGame) => {
+    assert.equal(actualGame, game); calls.previews.push(item);
+    const element = new Element(), heading = new Element("h5"); heading.textContent = item.name; element.append(heading);
+    const hasStats = item !== plain;
+    if (hasStats) { const stats = new Element("small"); stats.textContent = `Stats for ${item.name}`; element.append(stats); }
+    return { element, hasStats };
+  };
+  installQuickEquip(ctx, game, createItemStatsPreview);
   const icon = new EquipmentGridIconElement(); body.append(icon); icon.setEquipped(player, player.equipment.getEquippedInSlot(weapon));
   hooks.character?.(); hooks.interface?.();
   const show = (target = icon, slot = weapon) => { target.setEquipped(player, player.equipment.getEquippedInSlot(slot)); target.quickEquipTooltip.show(); return target.quickEquip; };
   const toggle = enabled => { const field = fields.get("quick-equip-enabled"); assert.ok(field, "quick-equip setting must be registered"); const result = field.onChange(enabled); if (result === undefined || result === true) settingsValues.set(field.name, enabled); return result; };
-  return { ctx, game, player, weapon, quiver, empty, sword, axe, spear, bow, arrows, locked, absent, items, bankItems, calls, hooks, values, fields, settingsValues, toggle, icon, body, show, EquipmentGridIconElement };
+  const setStatsMode = mode => { const field = fields.get("equipment-item-stats-mode"); assert.ok(field, "equipment preview setting must be registered"); const result = field.onChange(mode); if (result === undefined || result === true) settingsValues.set(field.name, mode); return result; };
+  const setExtraSlots = enabled => { const field = fields.get("extra-quick-slots-enabled"); assert.ok(field, "extra-slot setting must be registered"); const result = field.onChange(enabled); if (result === undefined || result === true) settingsValues.set(field.name, enabled); return result; };
+  return { ctx, game, player, weapon, quiver, empty, sword, axe, spear, bow, arrows, locked, absent, plain, items, bankItems, calls, hooks, values, fields, settingsValues, toggle, setStatsMode, setExtraSlots, icon, body, show, EquipmentGridIconElement };
 }
 
 function dragData() {
@@ -243,14 +252,31 @@ test("dragging bank items replaces native and extra shortcuts without equipping,
   assert.deepEqual([...Map.prototype.entries.call(f.bankItems)].map(([item, entry]) => [item.id, entry.quantity]), beforeBank);
 });
 
-test("click assignment supports keyboard and touch, while normal shortcut clicks retain native equipment behavior", () => {
+test("clicking a bank item previews it without assigning or changing normal quick-slot equipment actions", () => {
   const f = fixture(); const menu = f.show(); openBank(menu);
-  bankItem(menu, f.spear).click(); slots(menu)[2].click();
+  const nativeBefore = [...f.player.equipment.getEquippedInSlot(f.weapon).quickEquipItems];
+  bankItem(menu, f.spear).click();
+  assert.deepEqual(f.calls.previews, [f.spear]);
+  assert.match(menu.querySelector(".kroky-quick-equip-preview").textContent, /Stats for Spear/);
+  assert.equal(menu.querySelector(".kroky-quick-equip-preview").hidden, false);
+  assert.deepEqual(f.player.equipment.getEquippedInSlot(f.weapon).quickEquipItems, nativeBefore);
+  assert.equal(f.calls.writes.length, 0); assert.deepEqual(f.calls.quick, []); assert.deepEqual(f.calls.equip, []);
+  slots(menu)[0].click();
+  assert.deepEqual(f.calls.quick, [{ slot: f.weapon, index: 0 }], "a preview must not arm click-to-overwrite on quick slots");
+  assert.deepEqual(f.player.equipment.getEquippedInSlot(f.weapon).quickEquipItems, nativeBefore);
+});
+
+test("keyboard picking and dropping assigns shortcuts without equipping and preserves replacement-only behavior", () => {
+  const f = fixture(); const menu = f.show(); openBank(menu);
+  const pickup = bankItem(menu, f.spear).dispatch("keydown", { key: " " });
+  assert.equal(pickup.prevented, true, "Space picks up the item without scrolling the page");
+  const placement = slots(menu)[2].dispatch("keydown", { key: "Enter" });
+  assert.equal(placement.prevented, true);
   assert.equal(f.player.equipment.getEquippedInSlot(f.weapon).quickEquipItems[2], f.spear);
-  assert.deepEqual(f.calls.quick, [], "selecting then assigning must not equip immediately");
+  assert.deepEqual(f.calls.quick, [], "keyboard assignment must not equip immediately");
   slots(menu)[2].click();
   assert.deepEqual(f.calls.quick, [{ slot: f.weapon, index: 2 }]);
-  bankItem(menu, f.bow).click(); slots(menu)[3].click(); slots(menu)[3].click();
+  bankItem(menu, f.bow).dispatch("keydown", { key: " " }); slots(menu)[3].dispatch("keydown", { key: " " }); slots(menu)[3].click();
   assert.deepEqual(f.calls.equip, [{ item: f.bow, set: 0, slot: f.weapon, quantity: 1 }]);
   slots(menu)[3].dispatch("keydown", { key: "Delete" }); slots(menu)[3].dispatch("contextmenu");
   assert.equal(decodeSaved(f.values.get("quick-equip-extra-slots"))[0][f.weapon.id][0], f.bow.id, "no delete functionality is introduced");
@@ -396,13 +422,18 @@ function assertNativeMenu(icon) {
   }
   assert.equal(menu.contains(menu.unequipButton), true, "native X returns to the popup");
   assert.equal(icon.container.querySelector(".kroky-quick-unequip"), null);
+  assert.equal(menu.querySelector(".kroky-quick-equip-layout"), null);
+  assert.equal(menu.querySelector(".kroky-quick-equip-column"), null);
+  const nativeRoot = menu.buttonContainer.parentElement, heading = nativeRoot.querySelector("lang-string");
+  assert.ok(heading); assert.equal(heading.parentElement, nativeRoot);
+  assert.ok(nativeRoot.children.indexOf(heading) < nativeRoot.children.indexOf(menu.buttonContainer), "restoration returns the title above the native slots");
 }
 
 test("saved disabled preference leaves the native three-slot menu and its actions intact before first opening", () => {
   const saved = { 0: { "test:Weapon": ["test:Spear", null, null] } };
   const f = fixture(saved, false); const field = f.fields.get("quick-equip-enabled");
   assert.ok(field); assert.equal(field.type, "switch"); assert.equal(field.default, true);
-  assert.equal(field.label, "Enable Quick Equip Rework");
+  assert.equal(field.label, "Enhanced Equipment Menu");
   f.show(); assertNativeMenu(f.icon);
   assert.equal(f.icon.image.getAttribute("role"), null, "disabled rework preserves the native image role");
   f.icon.quickEquip.buttons[0].equip.click();
@@ -483,14 +514,184 @@ test("opening quick equip from the header retains its dropdown only while the re
 test("the first native connection keeps the title above shortcuts and assignment feedback below them", () => {
   const f = fixture(), menu = f.show(), status = menu.querySelector(".kroky-quick-equip-status");
   assert.equal(menu.isConnected, true);
-  const nativeRoot = menu.buttonContainer.parentElement.parentElement;
-  assert.equal(status.parentElement, nativeRoot, "feedback belongs inside the native content connected after onShow");
-  assert.ok(nativeRoot.children.indexOf(menu.buttonContainer.parentElement) < nativeRoot.children.indexOf(status), "feedback must follow the shortcut actions");
-  const heading = nativeRoot.querySelector("lang-string");
-  assert.ok(heading); assert.ok(nativeRoot.children.indexOf(heading) < nativeRoot.children.indexOf(menu.buttonContainer.parentElement), "native title stays above the shortcuts");
+  const column = menu.querySelector(".kroky-quick-equip-column"), layout = menu.querySelector(".kroky-quick-equip-layout");
+  assert.equal(column.parentElement, layout);
+  assert.equal(status.parentElement, column, "feedback stays in the same column as the equipment slots");
+  assert.equal(menu.buttonContainer.parentElement.parentElement, column);
+  assert.ok(column.children.indexOf(menu.buttonContainer.parentElement) < column.children.indexOf(status), "feedback must follow the shortcut actions");
+  const heading = column.querySelector("lang-string");
+  assert.ok(heading); assert.equal(heading.parentElement, column);
+  assert.ok(column.children.indexOf(heading) < column.children.indexOf(menu.buttonContainer.parentElement), "native title stays above the shortcuts");
   const picker = openBank(menu);
-  assert.equal(picker.parentElement, nativeRoot);
-  assert.ok(nativeRoot.children.indexOf(status) < nativeRoot.children.indexOf(picker), "the picker follows feedback in the same connected content");
-  bankItem(menu, f.axe).click(); slots(menu)[3].click();
+  assert.equal(picker.parentElement, column);
+  assert.ok(column.children.indexOf(status) < column.children.indexOf(picker), "the picker follows feedback under the shortcuts");
+  assert.equal(menu.querySelector(".kroky-quick-equip-preview").parentElement, layout, "preview sits beside the entire equipment column");
+  drop(menu, f.axe, 3);
   assert.match(status.textContent, /Axe assigned/);
+});
+
+test("equipment preview is one click-default radio selection and validates its supported modes", () => {
+  const f = fixture(), field = f.fields.get("equipment-item-stats-mode");
+  assert.ok(field); assert.equal(field.type, "radio-group");
+  assert.equal(field.label, "Show Item Stats in Equipment"); assert.equal(field.default, "click");
+  assert.deepEqual(field.options, [
+    { value: "click", label: "By clicking on item" },
+    { value: "hover", label: "By hovering over item" },
+  ]);
+  assert.equal(typeof f.setStatsMode("icon"), "string", "equipment does not expose the skill-only icon option");
+  assert.equal(f.settingsValues.get("equipment-item-stats-mode"), "click");
+  assert.equal(f.setStatsMode("hover"), undefined);
+  assert.equal(f.settingsValues.get("equipment-item-stats-mode"), "hover");
+  assert.equal(f.calls.writes.length, 0, "preferences use native settings rather than rewriting shortcut storage");
+});
+
+test("extra quick slots default to enabled and can be hidden without changing stored assignments", () => {
+  const saved = { 0: { "test:Weapon": ["test:Spear", "test:Bow", null] } };
+  const f = fixture(saved), menu = f.show(), field = f.fields.get("extra-quick-slots-enabled");
+  assert.equal(field.type, "switch"); assert.equal(field.label, "Enable 3 Extra Quick Slots"); assert.equal(field.default, true);
+  assert.equal(slots(menu).filter(button => !button.hidden).length, 6);
+  assert.equal(typeof f.setExtraSlots("false"), "string");
+  assert.equal(f.settingsValues.get("extra-quick-slots-enabled"), true);
+  const header = new f.EquipmentGridIconElement(); f.body.append(header); const headerMenu = f.show(header);
+  f.setExtraSlots(false);
+  for (const current of [menu, headerMenu]) {
+    assert.equal(slots(current).filter(button => !button.hidden).length, 3);
+    assert.ok(current.querySelector(".kroky-quick-equip-bank"), "the enhanced Bank picker remains available with three slots");
+    assert.ok(current.buttons.every(button => !current.contains(button.set)), "hiding extras does not restore native Set buttons");
+  }
+  assert.deepEqual(f.values.get("quick-equip-extra-slots"), saved); assert.equal(f.calls.writes.length, 0);
+  f.setExtraSlots(true);
+  assert.equal(slots(menu).filter(button => !button.hidden).length, 6);
+  assert.equal(slots(menu)[3].querySelector("img").src, f.spear.media);
+  assert.equal(slots(menu)[4].querySelector("img").src, f.bow.media);
+  assert.equal(f.player.equipment.getEquippedInSlot(f.weapon).quickEquipItems.length, 3);
+  assert.deepEqual(f.values.get("quick-equip-extra-slots"), saved); assert.equal(f.calls.scans, 0);
+});
+
+test("hidden extra slots reject clicks, drag drops and keyboard assignment while native shortcuts remain usable", () => {
+  const saved = { 0: { "test:Weapon": ["test:Spear", null, null] } };
+  const f = fixture(saved), menu = f.show(); f.setExtraSlots(false); openBank(menu);
+  slots(menu)[3].click();
+  drop(menu, f.axe, 3);
+  const source = bankItem(menu, f.axe); source.dispatch("keydown", { key: " " });
+  slots(menu)[3].dispatch("keydown", { key: "Enter" });
+  assert.deepEqual(f.calls.equip, []); assert.deepEqual(f.calls.quick, []); assert.equal(f.calls.writes.length, 0);
+  assert.deepEqual(f.values.get("quick-equip-extra-slots"), saved);
+  drop(menu, f.bow, 0);
+  assert.equal(f.player.equipment.getEquippedInSlot(f.weapon).quickEquipItems[0], f.bow);
+  slots(menu)[0].click(); assert.deepEqual(f.calls.quick, [{ slot: f.weapon, index: 0 }]);
+  assert.equal(f.player.equipment.getEquippedInSlot(f.weapon).quickEquipItems.length, 3);
+  assert.deepEqual(f.values.get("quick-equip-extra-slots"), saved); assert.equal(f.calls.writes.length, 0);
+});
+
+test("extra-slot preference restores per character and decode without interfering with native menu restoration", () => {
+  const saved = { 0: { "test:Weapon": ["test:Spear", null, null] } };
+  const f = fixture(saved, true, "click", false), menu = f.show();
+  assert.equal(slots(menu).filter(button => !button.hidden).length, 3);
+  f.setExtraSlots(true); assert.equal(slots(menu).filter(button => !button.hidden).length, 6);
+  new Game().decode(saved, true, "click", false);
+  assert.equal(slots(menu).filter(button => !button.hidden).length, 3);
+  f.toggle(false); assertNativeMenu(f.icon);
+  f.setExtraSlots(true); assertNativeMenu(f.icon);
+  f.setExtraSlots(false); assertNativeMenu(f.icon);
+  f.toggle(true); assert.equal(slots(menu).filter(button => !button.hidden).length, 3);
+  new Game().decode(saved, true, "click", true);
+  assert.equal(slots(menu).filter(button => !button.hidden).length, 6);
+  assert.equal(slots(menu)[3].querySelector("img").src, f.spear.media);
+  assert.deepEqual(f.values.get("quick-equip-extra-slots"), saved); assert.equal(f.calls.writes.length, 0);
+  assert.equal(f.calls.scans, 0, "preferences and native restoration do not scan the bank");
+});
+
+test("preview names sit below search and above the bank grid while stats occupy a side pane", () => {
+  const f = fixture(), menu = f.show(), picker = openBank(menu);
+  const search = picker.querySelector("input"), name = picker.querySelector(".kroky-quick-equip-selected-name");
+  const items = picker.querySelector(".kroky-quick-equip-items"), preview = menu.querySelector(".kroky-quick-equip-preview");
+  assert.ok(name); assert.ok(preview); assert.equal(preview.hidden, true);
+  assert.equal(search.parentElement, name.parentElement); assert.equal(name.parentElement, items.parentElement);
+  assert.ok(name.parentElement.children.indexOf(search) < name.parentElement.children.indexOf(name));
+  assert.ok(name.parentElement.children.indexOf(name) < name.parentElement.children.indexOf(items));
+  const layout = menu.querySelector(".kroky-quick-equip-layout"), column = menu.querySelector(".kroky-quick-equip-column");
+  assert.equal(preview.parentElement, layout); assert.equal(picker.parentElement, column); assert.equal(column.parentElement, layout);
+  assert.equal(column.contains(preview), false, "preview cannot push the bank grid away from its quick-slot column");
+  bankItem(menu, f.spear).click();
+  assert.equal(name.textContent, f.spear.name); assert.equal(name.hidden, false);
+  assert.equal(preview.hidden, false); assert.match(preview.textContent, /Stats for Spear/);
+  assert.equal(f.icon.quickEquipTooltip.props.maxWidth, "none", "the native tooltip can expand to include the side pane");
+  bankItem(menu, f.plain).click();
+  assert.equal(name.textContent, f.plain.name); assert.equal(preview.hidden, true, "items without stats use the name-only fallback");
+  assert.equal(f.icon.quickEquipTooltip.props.maxWidth, 350, "name-only fallback restores the native tooltip width");
+  assert.deepEqual(f.calls.quick, []); assert.deepEqual(f.calls.equip, []); assert.equal(f.calls.writes.length, 0);
+});
+
+test("hover previews are opt-in and keyboard focus previews items without arming assignment", () => {
+  const f = fixture(), menu = f.show(); openBank(menu);
+  bankItem(menu, f.spear).dispatch("mouseenter");
+  assert.deepEqual(f.calls.previews, [], "default click mode must not inspect items while the pointer passes over them");
+  f.setStatsMode("hover"); openBank(menu);
+  bankItem(menu, f.spear).dispatch("mouseenter");
+  assert.deepEqual(f.calls.previews, [f.spear]);
+  bankItem(menu, f.spear).dispatch("focus"); bankItem(menu, f.spear).dispatch("mouseenter");
+  assert.deepEqual(f.calls.previews, [f.spear], "hover and focus on the same item reuse the visible preview");
+  bankItem(menu, f.axe).dispatch("focus");
+  assert.equal(f.calls.previews.at(-1), f.axe, "focus supplies the keyboard equivalent of hover");
+  const before = [...f.player.equipment.getEquippedInSlot(f.weapon).quickEquipItems];
+  slots(menu)[0].click();
+  assert.deepEqual(f.calls.quick, [{ slot: f.weapon, index: 0 }]);
+  assert.deepEqual(f.player.equipment.getEquippedInSlot(f.weapon).quickEquipItems, before);
+  assert.equal(f.calls.writes.length, 0);
+});
+
+test("preview mode restores per character and through decode while clearing an earlier mode's picker state", () => {
+  const f = fixture(undefined, true, "hover"), menu = f.show(); openBank(menu);
+  bankItem(menu, f.spear).dispatch("mouseenter"); assert.equal(f.calls.previews.at(-1), f.spear);
+  const preview = menu.querySelector(".kroky-quick-equip-preview"), picker = menu.querySelector(".kroky-quick-equip-picker");
+  f.setStatsMode("click");
+  assert.equal(picker.hidden, true); assert.equal(preview.hidden, true); assert.equal(preview.childNodes.length, 0);
+  openBank(menu); bankItem(menu, f.axe).dispatch("mouseenter"); assert.equal(f.calls.previews.length, 1);
+  new Game().decode(undefined, true, "hover"); openBank(menu); bankItem(menu, f.axe).dispatch("mouseenter");
+  assert.equal(f.calls.previews.at(-1), f.axe);
+  new Game().decode(undefined, true, "unsupported"); openBank(menu);
+  const count = f.calls.previews.length; bankItem(menu, f.spear).dispatch("mouseenter"); assert.equal(f.calls.previews.length, count);
+  bankItem(menu, f.spear).click(); assert.equal(f.calls.previews.at(-1), f.spear, "invalid saved values safely use click mode");
+  assert.equal(f.calls.writes.length, 0);
+});
+
+test("closing the bank picker frees preview content and stale or disabled sources cannot reopen it", () => {
+  const f = fixture(undefined, true, "hover"), menu = f.show(), picker = openBank(menu);
+  const source = bankItem(menu, f.spear), preview = menu.querySelector(".kroky-quick-equip-preview");
+  source.dispatch("mouseenter"); assert.equal(preview.hidden, false);
+  menu.querySelector(".kroky-quick-equip-bank").click();
+  assert.equal(picker.hidden, true); assert.equal(preview.hidden, true); assert.equal(preview.childNodes.length, 0);
+  assert.equal(picker.querySelector(".kroky-quick-equip-selected-name").textContent, "");
+  assert.equal(menu.querySelectorAll(".kroky-quick-equip-bank-item").length, 0);
+  assert.equal(f.icon.quickEquipTooltip.props.maxWidth, 350);
+  assert.equal(f.icon.quickEquipTooltip.props.placement, "bottom", "closing Bank restores the native tooltip anchor");
+  openBank(menu); const stale = bankItem(menu, f.axe), count = f.calls.previews.length;
+  f.player.selectedEquipmentSet = 1; stale.dispatch("mouseenter"); stale.click();
+  assert.equal(f.calls.previews.length, count, "an item from an old equipment set cannot inspect or select into the current menu");
+  f.player.selectedEquipmentSet = 0; f.show(); openBank(menu); const disabled = bankItem(menu, f.axe);
+  f.icon.setQuickEquipEnabled(false); disabled.dispatch("mouseenter"); disabled.click();
+  assert.equal(f.calls.previews.length, count);
+  assert.equal(f.calls.writes.length, 0);
+});
+
+test("side previews flip away from the right edge without repeated bank scans or preview rendering", () => {
+  const f = fixture();
+  f.icon.image.getBoundingClientRect = () => ({ x: 1120, y: 10, left: 1120, top: 10, right: 1200, bottom: 60, width: 80, height: 50 });
+  const menu = f.show(), picker = openBank(menu); bankItem(menu, f.spear).click();
+  assert.equal(menu.querySelector(".kroky-quick-equip-layout").classList.contains("kroky-preview-left"), true);
+  assert.equal(f.icon.quickEquipTooltip.props.placement, "bottom-end", "right-edge menus keep their bank grid anchored while a left preview expands");
+  assert.equal(f.calls.previews.length, 1); assert.equal(f.calls.scans, 1);
+  const search = picker.querySelector("input"); search.value = "spear"; search.dispatch("input");
+  for (let index = 0; index < 20; index++) f.icon.setEquipped(f.player, f.player.equipment.getEquippedInSlot(f.weapon));
+  assert.equal(f.calls.previews.length, 1, "ordinary equipment refreshes and searches must not rebuild the preview");
+  assert.equal(f.calls.scans, 1, "previewing must reuse the current bank results");
+  menu.querySelector(".kroky-quick-equip-bank").click();
+  assert.equal(f.icon.quickEquipTooltip.props.placement, "bottom");
+  const left = fixture(), leftMenu = left.show(); openBank(leftMenu);
+  assert.equal(left.icon.quickEquipTooltip.props.placement, "bottom-start", "left-edge menus use the mirrored stable anchor");
+  bankItem(leftMenu, left.spear).click();
+  assert.equal(left.icon.quickEquipTooltip.props.placement, "bottom-start");
+  leftMenu.querySelector(".kroky-quick-equip-bank").click();
+  assert.equal(left.icon.quickEquipTooltip.props.placement, "bottom");
 });
