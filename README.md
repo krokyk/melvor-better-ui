@@ -103,7 +103,8 @@ It adds a second row of three shortcuts for six slots in total.
 Disabling it keeps the three native shortcuts and Bank picker while retaining the additional assignments for re-enabling.
 The native Set buttons are replaced by a **Bank** chest button beside the shortcuts.
 Open it to search bank items that are compatible with the equipment slot and meet their equip requirements.
-The quick slots, Bank and optional Unequip Current button are centred together above the item grid.
+An open picker refreshes after equipment changes while preserving its search, using the native equipment-change event without timers or polling.
+The quick slots, Bank and Unequip Current button are centred together above the item grid.
 Drag an item onto a shortcut to assign or replace it without equipping it.
 **General → Equipment Stats Layout** selects **Vanilla** or **Compact**, defaults to Compact and is saved per character.
 Both layouts inspect the item beside the picker without opening another dialog.
@@ -124,10 +125,11 @@ Inspecting an item does not assign or equip it.
 For keyboard assignment, focus a bank item and press Space, then focus a target shortcut and press Enter or Space.
 Click an assigned shortcut to equip its item through the game's normal equipment checks.
 **General → Show Unequip Button on Equipment Icons** defaults to off and is saved per character.
-With it disabled, **Unequip Current** appears beside **Bank** in the quick-equip popup.
+**Unequip Current** always appears beside **Bank** in the enhanced quick-equip popup, regardless of this setting.
 For an empty equipment slot, the popup button stays visible but is dimmed and disabled.
-Enabling it moves the same action to a red minus in a red outlined square just outside the equipped item's top-right corner.
-Both positions use the game's normal unequip checks and preserve shortcut assignments.
+Enabling the setting adds a red minus in a red outlined square just outside the equipped item's top-right corner.
+The setting only shows or hides these equipment-icon controls.
+Both controls use the game's normal unequip checks and preserve shortcut assignments.
 There is no shortcut-delete action; dropping another item replaces the assignment.
 The first three shortcuts retain their native save data.
 The additional three are saved with Better UI character data separately for each equipment set and equipment slot.

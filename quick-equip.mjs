@@ -13,6 +13,7 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
   const menus = new WeakMap(), owners = new WeakMap(), bindings = new WeakMap();
   const settings = ctx.settings.section("General");
   let extra = {}, storageReady = false, storageError = false, enabled = true, extraSlotsEnabled = true, directUnequipEnabled = false, statsMode = "click", statsLayout = "compact";
+  let equipmentEventPlayer, equipmentRefreshQueued = false;
   settings.add({
     type: "switch", name: settingName, label: "Enhanced Equipment Menu", default: true,
     hint: "Use enhanced quick slots and a searchable Bank picker in Combat and the top-bar equipment menu. Disable to restore the native menu while retaining your shortcuts.",
@@ -31,7 +32,7 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
   });
   settings.add({
     type: "switch", name: directUnequipSettingName, label: "Show Unequip Button on Equipment Icons", default: false,
-    hint: "Show a red minus-square on equipment icons. When disabled, Unequip Current appears beside Bank in the quick-equip popup.",
+    hint: "Show an additional red minus-square on equipment icons. Unequip Current is always shown beside Bank in the quick-equip popup.",
     onChange(value) {
       if (typeof value !== "boolean") return "Choose enabled or disabled.";
       directUnequipEnabled = value; syncInterface();
@@ -70,6 +71,21 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
       if (menus.has(icon.quickEquip) || icon.quickEquip.isConnected) icon.quickEquip.setEquipped(binding.player, binding.equipped);
     }
   }
+  function queueEquipmentRefresh() {
+    if (!enabled || equipmentRefreshQueued) return;
+    equipmentRefreshQueued = true;
+    // Native equips emit both events; refresh once after their bank and stat updates finish.
+    queueMicrotask(() => { equipmentRefreshQueued = false; refreshOpenPickers(); });
+  }
+  function watchEquipmentChanges() {
+    const player = game.combat?.player;
+    if (equipmentEventPlayer === player) return;
+    for (const event of ["equipmentChanged", "itemEquipped"]) equipmentEventPlayer?.off?.(event, queueEquipmentRefresh);
+    equipmentEventPlayer = undefined;
+    if (typeof player?.on !== "function") return;
+    for (const event of ["equipmentChanged", "itemEquipped"]) player.on(event, queueEquipmentRefresh);
+    equipmentEventPlayer = player;
+  }
 
   function restore() {
     try {
@@ -92,11 +108,13 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
     const savedDisplayMode = settings.get(statsDisplaySettingName);
     statsLayout = ["vanilla", "compact"].includes(savedDisplayMode) ? savedDisplayMode : "compact";
     syncInterface();
+    watchEquipmentChanges();
   }
   ctx.onCharacterLoaded(() => { storageReady = true; restore(); });
   ctx.patch(Game, "decode").after(() => { if (storageReady) restore(); });
   ctx.onInterfaceReady(() => {
     syncInterface();
+    watchEquipmentChanges();
     if (document.getElementById("kroky-quick-equip-style")) return;
     const style = document.createElement("style");
     style.id = "kroky-quick-equip-style";
@@ -320,6 +338,24 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
     view.items.replaceChildren(fragment);
     filterBank(view);
   }
+  function refreshOpenPickers() {
+    if (!enabled) return;
+    for (const menu of document.querySelectorAll(".kroky-quick-equip")) {
+      const view = menus.get(menu);
+      if (!view?.picker || view.picker.hidden) continue;
+      if (!isCurrent(view)) { closePicker(view); continue; }
+      const selected = view.previewedItem, scrollTop = view.items.scrollTop ?? 0;
+      clearPreview(view);
+      populateBank(view);
+      redraw(view);
+      const owner = owners.get(menu);
+      if (owner) updateUnequip(owner, view.player, view.equipped);
+      const entry = selected && view.bankItems.find(({ button }) => button.dataset.itemId === selected.id && !button.hidden);
+      if (entry) previewItem(view, selected, entry.button);
+      view.items.scrollTop = scrollTop;
+      owner?.quickEquipTooltip?.popperInstance?.update();
+    }
+  }
   function closePicker(view) {
     clearPreview(view);
     if (view.anchoredPicker) {
@@ -465,12 +501,13 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
         imageAttributes: rememberAttributes(icon.image, ["tabindex", "role", "aria-label"]) };
       bindings.set(icon, binding);
       owners.set(icon.quickEquip, icon);
-      button.addEventListener("click", event => {
+      binding.unequip = event => {
         if (!enabled) return;
         event.stopPropagation();
         const current = bindings.get(icon);
-        if (!button.disabled && current) current.player.unequipCallback(current.equipped.slot)();
-      });
+        if (!event.currentTarget.disabled && current) current.player.unequipCallback(current.equipped.slot)();
+      };
+      button.addEventListener("click", binding.unequip);
       // Keep the header dropdown open when its equipment icon opens quick equip.
       icon.image.addEventListener("click", event => { if (enabled) event.stopPropagation(); });
       icon.image.addEventListener("keydown", event => {
@@ -482,7 +519,7 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
     if (!enabled) {
       if (!binding.active) return;
       binding.active = false;
-      binding.placement = undefined;
+      binding.directButton?.remove();
       binding.parent.append(button);
       button.className = binding.buttonClass; button.textContent = binding.buttonText;
       restoreAttributes(button, binding.buttonAttributes);
@@ -493,30 +530,36 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
     }
     if (!binding.active) {
       binding.active = true;
-      button.type = "button";
+      button.type = "button"; button.className = "btn btn-sm btn-outline-danger kroky-quick-equip-unequip-current";
+      button.textContent = "Unequip Current"; button.title = "Unequip Current";
       icon.image.setAttribute("tabindex", "0");
       icon.image.setAttribute("role", "button");
       icon.image.setAttribute("aria-label", `Quick equip: ${equipped.slot.emptyName}`);
     }
-    const placement = directUnequipEnabled ? "direct" : "popup";
-    if (binding.placement !== placement) {
-      binding.placement = placement;
-      button.className = directUnequipEnabled
-        ? "kroky-quick-unequip info-icon-overlay skill-icon-xxs btn btn-link text-danger p-0"
-        : "btn btn-sm btn-outline-danger kroky-quick-equip-unequip-current";
-      button.textContent = directUnequipEnabled ? "−" : "Unequip Current";
-      button.title = directUnequipEnabled ? "Unequip" : "Unequip Current";
-    }
-    const parent = directUnequipEnabled ? icon.container : menus.get(icon.quickEquip)?.actions ?? binding.parent;
-    if (button.parentElement !== parent || (!directUnequipEnabled && parent.children[parent.children.length - 1] !== button)) parent.append(button);
+    const parent = menus.get(icon.quickEquip)?.actions ?? binding.parent;
+    if (button.parentElement !== parent || parent.children[parent.children.length - 1] !== button) parent.append(button);
     const label = equipped.isEmpty ? "Unequip Current" : `Unequip ${equipped.item.name}`;
     if (button.getAttribute("aria-label") !== label) button.setAttribute("aria-label", label);
     const unavailable = player !== game.combat.player || !icon.quickEquipEnabled;
-    const hidden = unavailable || (directUnequipEnabled && equipped.isEmpty);
-    if (button.hidden !== hidden) button.hidden = hidden;
+    if (button.hidden !== unavailable) button.hidden = unavailable;
     const disabled = unavailable || equipped.isEmpty;
     if (button.disabled !== disabled) button.disabled = disabled;
     if (button.onclick) button.onclick = null;
+    if (directUnequipEnabled && !binding.directButton && !unavailable) {
+      const direct = document.createElement("button");
+      direct.type = "button"; direct.className = "kroky-quick-unequip info-icon-overlay skill-icon-xxs btn btn-link text-danger p-0";
+      direct.textContent = "−"; direct.title = "Unequip";
+      direct.addEventListener("click", binding.unequip); binding.directButton = direct;
+    }
+    const direct = binding.directButton;
+    if (direct) {
+      if (directUnequipEnabled && direct.parentElement !== icon.container) icon.container.append(direct);
+      else if (!directUnequipEnabled && direct.parentElement) direct.remove();
+      const hidden = unavailable || equipped.isEmpty;
+      if (direct.hidden !== hidden) direct.hidden = hidden;
+      if (direct.disabled !== disabled) direct.disabled = disabled;
+      if (direct.getAttribute("aria-label") !== label) direct.setAttribute("aria-label", label);
+    }
   }
   ctx.patch(GridIcon, "setEquipped").after(function (_result, player, equipped) { updateUnequip(this, player, equipped); });
   ctx.patch(GridIcon, "setQuickEquipEnabled").after(function () {

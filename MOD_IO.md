@@ -72,7 +72,8 @@ With the setting enabled, equipment slots in Combat and the top-bar equipment me
 **General → Enable 3 Extra Quick Slots** defaults to on, is saved per character and adds a second row for six shortcuts in total.
 Disabling it keeps the three native shortcuts and Bank picker while retaining the additional assignments for re-enabling.
 The **Bank** chest button beside them opens a searchable picker of compatible bank equipment that meets its equip requirements.
-The quick slots, Bank and optional Unequip Current button are centred together above the item grid.
+An open picker refreshes after equipment changes while preserving its search, using the native equipment-change event without timers or polling.
+The quick slots, Bank and Unequip Current button are centred together above the item grid.
 Drag an item onto a shortcut to assign or replace it without equipping it.
 **General → Equipment Stats Layout** selects **Vanilla** or **Compact**, defaults to Compact and is saved per character.
 Both layouts show stats beside the picker without opening another dialog, with the selected name in the preview header.
@@ -91,10 +92,11 @@ Inspection does not assign or equip the item.
 For keyboard assignment, focus a bank item and press Space, then focus a target shortcut and press Enter or Space.
 Click a shortcut to equip its item with the native equipment checks.
 **General → Show Unequip Button on Equipment Icons** defaults to off and is saved per character.
-With it disabled, **Unequip Current** appears beside **Bank** in the quick-equip popup.
+**Unequip Current** always appears beside **Bank** in the enhanced quick-equip popup, regardless of this setting.
 For an empty equipment slot, the popup button stays visible but is dimmed and disabled.
-Enabling it moves the same action to a red minus in a red outlined square just outside the equipped item's top-right corner.
-Both positions use the game's normal unequip checks and preserve shortcut assignments.
+Enabling the setting adds a red minus in a red outlined square just outside the equipped item's top-right corner.
+The setting only shows or hides these equipment-icon controls.
+Both controls use the game's normal unequip checks and preserve shortcut assignments.
 Native Set buttons are removed.
 There is no shortcut-delete action; assign another item to replace one.
 Existing three-slot assignments are preserved, and the additional three are saved per character, equipment set and equipment slot in Better UI data.
@@ -123,7 +125,7 @@ The mod works independently of Workforce and also pins Workforce's controls and 
 - Fit preview boxes to their content and centre the quick-equip controls above the bank grid.
 - Indent radio choices beneath their setting headings.
 - Choose a stats icon, click or hover on skill-card main artwork independently of recipe Sources and Uses and ingredient navigation.
-- Keep Unequip Current beside Bank by default, with an optional per-character toggle for red minus-square controls on equipment icons.
+- Always keep Unequip Current beside Bank, with an optional per-character toggle for additional red minus-square controls on equipment icons.
 - Enable or disable Enhanced Equipment Menu per character, restoring the native menu immediately while retaining all shortcut assignments.
 - Highlight the currently viewed skill in the left navigation with a lighter grey background.
 - Add an optional, per-character toggle for blue **?** buttons just outside recipe item icons' top-right corners, mirroring the native shop-coin overlay.

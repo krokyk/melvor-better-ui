@@ -85,7 +85,7 @@ function fixture(saved, savedEnabled = true, savedStatsMode = "click", savedExtr
   const sword = new EquipmentItem("Sword"), axe = new EquipmentItem("Axe"), spear = new EquipmentItem("Spear"), bow = new EquipmentItem("Bow");
   const arrows = new EquipmentItem("Arrows", [quiver]), locked = new EquipmentItem("Locked"), absent = new EquipmentItem("Absent"), plain = new EquipmentItem("Plain"); locked.equipRequirements = ["locked"];
   const items = [sword, axe, spear, bow, arrows, locked, absent, plain], bankItems = new Map(items.filter(item => item !== absent).map(item => [item, { item, quantity: item === arrows ? 15 : 1 }]));
-  const calls = { equip: [], quick: [], set: [], unequip: [], writes: [], requirements: [], patches: [], previews: [], previewOptions: [], nativeStats: [], tooltipHides: [], scans: 0 }, hooks = {}, values = new Map();
+  const calls = { equip: [], quick: [], set: [], unequip: [], writes: [], requirements: [], patches: [], previews: [], previewOptions: [], nativeStats: [], tooltipHides: [], eventOn: [], eventOff: [], scans: 0 }, hooks = {}, values = new Map();
   const fields = new Map(), settingsValues = new Map([["quick-equip-enabled", savedEnabled], ["equipment-item-stats-mode", savedStatsMode], ["extra-quick-slots-enabled", savedExtraSlots], ["equipment-preview-stats-mode", savedLayout], ["unequip-on-equipment-icons", savedDirectUnequip]]);
   const bankValues = bankItems.values.bind(bankItems), bankForEach = bankItems.forEach.bind(bankItems), bankEntries = bankItems[Symbol.iterator].bind(bankItems);
   bankItems.values = () => { calls.scans++; return bankValues(); };
@@ -97,15 +97,25 @@ function fixture(saved, savedEnabled = true, savedStatsMode = "click", savedExtr
     const slots = new Map([[weapon, equipped(weapon)], [quiver, { ...equipped(quiver), item: arrows, quickEquipItems: [arrows, empty, empty] }]]);
     return { getEquippedInSlot: slot => slots.get(slot), getQuickEquipItem: (slot, index) => slots.get(slot).quickEquipItems[index], equippedItems: Object.fromEntries([...slots].map(([slot, eq]) => [slot.id, eq])), slots };
   };
+  const equipmentListeners = new Map();
   const player = {
     selectedEquipmentSet: 0, equipmentSets: [{ equipment: equipment() }, { equipment: equipment() }],
     get equipment() { return this.equipmentSets[this.selectedEquipmentSet].equipment; },
     isEquipmentSlotUnlocked: () => true,
+    on(name, callback) {
+      calls.eventOn.push({ name, callback });
+      if (!equipmentListeners.has(name)) equipmentListeners.set(name, new Set());
+      equipmentListeners.get(name).add(callback);
+    },
+    off(name, callback) { calls.eventOff.push({ name, callback }); equipmentListeners.get(name)?.delete(callback); },
     onQuickEquipClick(slot, index) { calls.quick.push({ slot, index }); },
     equipItem(item, set, slot, quantity) { calls.equip.push({ item, set, slot, quantity }); return true; },
     unequipCallback(slot) { return () => { calls.unequip.push({ slot, set: this.selectedEquipmentSet }); }; },
     setQuickEquipItem(slot, index) { calls.set.push({ slot, index }); this.equipment.getEquippedInSlot(slot).quickEquipItems[index] = this.equipment.getEquippedInSlot(slot).item; return true; },
   };
+  const emitPlayerEvent = name => { for (const callback of [...(equipmentListeners.get(name) ?? [])]) callback({}); };
+  const emitEquipmentChanged = (withItemEquipped = false) => { emitPlayerEvent("equipmentChanged"); if (withItemEquipped) emitPlayerEvent("itemEquipped"); };
+  const emitItemEquipped = () => emitPlayerEvent("itemEquipped");
   const bank = { items: bankItems, getQty: item => bankItems.get(item)?.quantity ?? 0 };
   const game = { items: { getObjectByID: id => items.find(item => item.id === id) }, emptyEquipmentItem: empty, bank, combat: { player }, checkRequirements(requirements, notify) { calls.requirements.push({ requirements, notify }); return !requirements.includes("locked"); } };
   player.manager = { bank };
@@ -177,7 +187,7 @@ function fixture(saved, savedEnabled = true, savedStatsMode = "click", savedExtr
   const setExtraSlots = enabled => { const field = fields.get("extra-quick-slots-enabled"); assert.ok(field, "extra-slot setting must be registered"); const result = field.onChange(enabled); if (result === undefined || result === true) settingsValues.set(field.name, enabled); return result; };
   const setLayout = layout => { const field = fields.get("equipment-preview-stats-mode"); assert.ok(field, "equipment stats layout setting must be registered"); const result = field.onChange(layout); if (result === undefined || result === true) settingsValues.set(field.name, layout); return result; };
   const setDirectUnequip = enabled => { const field = fields.get("unequip-on-equipment-icons"); assert.ok(field, "unequip placement setting must be registered"); const result = field.onChange(enabled); if (result === undefined || result === true) settingsValues.set(field.name, enabled); return result; };
-  return { ctx, game, player, weapon, quiver, empty, sword, axe, spear, bow, arrows, locked, absent, plain, items, bankItems, calls, hooks, values, fields, settingsValues, toggle, setStatsMode, setExtraSlots, setLayout, setDirectUnequip, icon, body, show, EquipmentGridIconElement };
+  return { ctx, game, player, weapon, quiver, empty, sword, axe, spear, bow, arrows, locked, absent, plain, items, bankItems, calls, hooks, values, fields, settingsValues, toggle, setStatsMode, setExtraSlots, setLayout, setDirectUnequip, equipmentListeners, emitEquipmentChanged, emitItemEquipped, icon, body, show, EquipmentGridIconElement };
 }
 
 function dragData() {
@@ -227,11 +237,12 @@ test("shared Combat and header grids default to unequip beside Bank without equi
   assertPopupUnequipOrder(headerMenu);
 });
 
-test("unequip placement is an off-default switch and moves one native control between both equipment surfaces", () => {
+test("the off-default unequip icon switch adds overlays without removing either popup action", () => {
   const saved = { 0: { "test:Weapon": ["test:Spear", null, null] } }, f = fixture(saved);
   const field = f.fields.get("unequip-on-equipment-icons");
   assert.ok(field, "unequip placement must be configurable");
   assert.equal(field.type, "switch"); assert.equal(field.label, "Show Unequip Button on Equipment Icons"); assert.equal(field.default, false);
+  assert.match(field.hint, /always/i); assert.match(field.hint, /Bank/);
   assert.equal(typeof f.setDirectUnequip("false"), "string");
   assert.equal(f.settingsValues.get(field.name), false);
   const menu = f.show(), header = new f.EquipmentGridIconElement(); f.body.append(header); const headerMenu = f.show(header);
@@ -240,8 +251,15 @@ test("unequip placement is an off-default switch and moves one native control be
     f.setDirectUnequip(true);
     for (const [index, icon] of [f.icon, header].entries()) {
       const button = icon.container.querySelector(".kroky-quick-unequip");
-      assert.ok(button); assert.ok(button === controls[index], "toggling moves rather than duplicates the control");
+      const current = [menu, headerMenu][index], popup = current.querySelector(".kroky-quick-equip-unequip-current");
+      assert.ok(button); assert.ok(button !== controls[index], "the optional overlay is separate from the permanent popup action");
+      assert.ok(popup === controls[index], "enabling overlays keeps the same native popup control");
+      assertPopupUnequipOrder(current);
+      assert.equal(popup.hidden, false); assert.equal(popup.disabled, false);
       assert.equal(button.textContent, "−"); assert.equal(button.hidden, false); button.click();
+      popup.click();
+      assert.equal(current.querySelectorAll(".kroky-quick-equip-unequip-current").length, 1);
+      assert.equal(icon.container.querySelectorAll(".kroky-quick-unequip").length, 1);
     }
     f.setDirectUnequip(false);
     for (const [index, current] of [menu, headerMenu].entries()) {
@@ -249,8 +267,10 @@ test("unequip placement is an off-default switch and moves one native control be
       assert.ok(button); assert.ok(button === controls[index]); assertPopupUnequipOrder(current);
       assert.equal(button.textContent, "Unequip Current"); assert.equal(button.hidden, false); button.click();
       assert.equal(current.querySelectorAll(".kroky-quick-equip-unequip-current").length, 1);
+      const overlay = [f.icon, header][index].container.querySelector(".kroky-quick-unequip");
+      assert.ok(!overlay || overlay.hidden, "turning the setting off hides only the optional overlay");
     }
-    assert.equal(f.calls.unequip.length, (cycle + 1) * 4, "each click invokes the native action exactly once");
+    assert.equal(f.calls.unequip.length, (cycle + 1) * 6, "both controls invoke the native action exactly once per click");
   }
   assert.deepEqual(f.values.get("quick-equip-extra-slots"), saved);
   assert.equal(f.calls.writes.length, 0); assert.equal(f.calls.scans, 0);
@@ -260,11 +280,13 @@ test("unequip placement is an off-default switch and moves one native control be
 test("unequip placement restores saved preferences, applies before first opening and respects native-menu restoration", () => {
   const f = fixture(undefined, true, "click", true, "compact", true);
   assert.ok(f.icon.container.querySelector(".kroky-quick-unequip"), "saved direct placement applies before first opening");
+  const menu = f.show(); assertPopupUnequipOrder(menu);
   f.setDirectUnequip(false);
   assert.ok(!f.icon.container.querySelector(".kroky-quick-unequip"));
-  const menu = f.show(); assertPopupUnequipOrder(menu);
+  f.show(); assertPopupUnequipOrder(menu);
   new Game().decode(undefined, true, "click", true, "compact", true);
   assert.ok(f.icon.container.querySelector(".kroky-quick-unequip"));
+  assertPopupUnequipOrder(menu);
   new Game().decode(undefined, true, "click", true, "compact", false);
   assertPopupUnequipOrder(menu);
   for (const corrupt of ["true", 1, null]) {
@@ -275,13 +297,13 @@ test("unequip placement restores saved preferences, applies before first opening
   f.toggle(false); assertNativeMenu(f.icon);
   f.setDirectUnequip(true); assertNativeMenu(f.icon);
   assert.equal(menu.unequipButton.textContent, "X", "the master switch preserves the original native menu");
-  f.toggle(true); assert.ok(f.icon.container.querySelector(".kroky-quick-unequip"));
+  f.toggle(true); assert.ok(f.icon.container.querySelector(".kroky-quick-unequip")); assertPopupUnequipOrder(menu);
   f.toggle(false); f.setDirectUnequip(false); f.toggle(true);
   assertPopupUnequipOrder(menu);
   assert.equal(f.calls.writes.length, 0); assert.equal(f.calls.scans, 0);
 });
 
-test("empty and disabled equipment cannot be unequipped from either button position", () => {
+test("permanent popup and optional overlay controls share empty and disabled equipment guards", () => {
   const f = fixture(), equipped = f.player.equipment.getEquippedInSlot(f.weapon), menu = f.show();
   const button = menu.unequipButton;
   equipped.item = f.empty; equipped.isEmpty = true; f.show();
@@ -289,18 +311,27 @@ test("empty and disabled equipment cannot be unequipped from either button posit
   assert.equal(button.hidden, false, "empty equipment leaves a discoverable popup action");
   assert.equal(button.getAttribute("aria-label"), "Unequip Current", "empty slots must not expose the empty item's untranslated name");
   assert.equal(button.disabled, true); button.click(); assert.deepEqual(f.calls.unequip, []);
-  f.setDirectUnequip(true); assert.equal(button.hidden, true); assert.equal(button.disabled, true);
+  f.setDirectUnequip(true);
+  const overlay = f.icon.container.querySelector(".kroky-quick-unequip"); assert.ok(overlay);
+  assertPopupUnequipOrder(menu);
+  assert.equal(button.hidden, false); assert.equal(button.disabled, true);
+  assert.equal(overlay.hidden, true); assert.equal(overlay.disabled, true);
+  overlay.click(); button.click(); assert.deepEqual(f.calls.unequip, []);
   equipped.item = f.sword; equipped.isEmpty = false; f.icon.setEquipped(f.player, equipped);
   assert.equal(button.hidden, false); assert.equal(button.disabled, false);
-  f.icon.setQuickEquipEnabled(false); button.click(); assert.deepEqual(f.calls.unequip, []);
+  assert.equal(overlay.hidden, false); assert.equal(overlay.disabled, false);
+  f.icon.setQuickEquipEnabled(false); button.click(); overlay.click(); assert.deepEqual(f.calls.unequip, []);
   assert.equal(button.disabled, true);
+  assert.equal(overlay.disabled, true);
   f.setDirectUnequip(false); button.click(); assert.deepEqual(f.calls.unequip, []);
   assert.equal(button.disabled, true);
   f.icon.setQuickEquipEnabled(true); assert.equal(button.hidden, false); assert.equal(button.disabled, false);
   button.click(); assert.deepEqual(f.calls.unequip, [{ slot: f.weapon, set: 0 }]);
+  f.setDirectUnequip(true); overlay.click(); assert.equal(f.calls.unequip.length, 2);
   f.icon.setEquipped({ ...f.player }, equipped);
   assert.equal(button.disabled, true, "equipment belonging to another player context cannot invoke the main character action");
-  button.click(); assert.equal(f.calls.unequip.length, 1);
+  assert.equal(overlay.disabled, true);
+  button.click(); overlay.click(); assert.equal(f.calls.unequip.length, 2);
 });
 
 test("bank selection filters compatible items without timers, render hooks or repeated work during stable equipment refreshes", t => {
@@ -846,6 +877,109 @@ test("hover previews are opt-in and keyboard focus previews items without arming
   assert.deepEqual(f.calls.quick, [{ slot: f.weapon, index: 0 }]);
   assert.deepEqual(f.player.equipment.getEquippedInSlot(f.weapon).quickEquipItems, before);
   assert.equal(f.calls.writes.length, 0);
+});
+
+test("equipping through a quick slot refreshes an open search with items returned to Bank", async () => {
+  const f = fixture(), equipped = f.player.equipment.getEquippedInSlot(f.weapon);
+  f.sword.name = "Ultima Godsword"; f.axe.name = "God Axe";
+  f.bankItems.delete(f.sword);
+  const menu = f.show(), picker = openBank(menu), search = picker.querySelector("input");
+  search.value = "god"; search.dispatch("input");
+  assert.equal(bankItem(menu, f.sword), undefined, "the equipped Godsword is initially absent from Bank");
+  bankItem(menu, f.axe).click();
+  const preview = menu.querySelector(".kroky-quick-equip-preview");
+  assert.equal(preview.hidden, false);
+  f.player.onQuickEquipClick = function (slot, index) {
+    f.calls.quick.push({ slot, index });
+    const next = this.equipment.getQuickEquipItem(slot, index), previous = equipped.item;
+    f.bankItems.set(previous, { item: previous, quantity: 1 }); f.bankItems.delete(next);
+    equipped.item = next; equipped.isEmpty = false;
+    f.emitEquipmentChanged(true);
+  };
+  slots(menu)[1].click(); await Promise.resolve();
+  assert.equal(search.value, "god", "native equipment changes preserve the user's query");
+  assert.equal(picker.hidden, false);
+  assert.equal(bankItem(menu, f.sword)?.hidden, false, "the returned Godsword appears without reopening Bank");
+  assert.equal(bankItem(menu, f.axe), undefined, "the newly equipped item is removed from the picker");
+  assert.equal(preview.hidden, true, "a selected item that left Bank cannot keep stale stats visible");
+  assert.equal(preview.children.length, 0);
+  assert.equal(f.calls.scans, 2, "equipmentChanged and itemEquipped from one equip coalesce into one bank refresh");
+  assert.equal(f.calls.writes.length, 0, "equipping never rewrites quick-slot assignments");
+  slots(menu)[0].click(); await Promise.resolve();
+  assert.equal(search.value, "god");
+  assert.equal(bankItem(menu, f.sword), undefined);
+  assert.equal(bankItem(menu, f.axe)?.hidden, false, "the search stays live over subsequent equipment changes");
+  assert.equal(f.calls.scans, 3);
+});
+
+test("open equipment changes preserve visible selection and scroll while refreshing its comparison", async () => {
+  const f = fixture(); f.spear.name = "God Spear";
+  for (let index = 0; index < 40; index++) {
+    const item = new EquipmentItem(`God Weapon ${index}`); f.items.push(item); f.bankItems.set(item, { item, quantity: 1 });
+  }
+  const menu = f.show(), picker = openBank(menu), search = picker.querySelector("input"), list = picker.querySelector(".kroky-quick-equip-items");
+  search.value = "god"; search.dispatch("input"); bankItem(menu, f.spear).click();
+  list.clientHeight = 120; list.scrollHeight = 600; list.scrollTop = 137;
+  const before = f.calls.previews.length;
+  f.player.equipment.getEquippedInSlot(f.weapon).item = f.axe;
+  f.emitEquipmentChanged(true); await Promise.resolve();
+  assert.equal(search.value, "god"); assert.equal(list.scrollTop, 137);
+  assert.equal(bankItem(menu, f.spear)?.getAttribute("aria-pressed"), "true");
+  assert.equal(menu.querySelector(".kroky-quick-equip-preview").hidden, false);
+  assert.equal(f.calls.previews.length, before + 1, "the selected item's comparison is recomputed against current gear");
+  assert.equal(f.calls.previews.at(-1), f.spear);
+  assert.equal(f.calls.previewOptions.at(-1).equipment, f.player.equipment);
+  assert.equal(f.calls.scans, 2);
+  search.value = "axe"; search.dispatch("input");
+  f.emitEquipmentChanged(); await Promise.resolve();
+  assert.equal(menu.querySelector(".kroky-quick-equip-preview").hidden, true, "an item outside the active query cannot remain selected");
+});
+
+test("quantity-only native equipment events refresh Bank counts and empty-slot unequip state", async () => {
+  const f = fixture(), menu = f.show(f.icon, f.quiver), picker = openBank(menu), search = picker.querySelector("input");
+  search.value = "arrows"; search.dispatch("input"); bankItem(menu, f.arrows).click();
+  f.player.onQuickEquipClick = function (slot, index) {
+    f.calls.quick.push({ slot, index });
+    f.bankItems.get(f.arrows).quantity -= 3;
+    this.equipment.getEquippedInSlot(slot).quantity += 3;
+    f.emitItemEquipped();
+  };
+  slots(menu)[0].click(); await Promise.resolve();
+  assert.equal(search.value, "arrows");
+  assert.equal(bankItem(menu, f.arrows).getAttribute("aria-label"), "Arrows (12)");
+  assert.equal(bankItem(menu, f.arrows).getAttribute("aria-pressed"), "true");
+  assert.equal(f.calls.previews.length, 2); assert.equal(f.calls.scans, 2);
+  const equipped = f.player.equipment.getEquippedInSlot(f.quiver);
+  equipped.item = f.empty; equipped.isEmpty = true;
+  f.emitEquipmentChanged(); await Promise.resolve();
+  assert.equal(menu.unequipButton.hidden, false); assert.equal(menu.unequipButton.disabled, true);
+});
+
+test("equipment event subscriptions remain singular and closed pickers never rescan Bank", async () => {
+  const f = fixture(); f.show();
+  f.hooks.character(); f.hooks.interface(); new Game().decode();
+  for (const name of ["equipmentChanged", "itemEquipped"]) {
+    assert.equal(f.equipmentListeners.get(name)?.size, 1);
+    assert.equal(f.calls.eventOn.filter(call => call.name === name).length, 1, "readiness and decode must not add duplicate handlers");
+  }
+  f.emitEquipmentChanged(true); await Promise.resolve();
+  assert.equal(f.calls.scans, 0, "a menu whose Bank picker was never opened does no data work");
+  const menu = f.icon.quickEquip; openBank(menu);
+  f.emitEquipmentChanged(true); menu.querySelector(".kroky-quick-equip-bank").click();
+  await Promise.resolve(); assert.equal(f.calls.scans, 1, "closing before a queued refresh cancels its bank work");
+  f.emitEquipmentChanged(true); await Promise.resolve(); assert.equal(f.calls.scans, 1);
+  const nextListeners = new Map(), replacement = { ...f.player,
+    on(name, callback) { if (!nextListeners.has(name)) nextListeners.set(name, new Set()); nextListeners.get(name).add(callback); },
+    off(name, callback) { nextListeners.get(name)?.delete(callback); },
+  };
+  f.game.combat.player = replacement; f.hooks.character();
+  for (const name of ["equipmentChanged", "itemEquipped"]) {
+    assert.equal(f.equipmentListeners.get(name)?.size, 0, "changing player context detaches the previous character's listener");
+    assert.equal(nextListeners.get(name)?.size, 1);
+  }
+  f.emitEquipmentChanged(true); await Promise.resolve(); assert.equal(f.calls.scans, 1);
+  for (const listeners of nextListeners.values()) for (const callback of listeners) callback({});
+  await Promise.resolve(); assert.equal(f.calls.scans, 1, "replacement-player events also leave closed pickers alone");
 });
 
 test("preview mode restores per character and through decode while clearing an earlier mode's picker state", () => {
