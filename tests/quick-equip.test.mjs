@@ -65,7 +65,7 @@ class Element {
   set textContent(text) { this.ownText = `${text}`; this.replaceChildren(); }
 }
 
-function fixture(saved, savedEnabled = true, savedStatsMode = "click", savedExtraSlots = true) {
+function fixture(saved, savedEnabled = true, savedStatsMode = "click", savedExtraSlots = true, savedComparisonMode = "both") {
   const html = new Element("html"), head = new Element("head"), body = new Element("body"); html.append(head, body);
   const doc = new Element("document"); doc.nodeType = 9; doc.append(html); doc.head = head; doc.body = body; doc.documentElement = html; html.clientWidth = 1280;
   doc.createElement = tag => new Element(tag); doc.getElementById = id => doc.querySelector(`#${id}`);
@@ -85,8 +85,8 @@ function fixture(saved, savedEnabled = true, savedStatsMode = "click", savedExtr
   const sword = new EquipmentItem("Sword"), axe = new EquipmentItem("Axe"), spear = new EquipmentItem("Spear"), bow = new EquipmentItem("Bow");
   const arrows = new EquipmentItem("Arrows", [quiver]), locked = new EquipmentItem("Locked"), absent = new EquipmentItem("Absent"), plain = new EquipmentItem("Plain"); locked.equipRequirements = ["locked"];
   const items = [sword, axe, spear, bow, arrows, locked, absent, plain], bankItems = new Map(items.filter(item => item !== absent).map(item => [item, { item, quantity: item === arrows ? 15 : 1 }]));
-  const calls = { equip: [], quick: [], set: [], unequip: [], writes: [], requirements: [], patches: [], previews: [], scans: 0 }, hooks = {}, values = new Map();
-  const fields = new Map(), settingsValues = new Map([["quick-equip-enabled", savedEnabled], ["equipment-item-stats-mode", savedStatsMode], ["extra-quick-slots-enabled", savedExtraSlots]]);
+  const calls = { equip: [], quick: [], set: [], unequip: [], writes: [], requirements: [], patches: [], previews: [], previewOptions: [], scans: 0 }, hooks = {}, values = new Map();
+  const fields = new Map(), settingsValues = new Map([["quick-equip-enabled", savedEnabled], ["equipment-item-stats-mode", savedStatsMode], ["extra-quick-slots-enabled", savedExtraSlots], ["equipment-preview-stats-mode", savedComparisonMode]]);
   const bankValues = bankItems.values.bind(bankItems), bankForEach = bankItems.forEach.bind(bankItems), bankEntries = bankItems[Symbol.iterator].bind(bankItems);
   bankItems.values = () => { calls.scans++; return bankValues(); };
   bankItems.forEach = callback => { calls.scans++; return bankForEach(callback); };
@@ -109,7 +109,7 @@ function fixture(saved, savedEnabled = true, savedStatsMode = "click", savedExtr
   const bank = { items: bankItems, getQty: item => bankItems.get(item)?.quantity ?? 0 };
   const game = { items: { getObjectByID: id => items.find(item => item.id === id) }, emptyEquipmentItem: empty, bank, combat: { player }, checkRequirements(requirements, notify) { calls.requirements.push({ requirements, notify }); return !requirements.includes("locked"); } };
   player.manager = { bank };
-  globalThis.Game = class { decode(next, enabled, statsMode, extraSlots) { values.clear(); if (next !== undefined) values.set("quick-equip-extra-slots", next); if (enabled !== undefined) settingsValues.set("quick-equip-enabled", enabled); if (statsMode !== undefined) settingsValues.set("equipment-item-stats-mode", statsMode); if (extraSlots !== undefined) settingsValues.set("extra-quick-slots-enabled", extraSlots); } };
+  globalThis.Game = class { decode(next, enabled, statsMode, extraSlots, comparisonMode) { values.clear(); if (next !== undefined) values.set("quick-equip-extra-slots", next); if (enabled !== undefined) settingsValues.set("quick-equip-enabled", enabled); if (statsMode !== undefined) settingsValues.set("equipment-item-stats-mode", statsMode); if (extraSlots !== undefined) settingsValues.set("extra-quick-slots-enabled", extraSlots); if (comparisonMode !== undefined) settingsValues.set("equipment-preview-stats-mode", comparisonMode); } };
   globalThis.tippy = (target, props) => {
     const tooltip = { props: { maxWidth: 350, placement: "bottom", ...props }, setProps(next) { Object.assign(this.props, next); }, setContent(content) { this.props.content = content; }, show() {
       this.props.onShow?.();
@@ -157,8 +157,8 @@ function fixture(saved, savedEnabled = true, savedStatsMode = "click", savedExtr
     onCharacterLoaded(callback) { hooks.character = callback; }, onInterfaceReady(callback) { hooks.interface = callback; },
     patch(Class, method) { calls.patches.push({ Class, method }); return { after(callback) { const original = Class.prototype[method]; Class.prototype[method] = function (...args) { const result = original.apply(this, args); callback.call(this, result, ...args); return result; }; } }; },
   };
-  const createItemStatsPreview = (item, actualGame) => {
-    assert.equal(actualGame, game); calls.previews.push(item);
+  const createItemStatsPreview = (item, actualGame, options) => {
+    assert.equal(actualGame, game); calls.previews.push(item); calls.previewOptions.push(options);
     const element = new Element(), heading = new Element("h5"); heading.textContent = item.name; element.append(heading);
     const hasStats = item !== plain;
     if (hasStats) { const stats = new Element("small"); stats.textContent = `Stats for ${item.name}`; element.append(stats); }
@@ -171,7 +171,8 @@ function fixture(saved, savedEnabled = true, savedStatsMode = "click", savedExtr
   const toggle = enabled => { const field = fields.get("quick-equip-enabled"); assert.ok(field, "quick-equip setting must be registered"); const result = field.onChange(enabled); if (result === undefined || result === true) settingsValues.set(field.name, enabled); return result; };
   const setStatsMode = mode => { const field = fields.get("equipment-item-stats-mode"); assert.ok(field, "equipment preview setting must be registered"); const result = field.onChange(mode); if (result === undefined || result === true) settingsValues.set(field.name, mode); return result; };
   const setExtraSlots = enabled => { const field = fields.get("extra-quick-slots-enabled"); assert.ok(field, "extra-slot setting must be registered"); const result = field.onChange(enabled); if (result === undefined || result === true) settingsValues.set(field.name, enabled); return result; };
-  return { ctx, game, player, weapon, quiver, empty, sword, axe, spear, bow, arrows, locked, absent, plain, items, bankItems, calls, hooks, values, fields, settingsValues, toggle, setStatsMode, setExtraSlots, icon, body, show, EquipmentGridIconElement };
+  const setComparisonMode = mode => { const field = fields.get("equipment-preview-stats-mode"); assert.ok(field, "comparison display setting must be registered"); const result = field.onChange(mode); if (result === undefined || result === true) settingsValues.set(field.name, mode); return result; };
+  return { ctx, game, player, weapon, quiver, empty, sword, axe, spear, bow, arrows, locked, absent, plain, items, bankItems, calls, hooks, values, fields, settingsValues, toggle, setStatsMode, setExtraSlots, setComparisonMode, icon, body, show, EquipmentGridIconElement };
 }
 
 function dragData() {
@@ -543,6 +544,45 @@ test("equipment preview is one click-default radio selection and validates its s
   assert.equal(f.setStatsMode("hover"), undefined);
   assert.equal(f.settingsValues.get("equipment-item-stats-mode"), "hover");
   assert.equal(f.calls.writes.length, 0, "preferences use native settings rather than rewriting shortcut storage");
+});
+
+test("equipment stats display defaults to item values and differences and passes the active equipment slot to the renderer", () => {
+  const f = fixture(), menu = f.show(), field = f.fields.get("equipment-preview-stats-mode");
+  assert.ok(field, "the equipment stats display setting must be registered");
+  assert.equal(field.type, "radio-group"); assert.equal(field.label, "Equipment Preview Stats"); assert.equal(field.default, "both");
+  assert.deepEqual(field.options, [
+    { value: "item", label: "Item values" },
+    { value: "difference", label: "Differences from equipped" },
+    { value: "both", label: "Item values and differences" },
+  ]);
+  assert.equal(typeof f.setComparisonMode("unsupported"), "string");
+  assert.equal(f.settingsValues.get(field.name), "both");
+  openBank(menu); bankItem(menu, f.spear).click();
+  assert.deepEqual(f.calls.previewOptions.at(-1), { fullStats: true, mode: "both", equipment: f.player.equipment, slot: f.weapon });
+  assert.deepEqual(f.calls.quick, []); assert.deepEqual(f.calls.equip, []); assert.equal(f.calls.writes.length, 0);
+  const picker = menu.querySelector(".kroky-quick-equip-picker"), preview = menu.querySelector(".kroky-quick-equip-preview");
+  assert.equal(f.setComparisonMode("item"), undefined);
+  assert.equal(picker.hidden, true); assert.equal(preview.hidden, true); assert.equal(preview.childNodes.length, 0);
+  assert.equal(f.calls.scans, 1, "changing display mode does not rescan the bank");
+  openBank(menu); bankItem(menu, f.spear).click();
+  assert.equal(f.calls.previewOptions.at(-1).mode, "item");
+  assert.equal(f.calls.writes.length, 0, "display settings do not rewrite stored shortcuts");
+});
+
+test("equipment stats display restores per character and decode and compares the selected set and secondary slot", () => {
+  const f = fixture(undefined, true, "click", true, "difference"), menu = f.show(); openBank(menu); bankItem(menu, f.spear).click();
+  assert.equal(f.calls.previewOptions.at(-1).mode, "difference");
+  new Game().decode(undefined, true, "click", true, "item");
+  openBank(menu); bankItem(menu, f.axe).click(); assert.equal(f.calls.previewOptions.at(-1).mode, "item");
+  new Game().decode(undefined, true, "click", true, "unsupported");
+  openBank(menu); bankItem(menu, f.axe).click(); assert.equal(f.calls.previewOptions.at(-1).mode, "both");
+  f.player.selectedEquipmentSet = 1;
+  f.show(f.icon, f.quiver); openBank(menu); bankItem(menu, f.arrows).click();
+  const options = f.calls.previewOptions.at(-1);
+  assert.equal(options.equipment, f.player.equipmentSets[1].equipment);
+  assert.equal(options.slot, f.quiver, "the picker slot must override an item's default valid slot");
+  assert.equal(options.fullStats, true);
+  assert.deepEqual(f.calls.quick, []); assert.deepEqual(f.calls.equip, []); assert.equal(f.calls.writes.length, 0);
 });
 
 test("extra quick slots default to enabled and can be hidden without changing stored assignments", () => {

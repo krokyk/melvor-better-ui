@@ -92,6 +92,7 @@ Install or enable a compatible version and reload the game to make the toggle av
 The options are **As top-right corner icon**, **By clicking on item** and **By hovering over item**.
 Click is the default, and the selection is saved per character.
 The corner option uses the existing stats icon.
+Radio choices are indented beneath their setting headings.
 These controls apply only to main artwork; recipe Sources and Uses buttons, ingredient navigation and gold-coin Quick Buy actions retain their existing behavior.
 
 **General → Enhanced Equipment Menu** controls the equipment menu changes, defaults to on and is saved per character.
@@ -105,10 +106,17 @@ Open it to search bank items that are compatible with the equipment slot and mee
 Drag an item onto a shortcut to assign or replace it without equipping it.
 Click a bank item to inspect it in a preview beside the picker.
 The preview opens on the left when the right side has no room, while narrow screens place it below the picker.
+The preview and bank list use the available popup height within the viewport and scroll when their contents overflow.
 The selected item's name appears below Search Bank and above the item grid.
 Items without available stats show only their name.
 **General → Show Item Stats in Equipment** selects **By clicking on item** or **By hovering over item** for the preview.
 Click is the default, and the selection is saved per character.
+**General → Equipment Preview Stats** chooses **Item values**, **Differences from equipped** or **Item values and differences**.
+Item values and differences is the default, and the selection is saved per character.
+The preview includes complete offensive and defensive tables with zero values and applicable damage resistances.
+Tables appear before descriptions and special attacks so long descriptions do not hide the stats.
+Comparisons use the active equipment set and the picker's equipment slot, including items displaced by two-handed equipment.
+Improvements appear green and reductions red, with a lower attack interval treated as an improvement.
 Inspecting an item does not assign or equip it.
 For keyboard assignment, focus a bank item and press Space, then focus a target shortcut and press Enter or Space.
 Click an assigned shortcut to equip its item through the game's normal equipment checks.

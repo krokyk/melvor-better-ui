@@ -3,6 +3,7 @@ const dragType = "application/x-kroky-quick-equip";
 const settingName = "quick-equip-enabled";
 const extraSlotsSettingName = "extra-quick-slots-enabled";
 const statsSettingName = "equipment-item-stats-mode";
+const statsDisplaySettingName = "equipment-preview-stats-mode";
 
 export function installQuickEquip(ctx, game, createItemStatsPreview) {
   const QuickEquip = customElements.get("quick-equip-tooltip");
@@ -10,7 +11,7 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
   if (!QuickEquip || !GridIcon) return;
   const menus = new WeakMap(), owners = new WeakMap(), bindings = new WeakMap();
   const settings = ctx.settings.section("General");
-  let extra = {}, storageReady = false, storageError = false, enabled = true, extraSlotsEnabled = true, statsMode = "click";
+  let extra = {}, storageReady = false, storageError = false, enabled = true, extraSlotsEnabled = true, statsMode = "click", statsDisplayMode = "both";
   settings.add({
     type: "switch", name: settingName, label: "Enhanced Equipment Menu", default: true,
     hint: "Use enhanced quick slots and a searchable Bank picker in Combat and the top-bar equipment menu. Disable to restore the native menu while retaining your shortcuts.",
@@ -34,6 +35,15 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
     onChange(value) {
       if (!["click", "hover"].includes(value)) return "Choose click or hover.";
       statsMode = value; syncInterface();
+    },
+  });
+  settings.add({
+    type: "radio-group", name: statsDisplaySettingName, label: "Equipment Preview Stats", default: "both",
+    hint: "Compare with the equipment set and slot opened in this picker.",
+    options: [{ value: "item", label: "Item values" }, { value: "difference", label: "Differences from equipped" }, { value: "both", label: "Item values and differences" }],
+    onChange(value) {
+      if (!["item", "difference", "both"].includes(value)) return "Choose item values, differences, or both.";
+      statsDisplayMode = value; syncInterface();
     },
   });
   const rememberAttributes = (node, names) => Object.fromEntries(names.map(name => [name, node.getAttribute(name)]));
@@ -69,6 +79,8 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
     extraSlotsEnabled = settings.get(extraSlotsSettingName) !== false;
     const savedMode = settings.get(statsSettingName);
     statsMode = ["click", "hover"].includes(savedMode) ? savedMode : "click";
+    const savedDisplayMode = settings.get(statsDisplaySettingName);
+    statsDisplayMode = ["item", "difference", "both"].includes(savedDisplayMode) ? savedDisplayMode : "both";
     syncInterface();
   }
   ctx.onCharacterLoaded(() => { storageReady = true; restore(); });
@@ -86,21 +98,32 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
       .kroky-quick-equip-slot.kroky-drop-target { border-color: #5cace5; background: #34485b; }
       .kroky-quick-equip-bank { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px; }
       .kroky-quick-equip-bank img { width: 32px; height: 32px; }
-      .kroky-quick-equip-layout { display: flex; align-items: flex-start; gap: .75rem; width: max-content; max-width: calc(100vw - 3rem); }
-      .kroky-quick-equip-column { width: min(18rem, calc(100vw - 3rem)); flex-shrink: 0; }
-      .kroky-quick-equip-picker { margin-top: .5rem; }
-      .kroky-quick-equip-bank-pane { width: min(18rem, calc(100vw - 3rem)); flex-shrink: 0; }
-      .kroky-quick-equip-layout.kroky-preview-left { flex-direction: row-reverse; }
+      #swal2-html-container .custom-radio > input[name^="KrokyBetterUI:"] + label { margin-left: 2rem !important; }
+      .kroky-quick-equip-layout { display: grid; grid-template-columns: minmax(0, 18rem); grid-template-rows: minmax(0, 1fr); gap: .75rem; width: max-content; max-width: calc(100vw - 3rem); max-height: calc(100vh - 2rem); }
+      .kroky-quick-equip-layout.kroky-has-stats { grid-template-columns: minmax(0, 18rem) minmax(0, 22rem); }
+      .kroky-quick-equip-layout.kroky-has-stats.kroky-preview-left { grid-template-columns: minmax(0, 22rem) minmax(0, 18rem); }
+      .kroky-quick-equip-column { display: flex; flex-direction: column; grid-row: 1; grid-column: 1; min-height: 0; width: min(18rem, calc(100vw - 3rem)); }
+      .kroky-has-stats.kroky-preview-left > .kroky-quick-equip-column { grid-column: 2; }
+      .kroky-quick-equip-picker { display: flex; flex: 1; min-height: 0; margin-top: .5rem; }
+      .kroky-quick-equip-bank-pane { display: flex; flex-direction: column; width: min(18rem, calc(100vw - 3rem)); min-height: 0; flex: 1; }
+      .kroky-quick-equip-bank-pane > input, .kroky-quick-equip-selected-name { flex-shrink: 0; }
       .kroky-quick-equip-selected-name { display: block; font-weight: bold; margin: .4rem 0; }
-      .kroky-quick-equip-preview { width: 20rem; max-width: calc(100vw - 3rem); max-height: 25rem; overflow: auto; flex-shrink: 0; padding: .75rem; border: 1px solid #59616e; border-radius: .25rem; background: #232a35; text-align: left; font-size: .875rem; }
-      .kroky-quick-equip-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 4px; max-height: 15rem; overflow-y: auto; margin-top: .5rem; }
+      .kroky-quick-equip-preview { grid-row: 1; grid-column: 2; width: min(22rem, calc(100vw - 3rem)); min-height: 0; overflow: auto; padding: .75rem; border: 1px solid #59616e; border-radius: .25rem; background: #232a35; text-align: left; font-size: .875rem; }
+      .kroky-preview-left > .kroky-quick-equip-preview { grid-column: 1; }
+      .kroky-quick-equip-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); grid-auto-rows: 44px; align-content: start; gap: 4px; min-height: 0; flex: 1; overflow-y: auto; margin-top: .5rem; }
+      .kroky-equipment-stats-table { width: 100%; margin-bottom: .75rem; border-collapse: collapse; font-size: .8rem; }
+      .kroky-equipment-stats-heading { margin: 0 0 .4rem; padding: .25rem; background: #343c4a; text-align: center; font-size: .875rem; }
+      .kroky-equipment-stats-table th, .kroky-equipment-stats-table td { padding: .25rem .15rem; vertical-align: top; }
+      .kroky-equipment-stats-table th { text-align: left; font-weight: normal; }
+      .kroky-equipment-stats-table td:last-child { text-align: right; white-space: nowrap; }
+      .kroky-equipment-stat-difference { margin-left: .35rem; }
       .kroky-quick-equip-bank-item { position: relative; min-height: 44px; padding: 3px; }
       .kroky-quick-equip-bank-item img { width: 28px; height: 28px; pointer-events: none; }
       .kroky-quick-equip-bank-item[aria-pressed="true"] { border-color: #5cace5; background: #34485b; }
       .kroky-quick-equip-slot[hidden], .kroky-quick-equip-bank-item[hidden], .kroky-quick-equip-picker[hidden], .kroky-quick-equip-preview[hidden], .kroky-quick-equip-selected-name[hidden] { display: none; }
       .kroky-quick-equip-status { display: block; max-width: 18rem; margin-top: .25rem; }
       .kroky-quick-unequip { left: auto !important; right: -6px; z-index: 1; border: 0; border-radius: 50%; background: #232a35; line-height: 1; font-weight: bold; }
-      @media (max-width: 700px) { .kroky-quick-equip-layout.kroky-preview-left, .kroky-quick-equip-layout { flex-direction: column; } }
+      @media (max-width: 700px) { .kroky-quick-equip-layout.kroky-has-stats.kroky-preview-left, .kroky-quick-equip-layout.kroky-has-stats, .kroky-quick-equip-layout { display: flex; flex-direction: column; overflow-y: auto; } .kroky-quick-equip-column, .kroky-quick-equip-preview { flex-shrink: 0; } }
     `;
     document.head.append(style);
   });
@@ -195,6 +218,7 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
     view.previewedItem = undefined;
     if (!view.preview) return;
     view.preview.replaceChildren(); view.preview.hidden = true;
+    view.layout.classList.remove("kroky-has-stats");
     view.selectedName.textContent = ""; view.selectedName.hidden = true;
     for (const entry of view.bankItems) entry.button.setAttribute("aria-pressed", "false");
     const tooltip = owners.get(view.menu)?.quickEquipTooltip;
@@ -210,9 +234,10 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
     view.previewedItem = item;
     view.selectedName.textContent = item.name; view.selectedName.hidden = false;
     for (const entry of view.bankItems) entry.button.setAttribute("aria-pressed", String(entry.button === button));
-    const result = createItemStatsPreview?.(item, game);
+    const result = createItemStatsPreview?.(item, game, { fullStats: true, mode: statsDisplayMode, equipment: view.player.equipment, slot: view.equipped.slot });
     view.preview.replaceChildren(...(result?.hasStats ? [result.element] : []));
     view.preview.hidden = !result?.hasStats;
+    view.layout.classList.toggle("kroky-has-stats", !!result?.hasStats);
     const owner = owners.get(view.menu), tooltip = owner?.quickEquipTooltip;
     if (result?.hasStats) {
       const rect = owner?.image.getBoundingClientRect();

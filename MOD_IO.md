@@ -63,6 +63,7 @@ Install or enable a compatible version and reload the game to make it available.
 
 **General → Show Item Stats in Skills** chooses **As top-right corner icon**, **By clicking on item** or **By hovering over item** on the main artwork of skill cards that offer View Item Stats.
 It defaults to click and is saved per character.
+Radio choices are indented beneath their setting headings.
 The corner option uses the existing stats icon, while recipe Sources and Uses buttons, ingredient navigation and gold-coin Quick Buy actions retain their existing behavior.
 
 **General → Enhanced Equipment Menu** controls the equipment menu changes, defaults to on and is saved per character.
@@ -74,8 +75,13 @@ The **Bank** chest button beside them opens a searchable picker of compatible ba
 Drag an item onto a shortcut to assign or replace it without equipping it.
 Click a bank item to inspect its stats beside the picker, with the selected name below Search Bank and above the item grid.
 The preview opens on the left when necessary and moves below the picker on narrow screens.
+The preview and bank list use the available popup height within the viewport and scroll when their contents overflow.
 Items without available stats show only their name.
 **General → Show Item Stats in Equipment** selects **By clicking on item** or **By hovering over item**, defaults to click and is saved per character.
+**General → Equipment Preview Stats** chooses **Item values**, **Differences from equipped** or **Item values and differences**, defaults to both and is saved per character.
+The preview includes complete offensive and defensive tables with zero values and applicable damage resistances before descriptions and special attacks.
+Comparisons use the active equipment set and the picker's equipment slot, including every item displaced by two-handed equipment.
+Improvements appear green and reductions red, with a lower attack interval treated as an improvement.
 Inspection does not assign or equip the item.
 For keyboard assignment, focus a bank item and press Space, then focus a target shortcut and press Enter or Space.
 Click a shortcut to equip its item with the native equipment checks.
@@ -103,6 +109,8 @@ The mod works independently of Workforce and also pins Workforce's controls and 
 - Enable or disable three extra quick slots per character while retaining the Bank picker and saved assignments.
 - Replace Set buttons with a searchable bank picker for assigning compatible equipment by drag and drop or keyboard selection.
 - Inspect bank equipment in a side preview with a per-character click or hover selection.
+- Show complete equipment stat tables with configurable item values, equipped-gear differences or both.
+- Indent radio choices beneath their setting headings.
 - Choose a stats icon, click or hover on skill-card main artwork independently of recipe Sources and Uses and ingredient navigation.
 - Move the native unequip X onto the equipped item's top-right corner and preserve existing shortcuts and native equipment checks.
 - Enable or disable Enhanced Equipment Menu per character, restoring the native menu immediately while retaining all shortcut assignments.
