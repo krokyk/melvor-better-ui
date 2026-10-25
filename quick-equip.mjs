@@ -1,12 +1,37 @@
 const storageKey = "quick-equip-extra-slots";
 const dragType = "application/x-kroky-quick-equip";
+const settingName = "quick-equip-enabled";
 
 export function installQuickEquip(ctx, game) {
   const QuickEquip = customElements.get("quick-equip-tooltip");
   const GridIcon = customElements.get("equipment-grid-icon");
   if (!QuickEquip || !GridIcon) return;
   const menus = new WeakMap(), owners = new WeakMap(), bindings = new WeakMap();
-  let extra = {}, storageReady = false, storageError = false;
+  const settings = ctx.settings.section("General");
+  let extra = {}, storageReady = false, storageError = false, enabled = true;
+  settings.add({
+    type: "switch", name: settingName, label: "Enable Quick Equip Rework", default: true,
+    hint: "Use six quick slots and a searchable Bank picker in Combat and the top-bar equipment menu. Disable to restore the native menu while retaining your shortcuts.",
+    onChange(value) {
+      if (typeof value !== "boolean") return "Choose enabled or disabled.";
+      enabled = value; syncInterface();
+    },
+  });
+  const rememberAttributes = (node, names) => Object.fromEntries(names.map(name => [name, node.getAttribute(name)]));
+  function restoreAttributes(node, attributes) {
+    for (const [name, value] of Object.entries(attributes)) {
+      if (value === null) node.removeAttribute(name);
+      else node.setAttribute(name, value);
+    }
+  }
+  function syncInterface() {
+    for (const icon of document.querySelectorAll("equipment-grid-icon")) {
+      const binding = bindings.get(icon);
+      if (!binding) continue;
+      updateUnequip(icon, binding.player, binding.equipped);
+      if (menus.has(icon.quickEquip) || icon.quickEquip.isConnected) icon.quickEquip.setEquipped(binding.player, binding.equipped);
+    }
+  }
 
   function restore() {
     try {
@@ -21,10 +46,13 @@ export function installQuickEquip(ctx, game) {
       extra = {}; storageError = true;
       console.warn("[Better UI] Could not read the extra quick-equip slots. Saved data was kept.", error);
     }
+    enabled = settings.get(settingName) !== false;
+    syncInterface();
   }
   ctx.onCharacterLoaded(() => { storageReady = true; restore(); });
   ctx.patch(Game, "decode").after(() => { if (storageReady) restore(); });
   ctx.onInterfaceReady(() => {
+    syncInterface();
     if (document.getElementById("kroky-quick-equip-style")) return;
     const style = document.createElement("style");
     style.id = "kroky-quick-equip-style";
@@ -55,7 +83,7 @@ export function installQuickEquip(ctx, game) {
   const getItem = (view, index) => index < 3 ? view.equipped.quickEquipItems[index]
     : game.items.getObjectByID(extraIDs(view)[index - 3]);
   function isCurrent(view) {
-    return storageReady && view.player === game.combat.player && view.player.selectedEquipmentSet === view.set
+    return enabled && storageReady && view.player === game.combat.player && view.player.selectedEquipmentSet === view.set
       && view.player.equipment.getEquippedInSlot(view.equipped.slot) === view.equipped
       && owners.get(view.menu)?.quickEquipEnabled !== false;
   }
@@ -172,31 +200,55 @@ export function installQuickEquip(ctx, game) {
     view.pendingItem = view.draggedItem = undefined;
     view.status.textContent = "";
   }
+  function enableMenu(view) {
+    if (view.active) return;
+    view.active = true;
+    view.menu.classList.add("kroky-quick-equip");
+    view.nativeParent.append(view.actions);
+    view.actions.append(view.menu.buttonContainer, view.bank);
+    view.menu.buttonContainer.classList.add("kroky-quick-equip-grid");
+    for (const { equip } of view.entries) equip.classList.add("kroky-quick-equip-slot");
+    view.menu.buttonContainer.replaceChildren(...view.entries.map(entry => entry.equip));
+    view.nativeParent.append(view.status);
+    if (view.picker) view.nativeParent.append(view.picker);
+  }
+  function restoreMenu(view) {
+    if (!view.active) return;
+    closePicker(view);
+    view.active = false;
+    for (const entry of view.nativeButtons) {
+      entry.parent.prepend(entry.equip);
+      entry.equip.classList.remove("kroky-quick-equip-slot");
+      restoreAttributes(entry.equip, entry.attributes);
+      restoreAttributes(entry.image, entry.imageAttributes);
+    }
+    view.menu.buttonContainer.replaceChildren(...view.nativeChildren);
+    view.menu.buttonContainer.classList.remove("kroky-quick-equip-grid");
+    view.nativeParent.append(view.menu.buttonContainer);
+    view.actions.remove(); view.status.remove(); view.picker?.remove();
+    view.menu.classList.remove("kroky-quick-equip");
+  }
   function createMenu(menu) {
-    menu.classList.add("kroky-quick-equip");
-    menu.addEventListener("click", event => event.stopPropagation());
+    const nativeParent = menu.buttonContainer.parentElement, nativeChildren = [...menu.buttonContainer.childNodes];
+    const nativeButtons = menu.buttons.slice(0, 3).map(entry => ({ ...entry, parent: entry.equip.parentElement,
+      attributes: rememberAttributes(entry.equip, ["title", "aria-label"]), imageAttributes: rememberAttributes(entry.image, ["alt"]) }));
+    menu.addEventListener("click", event => { if (enabled) event.stopPropagation(); });
     const actions = document.createElement("div"), bank = document.createElement("button"), label = document.createElement("span"), chest = document.createElement("img");
     actions.className = "kroky-quick-equip-actions";
     bank.type = "button"; bank.className = "btn btn-outline-secondary kroky-quick-equip-bank";
     bank.setAttribute("aria-expanded", "false"); bank.setAttribute("aria-label", "Choose quick-equip items from Bank");
     label.textContent = "Bank"; chest.src = assets.getURI("assets/media/main/bank_header.png"); chest.alt = "";
     bank.append(label, chest);
-    menu.buttonContainer.parentElement.append(actions);
-    actions.append(menu.buttonContainer, bank);
-    menu.buttonContainer.classList.add("kroky-quick-equip-grid");
     const entries = menu.buttons.slice(0, 3);
     for (let index = 0; index < 3; index++) {
       const equip = document.createElement("button"), image = document.createElement("img");
       equip.type = "button"; equip.className = "btn btn-sm"; equip.append(image);
       entries.push({ equip, image });
     }
-    menu.buttonContainer.replaceChildren(...entries.map(entry => entry.equip));
     const status = document.createElement("small");
     status.className = "kroky-quick-equip-status"; status.setAttribute("role", "status");
-    menu.append(status);
-    const view = { menu, bank, status, entries, bankItems: [] };
+    const view = { menu, bank, status, entries, actions, nativeParent, nativeChildren, nativeButtons, bankItems: [] };
     entries.forEach(({ equip }, index) => {
-      equip.classList.add("kroky-quick-equip-slot");
       // Native setEquipped replaces onclick for the first three buttons on each opening.
       equip.onclick = null;
       equip.addEventListener("click", () => activate(view, index));
@@ -207,6 +259,7 @@ export function installQuickEquip(ctx, game) {
       });
       equip.addEventListener("dragleave", () => equip.classList.remove("kroky-drop-target"));
       equip.addEventListener("drop", event => {
+        if (!enabled) return;
         event.preventDefault(); event.stopPropagation(); equip.classList.remove("kroky-drop-target");
         if (view.draggedItem && event.dataTransfer.getData(dragType) === view.draggedItem.id) assign(view, index, view.draggedItem);
       });
@@ -222,7 +275,7 @@ export function installQuickEquip(ctx, game) {
           view.search.setAttribute("aria-label", "Search compatible bank equipment");
           view.items = document.createElement("div"); view.items.className = "kroky-quick-equip-items";
           view.search.addEventListener("input", () => filterBank(view));
-          view.picker.append(view.search, view.items); menu.append(view.picker);
+          view.picker.append(view.search, view.items); view.nativeParent.append(view.picker);
         }
         view.search.value = ""; view.picker.hidden = false;
         populateBank(view); view.search.focus();
@@ -230,11 +283,14 @@ export function installQuickEquip(ctx, game) {
       owners.get(menu)?.quickEquipTooltip?.popperInstance?.update();
     });
     menus.set(menu, view);
+    enableMenu(view);
     return view;
   }
   ctx.patch(QuickEquip, "setEquipped").after(function (_result, player, equipped) {
+    if (!enabled) { const view = menus.get(this); if (view) restoreMenu(view); return; }
     if (player !== game.combat.player) return;
     const view = menus.get(this) ?? createMenu(this);
+    enableMenu(view);
     view.player = player; view.equipped = equipped; view.set = player.selectedEquipmentSet;
     for (const { equip } of view.entries) equip.onclick = null;
     this.unequipButton.onclick = null;
@@ -242,27 +298,46 @@ export function installQuickEquip(ctx, game) {
   });
   function updateUnequip(icon, player, equipped) {
     let binding = bindings.get(icon);
-    if (!binding) { binding = {}; bindings.set(icon, binding); }
-    binding.player = player; binding.equipped = equipped;
     const button = icon.quickEquip.unequipButton;
-    if (!owners.has(icon.quickEquip)) {
+    if (!binding) {
+      binding = { parent: button.parentElement, buttonClass: button.className, buttonText: button.textContent,
+        buttonAttributes: rememberAttributes(button, ["title", "aria-label"]), buttonHidden: button.hidden, buttonDisabled: button.disabled,
+        imageAttributes: rememberAttributes(icon.image, ["tabindex", "role", "aria-label"]) };
+      bindings.set(icon, binding);
       owners.set(icon.quickEquip, icon);
-      button.className = "kroky-quick-unequip info-icon-overlay skill-icon-xxs btn btn-link text-danger p-0";
-      button.type = "button"; button.textContent = "×";
-      button.title = "Unequip";
       button.addEventListener("click", event => {
+        if (!enabled) return;
         event.stopPropagation();
         const current = bindings.get(icon);
         if (!button.disabled && current) current.player.unequipCallback(current.equipped.slot)();
       });
-      icon.container.append(button);
-      icon.image.tabIndex = 0;
-      icon.image.setAttribute("role", "button");
-      icon.image.setAttribute("aria-label", `Quick equip: ${equipped.slot.emptyName}`);
+      // Keep the header dropdown open when its equipment icon opens quick equip.
+      icon.image.addEventListener("click", event => { if (enabled) event.stopPropagation(); });
       icon.image.addEventListener("keydown", event => {
-        if (!icon.quickEquipEnabled || (event.key !== "Enter" && event.key !== " ")) return;
+        if (!enabled || !icon.quickEquipEnabled || (event.key !== "Enter" && event.key !== " ")) return;
         event.preventDefault(); event.stopPropagation(); icon.quickEquipTooltip?.show();
       });
+    }
+    binding.player = player; binding.equipped = equipped;
+    if (!enabled) {
+      if (!binding.active) return;
+      binding.active = false;
+      binding.parent.append(button);
+      button.className = binding.buttonClass; button.textContent = binding.buttonText;
+      restoreAttributes(button, binding.buttonAttributes);
+      button.hidden = binding.buttonHidden; button.disabled = binding.buttonDisabled;
+      button.onclick = player.unequipCallback(equipped.slot);
+      restoreAttributes(icon.image, binding.imageAttributes);
+      return;
+    }
+    if (!binding.active) {
+      binding.active = true;
+      button.className = "kroky-quick-unequip info-icon-overlay skill-icon-xxs btn btn-link text-danger p-0";
+      button.type = "button"; button.textContent = "×"; button.title = "Unequip";
+      icon.container.append(button);
+      icon.image.setAttribute("tabindex", "0");
+      icon.image.setAttribute("role", "button");
+      icon.image.setAttribute("aria-label", `Quick equip: ${equipped.slot.emptyName}`);
     }
     const label = `Unequip ${equipped.item.name}`;
     if (button.getAttribute("aria-label") !== label) button.setAttribute("aria-label", label);

@@ -86,7 +86,9 @@ This integration is optional and does not add a hard dependency.
 If Show Item Sources And Uses is missing, disabled or lacks the required API, the toggle is disabled with an explanation while retaining your saved preference.
 Install or enable a compatible version and reload the game to make the toggle available.
 
-Click an equipment slot in Combat or the top-bar equipment menu to open six quick-equip shortcuts in a three-column, two-row grid.
+**General → Enable Quick Equip Rework** controls the equipment menu changes, defaults to on and is saved per character.
+Disabling it immediately restores the native three shortcuts, Set buttons and popup unequip X while retaining all native and additional shortcut assignments.
+With the setting enabled, click an equipment slot in Combat or the top-bar equipment menu to open six quick-equip shortcuts in a three-column, two-row grid.
 The native Set buttons are replaced by a **Bank** chest button beside the shortcuts.
 Open it to search bank items that are compatible with the equipment slot and meet their equip requirements.
 Drag an item onto a shortcut to assign or replace it without equipping it.

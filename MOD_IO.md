@@ -59,7 +59,9 @@ The integration is optional, with no hard dependency.
 If Show Item Sources And Uses is missing, disabled or lacks the required API, the toggle is disabled with an explanation while retaining your saved preference.
 Install or enable a compatible version and reload the game to make it available.
 
-Equipment slots in Combat and the top-bar equipment menu have six quick-equip shortcuts in a three-column, two-row grid.
+**General → Enable Quick Equip Rework** controls the equipment menu changes, defaults to on and is saved per character.
+Disabling it immediately restores the native three shortcuts, Set buttons and popup unequip X while retaining all native and additional shortcut assignments.
+With the setting enabled, equipment slots in Combat and the top-bar equipment menu have six quick-equip shortcuts in a three-column, two-row grid.
 The **Bank** chest button beside them opens a searchable picker of compatible bank equipment that meets its equip requirements.
 Drag an item onto a shortcut to assign or replace it without equipping it.
 For keyboard or touch input, select a bank item and then activate the target shortcut.
@@ -87,6 +89,7 @@ The mod works independently of Workforce and also pins Workforce's controls and 
 - Expand equipment-slot quick equip to six shortcuts in Combat and the top-bar equipment menu.
 - Replace Set buttons with a searchable bank picker for assigning compatible equipment by drag and drop or keyboard and touch selection.
 - Move the native unequip X onto the equipped item's top-right corner and preserve existing shortcuts and native equipment checks.
+- Enable or disable the quick-equip rework per character, restoring the native menu immediately while retaining all shortcut assignments.
 - Highlight the currently viewed skill in the left navigation with a lighter grey background.
 - Add an optional, per-character toggle for blue **?** buttons just outside recipe item icons' top-right corners, mirroring the native shop-coin overlay.
 - Include Workforce's small Woodcutting, Mining and Fishing product/stock tiles and native Firemaking and Cooking recipe item icons.
