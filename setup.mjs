@@ -1,7 +1,10 @@
 export async function setup(ctx) {
   const { installPagePinning } = await ctx.loadModule("page-pinning.mjs");
   const { installWideLayout } = await ctx.loadModule("wide-layout.mjs");
-  const { installSkillItemStats, createItemStatsPreview } = await ctx.loadModule("item-stats.mjs");
+  const { installItemStats, createItemStatsPreview } = await ctx.loadModule("item-stats.mjs");
+  const loadoutPlanner = await ctx.loadModule("loadout-plan.mjs");
+  const { applyEquipmentTransaction } = await ctx.loadModule("loadout-transaction.mjs");
+  const { installEquipmentLoadouts } = await ctx.loadModule("equipment-loadouts.mjs");
   const { installQuickEquip } = await ctx.loadModule("quick-equip.mjs");
   const { installItemSourcesAndUses } = await ctx.loadModule("item-sources-and-uses.mjs");
   ctx.onModsLoaded(() => {
@@ -46,8 +49,12 @@ export async function setup(ctx) {
         if (interfaceReady) updateWideLayout();
       },
     });
-    installQuickEquip(ctx, game, createItemStatsPreview);
-    installSkillItemStats(ctx, game);
+    let quickEquip;
+    installEquipmentLoadouts(ctx, game, loadoutPlanner, applyEquipmentTransaction,
+      (source, target) => quickEquip?.prepareSetCopy(source, target));
+    quickEquip = installQuickEquip(ctx, game, createItemStatsPreview);
+    const getStatsLayout = quickEquip?.getStatsLayout;
+    installItemStats(ctx, game, getStatsLayout);
     installItemSourcesAndUses(ctx, game);
     const restore = () => {
       enabled = settings.get(settingName) !== false;

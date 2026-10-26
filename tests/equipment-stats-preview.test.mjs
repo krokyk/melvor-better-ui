@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
-import { createItemStatsPreview } from "../item-stats.mjs";
+import { createItemStatsPreview, installItemStats } from "../item-stats.mjs";
 
 afterEach(() => {
-  for (const name of ["document", "customElements", "EquipmentItem", "WeaponItem", "EquipmentStats", "Equipment", "assets", "getLangString", "formatPercent", "formatNumber", "numberWithCommas", "templateLangString", "viewItemStats", "SwalLocale"])
+  for (const name of ["document", "customElements", "Game", "EquipmentItem", "WeaponItem", "EquipmentStats", "Equipment", "assets", "getLangString", "formatPercent", "formatNumber", "numberWithCommas", "templateLangString", "viewItemStats", "SwalLocale"])
     delete globalThis[name];
 });
 
@@ -118,6 +118,37 @@ function row(preview, key) { const element = preview.element.querySelectorAll("[
 function value(preview, key) { return row(preview, key).querySelector(".kroky-equipment-stat-value"); }
 function difference(preview, key) { return row(preview, key).querySelector(".kroky-equipment-stat-difference"); }
 
+test("View Item Stats hosts the shared view in both layouts and preserves native comparison and dialog behavior", () => {
+  const f = fixture(), dialog = new Element(), body = new Element(), nativeRows = new Element();
+  body.className = "block-content"; nativeRows.className = "row"; body.append(nativeRows); dialog.append(body);
+  document.getElementById = id => id === "modal-item-stats" ? dialog : null;
+  globalThis.Game = class { decode() {} };
+  const nativeCalls = [], receiver = {};
+  globalThis.viewItemStats = function (...args) { nativeCalls.push({ receiver: this, args }); return "native dialog result"; };
+  const ctx = { settings: { section: () => ({ add() {}, get() {} }) }, onCharacterLoaded() {}, onInterfaceReady() {}, patch: () => ({ after() {} }) };
+  let layout = "compact";
+  installItemStats(ctx, f.game, () => layout);
+  const comparisonSet = { addEquipmentStats() {}, getItemsAddedOnEquip: () => [] };
+  assert.equal(viewItemStats.call(receiver, f.candidate, comparisonSet, "extra"), "native dialog result");
+  const first = body.querySelector(".kroky-item-stats-preview");
+  assert.ok(first, "the native item dialog must display the same shared stats view as previews");
+  assert.equal(dialog.classList.contains("kroky-item-stats-dialog"), true);
+  assert.equal(first.classList.contains("kroky-item-stats-compact"), true);
+  assert.equal(difference({ element: first }, "meleeStrengthBonus").textContent, "+365", "Bank's target equipment set is passed to the shared comparison");
+  assert.deepEqual(nativeCalls, [{ receiver, args: [f.candidate, comparisonSet, "extra"] }]);
+  layout = "vanilla"; viewItemStats(f.ancientClaw);
+  const next = body.querySelector(".kroky-item-stats-preview");
+  assert.notEqual(next, first);
+  assert.equal(next.classList.contains("kroky-item-stats-vanilla"), true);
+  assert.equal(difference({ element: next }, "meleeStrengthBonus").textContent, "0", "omitted comparisons use the current equipment");
+  assert.equal(body.children.length, 2, "reopening replaces the view while retaining the game's native nodes");
+  assert.equal(body.children[0], nativeRows);
+  viewItemStats(f.candidate, null);
+  assert.equal(body.querySelectorAll(".kroky-equipment-stat-difference").length, 0, "explicit null preserves native no-comparison behavior");
+  document.getElementById = () => null;
+  assert.equal(viewItemStats(f.candidate), "native dialog result", "an unavailable host retains the native behavior");
+});
+
 test("full equipment preview includes native offensive and defensive tables with zero-valued stats", () => {
   const f = fixture(), result = f.preview();
   assert.match(result.element.textContent, /Offensive Stats/);
@@ -137,6 +168,10 @@ test("full equipment preview includes native offensive and defensive tables with
 
 test("stats keep inspected values and equipped differences in separate stable numeric columns", () => {
   const f = fixture(), result = f.preview();
+  for (const table of result.element.querySelectorAll("table")) {
+    assert.deepEqual(table.querySelectorAll("col").map(column => column.className),
+      ["", "kroky-equipment-stat-value-cell", "kroky-equipment-stat-difference-cell"], "damage-type colspan cannot change the numeric column widths");
+  }
   for (const line of result.element.querySelectorAll("[data-stat]")) {
     if (line.dataset.stat === "damageType") {
       assert.equal(line.children.length, 2, "categorical damage type uses one cell across the numeric columns");

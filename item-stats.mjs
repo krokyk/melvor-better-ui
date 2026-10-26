@@ -4,7 +4,7 @@ const mainArt = ".kroky-production-card .kroky-production-image";
 function equipmentStatsTables(item, game, options) {
   const container = document.createElement("div"); container.className = "kroky-equipment-stats-tables";
   const values = new EquipmentStats(item.equipmentStats);
-  const equipment = options.equipment ?? game.combat?.player?.equipment;
+  const equipment = options.equipment === undefined ? game.combat?.player?.equipment : options.equipment;
   const slot = options.slot ?? item.validSlots?.[0];
   let current, next;
   if (equipment && typeof equipment.addEquipmentStats === "function" && typeof equipment.getItemsAddedOnEquip === "function") {
@@ -28,6 +28,11 @@ function equipmentStatsTables(item, game, options) {
     block.className = "kroky-equipment-stats-section";
     heading.className = "kroky-equipment-stats-heading"; heading.textContent = lang(key, fallback);
     table.className = "kroky-equipment-stats-table";
+    const columns = document.createElement("colgroup");
+    for (const className of ["", "kroky-equipment-stat-value-cell", "kroky-equipment-stat-difference-cell"]) {
+      const column = document.createElement("col"); column.className = className; columns.append(column);
+    }
+    table.append(columns);
     block.append(heading, table); container.append(block);
     return table;
   }
@@ -161,7 +166,7 @@ export function createItemStatsPreview(item, game, options = {}) {
   return { element, hasStats: !!hasStats };
 }
 
-export function installSkillItemStats(ctx, game) {
+export function installItemStats(ctx, game, getStatsLayout = () => "compact") {
   const settings = ctx.settings.section("General"), bindings = new WeakMap();
   let mode = "click", ready = false;
   const validMode = value => ["icon", "click", "hover"].includes(value);
@@ -178,6 +183,18 @@ export function installSkillItemStats(ctx, game) {
       mode = value; update();
     },
   });
+
+  const nativeViewItemStats = globalThis.viewItemStats;
+  if (typeof nativeViewItemStats === "function") globalThis.viewItemStats = function (item, comparisonSet) {
+    // Retain the game's dialog lifecycle and hooks while sharing the rendered content.
+    const result = nativeViewItemStats.apply(this, arguments);
+    const dialog = document.getElementById("modal-item-stats"), body = dialog?.querySelector(".block-content");
+    if (!body) return result;
+    const { element } = createItemStatsPreview(item, game, { fullStats: true, layout: getStatsLayout(), equipment: comparisonSet });
+    body.querySelector(".kroky-item-stats-preview")?.remove();
+    body.append(element); dialog.classList.add("kroky-item-stats-dialog");
+    return result;
+  };
 
   function nativeButton(binding) {
     const button = binding.image.closest(".kroky-production-card")?.querySelector(".kroky-production-view-stats");
@@ -202,12 +219,16 @@ export function installSkillItemStats(ctx, game) {
       binding.nativeTooltipEnabled = tooltip.state?.isEnabled !== false;
       tooltip.hide?.(); tooltip.disable?.();
     }
-    if (!binding.preview) binding.preview = tippy(binding.image, {
-      trigger: "manual", content: "", placement: "right", interactive: false, animation: false,
-      maxWidth: 360, appendTo: document.body,
-      popperOptions: { strategy: "fixed", modifiers: [{ name: "preventOverflow", options: { altAxis: true, tether: false } }] },
-    });
-    binding.preview.setContent(createItemStatsPreview(binding.icon.item, game).element);
+    if (!binding.preview) {
+      binding.preview = tippy(binding.image, {
+        trigger: "manual", content: "", placement: "right", interactive: false, animation: false,
+        theme: "kroky-item-stats", maxWidth: "none", appendTo: document.body,
+        aria: { content: "describedby", expanded: false },
+        onHide: () => restoreNativeTooltip(binding),
+        popperOptions: { strategy: "fixed", modifiers: [{ name: "preventOverflow", options: { altAxis: true, tether: false } }] },
+      });
+    }
+    binding.preview.setContent(createItemStatsPreview(binding.icon.item, game, { fullStats: true, layout: getStatsLayout() }).element);
     binding.preview.show();
   }
   function openStats(binding, event) {
@@ -245,6 +266,7 @@ export function installSkillItemStats(ctx, game) {
       restoreAttributes(binding.image, binding.attributes);
       if (binding.parentRole === "img" && binding.image.parentElement?.getAttribute("role") === "group" && !binding.embeddedButton) binding.image.parentElement.setAttribute("role", "img");
     }
+    restoreAttributes(binding.image, { title: button ? "" : binding.attributes.title });
     if (button && binding.embeddedButton && binding.image.parentElement?.getAttribute("role") === "img") binding.image.parentElement.setAttribute("role", "group");
   }
   function bind(image) {
@@ -254,13 +276,13 @@ export function installSkillItemStats(ctx, game) {
     let binding = bindings.get(image);
     if (!binding) {
       binding = { image, icon, parentRole: image.parentElement?.getAttribute("role"),
-        attributes: Object.fromEntries(["role", "tabindex", "aria-label"].map(name => [name, image.getAttribute(name)])) };
+        attributes: Object.fromEntries(["role", "tabindex", "aria-label", "title"].map(name => [name, image.getAttribute(name)])) };
       bindings.set(image, binding);
       image.addEventListener("click", event => openStats(binding, event));
       image.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") openStats(binding, event); });
       image.addEventListener("mouseenter", () => showPreview(binding));
       image.addEventListener("focus", () => showPreview(binding));
-      image.addEventListener("mouseleave", () => hidePreview(binding));
+      image.addEventListener("mouseleave", () => { if (document.activeElement !== image) hidePreview(binding); });
       image.addEventListener("blur", () => hidePreview(binding));
     }
     if (ready) apply(binding);

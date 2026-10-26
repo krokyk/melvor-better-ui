@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
-import { createItemStatsPreview, installSkillItemStats } from "../item-stats.mjs";
+import { createItemStatsPreview, installItemStats } from "../item-stats.mjs";
 
 afterEach(() => {
   for (const name of ["document", "customElements", "Game", "EquipmentItem", "Equipment", "tippy", "numberWithCommas", "templateLangString"]) delete globalThis[name];
@@ -53,7 +53,7 @@ class Element {
   set textContent(text) { this.ownText = `${text}`; for (const child of [...this.children]) child.remove(); }
 }
 
-function fixture(saved = "click", { nativePreview = true } = {}) {
+function fixture(saved = "click", { nativePreview = true, layout = "compact" } = {}) {
   const root = new Element("html"), head = new Element("head"), body = new Element("body"), page = new Element();
   page.id = "page-container"; root.append(head, body); body.append(page);
   const calls = { nativePreview: [], previews: [], nativeStats: [], navigation: 0, source: 0, quickBuy: 0, scans: 0, patches: [] };
@@ -100,8 +100,8 @@ function fixture(saved = "click", { nativePreview = true } = {}) {
   };
   globalThis.Game = class { decode(value) { values.set("skill-item-stats-mode", value); } render() {} };
   globalThis.tippy = (image, props) => {
-    const preview = { image, props, shows: 0, hides: 0, destroyed: false,
-      setContent(element) { this.content = element; }, show() { this.shows++; }, hide() { this.hides++; }, destroy() { this.destroyed = true; },
+    const preview = { image, props, popper: new Element(), shows: 0, hides: 0, destroyed: false,
+      setContent(element) { this.content = element; }, show() { this.shows++; }, hide() { this.hides++; props.onHide?.(); }, destroy() { this.destroyed = true; },
     };
     calls.previews.push(preview); return preview;
   };
@@ -114,7 +114,7 @@ function fixture(saved = "click", { nativePreview = true } = {}) {
       Class.prototype[method] = function (...args) { const result = original.apply(this, args); callback.call(this, result, ...args); return result; };
     } }; },
   };
-  installSkillItemStats(ctx, game);
+  installItemStats(ctx, game, () => layout);
   function card(item, available = true) {
     const card = new Element("article"), icon = new CurrentIcon(), stats = new Element("button");
     card.className = "kroky-production-card"; icon.itemImage.className = "kroky-production-image";
@@ -232,6 +232,50 @@ test("hover mode preserves a tooltip disabled by another feature and ignores art
   main.stats.hidden = true; main.image.dispatch("mouseenter"); main.image.click();
   assert.equal(f.calls.previews[0].shows, 1); assert.equal(f.calls.nativeStats.length, 0);
   main.stats.hidden = false; main.stats.classList.add("d-none"); main.image.click(); assert.equal(f.calls.nativeStats.length, 0);
+});
+
+test("skill hover uses the selected full stats layout and suppresses the inherited stock title", () => {
+  for (const layout of ["compact", "vanilla"]) {
+    const f = fixture("hover", { layout }), main = f.card(new EquipmentItem("Bronze Dagger"));
+    main.icon.setAttribute("title", "Bronze Dagger: 523");
+    f.hooks.interface(); main.image.dispatch("mouseenter");
+    const preview = f.calls.previews[0];
+    assert.equal(preview.content.classList.contains(`kroky-item-stats-${layout}`), true, "skill hovers must use the full selected layout");
+    assert.ok(preview.content.querySelector(".kroky-equipment-preview-name"));
+    assert.notEqual(preview.props.maxWidth, 360, "complete stats must not be squeezed into the legacy tooltip");
+    assert.equal(main.image.getAttribute("title"), "", "an empty image title suppresses the inherited stock tooltip");
+    f.setMode("click");
+    assert.equal(main.image.getAttribute("title"), "", "click mode also suppresses the redundant stock title");
+    f.setMode("icon");
+    assert.equal(main.image.getAttribute("title"), "", "icon mode also suppresses the redundant stock title");
+    main.stats.hidden = true; f.setMode("click");
+    assert.equal(main.image.getAttribute("title"), null, "artwork without stats restores its title");
+    assert.equal(main.icon.getAttribute("title"), "Bronze Dagger: 523", "the quantity badge keeps its stock title");
+  }
+});
+
+test("mouse hover closes immediately outside the artwork, including over its stats", () => {
+  const f = fixture("hover"), main = f.card(new EquipmentItem("Bronze Dagger"));
+  f.hooks.interface(); main.image.dispatch("mouseenter");
+  const preview = f.calls.previews[0], content = new Element(); preview.popper.append(content);
+  main.image.dispatch("mouseleave", { relatedTarget: content });
+  assert.equal(preview.hides, 1);
+  assert.equal(preview.props.interactive, false, "hover previews cannot catch clicks intended for the item");
+  assert.equal(main.icon.tooltip.state.isEnabled, true);
+  main.image.dispatch("mouseenter"); main.image.dispatch("mouseleave", { relatedTarget: f.page });
+  assert.equal(preview.hides, 2, "there is no grace area outside the artwork");
+});
+
+test("keyboard-focused stats remain visible until blur independently of pointer movement", () => {
+  const f = fixture("hover"), main = f.card(new EquipmentItem("Bronze Dagger"));
+  f.hooks.interface(); document.activeElement = main.image; main.image.dispatch("focus");
+  const preview = f.calls.previews[0];
+  main.image.dispatch("mouseleave", { relatedTarget: f.page });
+  assert.equal(preview.hides, 0, "keyboard inspection follows focus rather than the pointer");
+  assert.equal(main.icon.tooltip.state.isEnabled, false);
+  document.activeElement = undefined; main.image.dispatch("blur");
+  assert.equal(preview.hides, 1);
+  assert.equal(main.icon.tooltip.state.isEnabled, true);
 });
 
 test("Abyssal text stats controls become an accessible corner icon on the same main artwork", () => {

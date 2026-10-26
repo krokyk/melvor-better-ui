@@ -2,7 +2,7 @@
 
 Version: **1.1.0**.
 
-Page header pinning, responsive desktop card grids, up to six quick-equip slots and optional recipe item sources and uses for Melvor Idle, including Kroky's Workforce layouts when installed.
+Page header pinning, responsive desktop card grids, shared equipment sets, manual equip quantities, up to six quick-equip slots and optional recipe item sources and uses for Melvor Idle, including Kroky's Workforce layouts when installed.
 The mod works independently of Workforce.
 The currently viewed skill has a lighter grey background in the left navigation.
 The highlight follows navigation and works when page pinning is disabled.
@@ -95,7 +95,29 @@ The corner option uses the existing stats icon.
 Radio choices are indented beneath their setting headings.
 These controls apply only to main artwork; recipe Sources and Uses buttons, ingredient navigation and gold-coin Quick Buy actions retain their existing behavior.
 
+Inactive equipment sets remember item references, while only the active set holds real equipped gear.
+One owned copy can serve several sets, and switching returns outgoing gear to Bank before equipping the requested layout.
+**Copy From** beside the set buttons in Combat and the top-bar equipment menu copies another set's equipment layout into the current set.
+The dropdown lists the other set numbers, keeps the current set selected and applies the normal equipment and Bank checks before replacing its layout.
+The copy includes all six quick-equip shortcuts for every equipment slot, including hidden extra shortcuts.
+A stack shared by both sets carries only its remaining equipped quantity.
+Additional or newly produced stock stays in Bank until a manual top-up or a new equip from Bank.
+A stack entering the active layout takes its available Bank stock.
+When a stack runs out, its reference stays remembered and its active slot becomes empty.
+Switching is rejected if a required non-stackable item is unavailable or equipment, area or Bank-capacity restrictions prevent the change.
+Migration adds every real inactive copy and stack to Bank, preserving total holdings and active equipped quantities.
+When the mod is disabled, active gear and Bank stock remain in the native save, and inactive sets are empty.
+Migration requires enough Bank capacity; if it cannot complete, physical holdings are retained and loadout switching is unavailable.
+Equipment-set behavior works independently of Enhanced Equipment Menu.
+Consumption, depletion and combat stopping use vanilla behavior, including offline progress.
+Equipment references add no consumption or offline-progress hooks.
+Food, runes, item charges and Golbin Raid retain their native behavior.
+
 **General → Enhanced Equipment Menu** controls the equipment menu changes, defaults to on and is saved per character.
+Equipped-item hovers highlight the slot and show stats beside the whole equipment grid: left in the top-bar dropdown and right in Combat.
+Leaving the slot closes the hover preview immediately, and the preview cannot intercept clicks.
+Opening quick equip highlights its slot until the menu closes and hides the hover preview.
+The Bank picker keeps the quick-equip menu centered as it expands.
 Disabling it immediately restores the native three shortcuts, Set buttons and popup unequip X while retaining all native and additional shortcut assignments.
 With the setting enabled, click an equipment slot in Combat or the top-bar equipment menu to open a three-column quick-equip grid.
 **General → Enable 3 Extra Quick Slots** defaults to on and is saved per character.
@@ -109,14 +131,26 @@ Beside it, the blue Equip selected button sits above the solid red Unequip Curre
 When extra quick slots are disabled, the single row is vertically centred in the two-row control area.
 Click a bank item to select it for equipping and preview its stats; click it again to clear the selection.
 Clicking a bank item never equips it or assigns a shortcut.
+Selecting stackable equipment shows the native Bank slider below Search Bank and above the item grid.
+A single row beneath it contains the numeric input, All but 1 and All.
+A new selection defaults to All available Bank stock.
+All and All but 1 follow available stock, while manually entered amounts are preserved and clamped when stock shrinks.
+All but 1 is disabled when only one Bank copy is available.
+Hovering and searching retain the selected quantity mode.
+Equip selected rejects invalid, fractional or unavailable amounts and moves the chosen quantity from Bank, adding it to an already equipped stack of the same item.
 Use Equip selected to equip the selected item through the game's normal equipment checks without assigning a shortcut.
 The button is dimmed and disabled when no item is selected or the selected item is unavailable to equip.
 Hovering an item temporarily previews its stats; leaving the item restores the selected item's preview or hides the preview when nothing is selected.
-Equipping preserves the selected item's stats even if the last copy leaves the bank list under the game's normal inventory behavior.
+**General → Equip button behavior** selects whether a successful Equip selected closes the equip menu, closes just Bank and item stats, or keeps everything open.
+The default closes just Bank and item stats while keeping quick equip open, and the choice is saved per character.
+Failed equips keep the selection and stats available.
+With Keeps everything open selected, equipping preserves the selected item's stats even if the last copy leaves the bank list under the game's normal inventory behavior.
 An open picker refreshes after equipment changes while preserving its search and selection and updating stat comparisons, using the native equipment-change event without timers or polling.
 Drag an item onto a shortcut to assign or replace it without equipping it.
 **General → Equipment Stats Layout** selects **Vanilla** or **Compact**, defaults to Compact and is saved per character.
 Both layouts inspect the item beside the picker without opening another dialog.
+The setting also applies to skill and equipped-item hover previews, every View Item Stats dialog and total equipment stats.
+Skill artwork shows one full stats preview without the inherited stock-count tooltip; the quantity badge retains its stock tooltip.
 Vanilla uses the game's three-column View Item Stats format with artwork and descriptions, offensive stats and defensive stats side by side.
 Compact uses two columns, with the name, artwork, description, special attacks and requirements on the left and offensive stats above defensive stats on the right.
 The preview opens on the left when the right side has no room and above or below the picker on narrow screens, using the available space.
@@ -126,6 +160,7 @@ The inspected item's name appears in the preview header.
 Items without available stats retain their name and artwork when present.
 Both layouts include complete offensive and defensive tables with zero values and applicable damage resistances.
 The inspected item's values and changes from equipped gear occupy separate numeric columns.
+Item previews and View Item Stats dialogs share one renderer and comparison logic.
 Comparisons use the active equipment set and the picker's equipment slot, including items displaced by two-handed equipment.
 Improvements appear green and reductions red, with a lower attack interval treated as an improvement.
 For keyboard assignment, focus a bank item and press Space, then focus a target shortcut and press Enter or Space.
@@ -144,7 +179,7 @@ The additional three are saved with Better UI character data separately for each
 
 Load this folder with Melvor's Creator Toolkit, or import `krokys-better-ui-1.1.0.zip` through **Creator Toolkit → Local Mods**.
 Enable the mod and reload the game.
-The release archive contains `manifest.json`, `setup.mjs`, `page-pinning.mjs`, `wide-layout.mjs`, `item-stats.mjs`, `quick-equip.mjs` and `item-sources-and-uses.mjs` at its root.
+The release archive contains `manifest.json`, `setup.mjs`, `page-pinning.mjs`, `wide-layout.mjs`, `item-stats.mjs`, `loadout-plan.mjs`, `loadout-transaction.mjs`, `equipment-loadouts.mjs`, `quick-equip.mjs` and `item-sources-and-uses.mjs` at its root.
 Ready-to-paste listing text and release notes are in [MOD_IO.md](MOD_IO.md).
 
 ## Development checks
