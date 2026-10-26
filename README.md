@@ -103,25 +103,31 @@ It adds a second row of three shortcuts for six slots in total.
 Disabling it keeps the three native shortcuts and Bank picker while retaining the additional assignments for re-enabling.
 The native Set buttons are replaced by a **Bank** chest button beside the shortcuts.
 Open it to search bank items that are compatible with the equipment slot and meet their equip requirements.
-An open picker refreshes after equipment changes while preserving its search, using the native equipment-change event without timers or polling.
-The quick slots, Bank and Unequip Current button are centred together above the item grid.
+The quick slots, **Bank**, **Equip selected** and **Unequip Current** controls stay visible and centred together above the item grid.
+The solid green Bank button spans two quick-slot rows, with Bank text above the chest icon.
+Beside it, the blue Equip selected button sits above the solid red Unequip Current button, each one quick-slot row high with white text.
+When extra quick slots are disabled, the single row is vertically centred in the two-row control area.
+Click a bank item to select it for equipping and preview its stats; click it again to clear the selection.
+Clicking a bank item never equips it or assigns a shortcut.
+Use Equip selected to equip the selected item through the game's normal equipment checks without assigning a shortcut.
+The button is dimmed and disabled when no item is selected or the selected item is unavailable to equip.
+Hovering an item temporarily previews its stats; leaving the item restores the selected item's preview or hides the preview when nothing is selected.
+Equipping preserves the selected item's stats even if the last copy leaves the bank list under the game's normal inventory behavior.
+An open picker refreshes after equipment changes while preserving its search and selection and updating stat comparisons, using the native equipment-change event without timers or polling.
 Drag an item onto a shortcut to assign or replace it without equipping it.
 **General → Equipment Stats Layout** selects **Vanilla** or **Compact**, defaults to Compact and is saved per character.
 Both layouts inspect the item beside the picker without opening another dialog.
 Vanilla uses the game's three-column View Item Stats format with artwork and descriptions, offensive stats and defensive stats side by side.
 Compact uses two columns, with the name, artwork, description, special attacks and requirements on the left and offensive stats above defensive stats on the right.
-The preview opens on the left when the right side has no room and below the picker on narrow screens.
+The preview opens on the left when the right side has no room and above or below the picker on narrow screens, using the available space.
 Each preview box fits the width and height of its own content, independently of the bank list.
 The viewport limits its maximum size, with scrolling only when necessary.
-The selected item's name appears in the preview header.
+The inspected item's name appears in the preview header.
 Items without available stats retain their name and artwork when present.
-**General → Show Item Stats in Equipment** selects **By clicking on item** or **By hovering over item** for the preview.
-Click is the default, and the selection is saved per character.
 Both layouts include complete offensive and defensive tables with zero values and applicable damage resistances.
 The inspected item's values and changes from equipped gear occupy separate numeric columns.
 Comparisons use the active equipment set and the picker's equipment slot, including items displaced by two-handed equipment.
 Improvements appear green and reductions red, with a lower attack interval treated as an improvement.
-Inspecting an item does not assign or equip it.
 For keyboard assignment, focus a bank item and press Space, then focus a target shortcut and press Enter or Space.
 Click an assigned shortcut to equip its item through the game's normal equipment checks.
 **General → Show Unequip Button on Equipment Icons** defaults to off and is saved per character.

@@ -65,9 +65,9 @@ class Element {
   set textContent(text) { this.ownText = `${text}`; this.replaceChildren(); }
 }
 
-function fixture(saved, savedEnabled = true, savedStatsMode = "click", savedExtraSlots = true, savedLayout = "compact", savedDirectUnequip = false) {
+function fixture(saved, savedEnabled = true, legacyStatsMode = "click", savedExtraSlots = true, savedLayout = "compact", savedDirectUnequip = false) {
   const html = new Element("html"), head = new Element("head"), body = new Element("body"); html.append(head, body);
-  const doc = new Element("document"); doc.nodeType = 9; doc.append(html); doc.head = head; doc.body = body; doc.documentElement = html; html.clientWidth = 1280;
+  const doc = new Element("document"); doc.nodeType = 9; doc.append(html); doc.head = head; doc.body = body; doc.documentElement = html; html.clientWidth = 1280; html.clientHeight = 900;
   doc.createElement = tag => new Element(tag); doc.getElementById = id => doc.querySelector(`#${id}`);
   doc.createDocumentFragment = () => { const fragment = new Element("fragment"); fragment.nodeType = 11; return fragment; };
   globalThis.document = doc;
@@ -86,7 +86,7 @@ function fixture(saved, savedEnabled = true, savedStatsMode = "click", savedExtr
   const arrows = new EquipmentItem("Arrows", [quiver]), locked = new EquipmentItem("Locked"), absent = new EquipmentItem("Absent"), plain = new EquipmentItem("Plain"); locked.equipRequirements = ["locked"];
   const items = [sword, axe, spear, bow, arrows, locked, absent, plain], bankItems = new Map(items.filter(item => item !== absent).map(item => [item, { item, quantity: item === arrows ? 15 : 1 }]));
   const calls = { equip: [], quick: [], set: [], unequip: [], writes: [], requirements: [], patches: [], previews: [], previewOptions: [], nativeStats: [], tooltipHides: [], eventOn: [], eventOff: [], scans: 0 }, hooks = {}, values = new Map();
-  const fields = new Map(), settingsValues = new Map([["quick-equip-enabled", savedEnabled], ["equipment-item-stats-mode", savedStatsMode], ["extra-quick-slots-enabled", savedExtraSlots], ["equipment-preview-stats-mode", savedLayout], ["unequip-on-equipment-icons", savedDirectUnequip]]);
+  const fields = new Map(), settingsValues = new Map([["quick-equip-enabled", savedEnabled], ["equipment-item-stats-mode", legacyStatsMode], ["extra-quick-slots-enabled", savedExtraSlots], ["equipment-preview-stats-mode", savedLayout], ["unequip-on-equipment-icons", savedDirectUnequip]]);
   const bankValues = bankItems.values.bind(bankItems), bankForEach = bankItems.forEach.bind(bankItems), bankEntries = bankItems[Symbol.iterator].bind(bankItems);
   bankItems.values = () => { calls.scans++; return bankValues(); };
   bankItems.forEach = callback => { calls.scans++; return bankForEach(callback); };
@@ -125,7 +125,8 @@ function fixture(saved, savedEnabled = true, savedStatsMode = "click", savedExtr
     const popper = new Element(), box = new Element(), content = new Element(), arrow = new Element();
     box.className = "tippy-box"; content.className = "tippy-content"; arrow.className = "tippy-arrow";
     box.append(content, arrow); popper.append(box);
-    const tooltip = { popper, props: { maxWidth: 350, placement: "bottom", ...props }, setProps(next) { Object.assign(this.props, next); }, setContent(content) { this.props.content = content; }, show() {
+    const nativePopperOptions = { strategy: "fixed", modifiers: [{ name: "offset", options: { offset: [0, 12] } }] };
+    const tooltip = { popper, nativePopperOptions, props: { maxWidth: 350, placement: "bottom", popperOptions: nativePopperOptions, ...props }, setProps(next) { Object.assign(this.props, next); }, setContent(content) { this.props.content = content; }, show() {
       this.props.onShow?.();
       if (this.props.content instanceof Element) { body.append(popper); content.append(this.props.content); this.props.content.connectedCallback?.(); }
     }, hide() { calls.tooltipHides.push(this); }, destroy() {} };
@@ -183,11 +184,10 @@ function fixture(saved, savedEnabled = true, savedStatsMode = "click", savedExtr
   hooks.character?.(); hooks.interface?.();
   const show = (target = icon, slot = weapon) => { target.setEquipped(player, player.equipment.getEquippedInSlot(slot)); target.quickEquipTooltip.show(); return target.quickEquip; };
   const toggle = enabled => { const field = fields.get("quick-equip-enabled"); assert.ok(field, "quick-equip setting must be registered"); const result = field.onChange(enabled); if (result === undefined || result === true) settingsValues.set(field.name, enabled); return result; };
-  const setStatsMode = mode => { const field = fields.get("equipment-item-stats-mode"); assert.ok(field, "equipment preview setting must be registered"); const result = field.onChange(mode); if (result === undefined || result === true) settingsValues.set(field.name, mode); return result; };
   const setExtraSlots = enabled => { const field = fields.get("extra-quick-slots-enabled"); assert.ok(field, "extra-slot setting must be registered"); const result = field.onChange(enabled); if (result === undefined || result === true) settingsValues.set(field.name, enabled); return result; };
   const setLayout = layout => { const field = fields.get("equipment-preview-stats-mode"); assert.ok(field, "equipment stats layout setting must be registered"); const result = field.onChange(layout); if (result === undefined || result === true) settingsValues.set(field.name, layout); return result; };
   const setDirectUnequip = enabled => { const field = fields.get("unequip-on-equipment-icons"); assert.ok(field, "unequip placement setting must be registered"); const result = field.onChange(enabled); if (result === undefined || result === true) settingsValues.set(field.name, enabled); return result; };
-  return { ctx, game, player, weapon, quiver, empty, sword, axe, spear, bow, arrows, locked, absent, plain, items, bankItems, calls, hooks, values, fields, settingsValues, toggle, setStatsMode, setExtraSlots, setLayout, setDirectUnequip, equipmentListeners, emitEquipmentChanged, emitItemEquipped, icon, body, show, EquipmentGridIconElement };
+  return { ctx, game, player, weapon, quiver, empty, sword, axe, spear, bow, arrows, locked, absent, plain, items, bankItems, calls, hooks, values, fields, settingsValues, toggle, setExtraSlots, setLayout, setDirectUnequip, equipmentListeners, emitEquipmentChanged, emitItemEquipped, icon, body, show, EquipmentGridIconElement };
 }
 
 function dragData() {
@@ -200,12 +200,13 @@ function decodeSaved(value) { return typeof value === "string" ? JSON.parse(gunz
 function slots(menu) { return menu.querySelectorAll(".kroky-quick-equip-slot"); }
 function openBank(menu) { menu.querySelector(".kroky-quick-equip-bank").click(); return menu.querySelector(".kroky-quick-equip-picker"); }
 function bankItem(menu, item) { return menu.querySelectorAll(".kroky-quick-equip-bank-item").find(button => button.dataset.itemId === item.id); }
+function equipSelected(menu) { return menu.querySelector(".kroky-quick-equip-equip-selected"); }
 function assertPopupUnequipOrder(menu) {
-  const bank = menu.querySelector(".kroky-quick-equip-bank"), button = menu.querySelector(".kroky-quick-equip-unequip-current");
-  assert.ok(bank && button);
-  assert.ok(button.parentElement === bank.parentElement);
-  const siblings = bank.parentElement.children;
-  assert.ok(siblings[siblings.indexOf(bank) + 1] === button, "popup Unequip Current must be directly after Bank");
+  const bank = menu.querySelector(".kroky-quick-equip-bank"), equip = equipSelected(menu), button = menu.querySelector(".kroky-quick-equip-unequip-current");
+  assert.ok(bank && equip && button, "all three popup actions are always available");
+  assert.equal(equip.parentElement, button.parentElement, "Equip selected and Unequip Current share the right-hand action stack");
+  assert.equal(bank.parentElement, button.parentElement.parentElement, "Bank is alongside the equip and unequip stack");
+  assert.ok(equip.nextSibling === button, "Equip selected is above Unequip Current");
 }
 function drop(menu, item, index) {
   const button = bankItem(menu, item);
@@ -377,28 +378,116 @@ test("dragging bank items replaces native and extra shortcuts without equipping,
   assert.deepEqual([...Map.prototype.entries.call(f.bankItems)].map(([item, entry]) => [item.id, entry.quantity]), beforeBank);
 });
 
-test("clicking a bank item previews it without assigning or changing normal quick-slot equipment actions", () => {
+test("clicking a bank item selects and deselects it without assigning, equipping or changing Bank", () => {
   const f = fixture(); const menu = f.show(); openBank(menu);
   const nativeBefore = [...f.player.equipment.getEquippedInSlot(f.weapon).quickEquipItems];
-  bankItem(menu, f.spear).click();
+  const bankBefore = [...Map.prototype.entries.call(f.bankItems)].map(([item, entry]) => [item.id, entry.quantity]);
+  const source = bankItem(menu, f.spear), equip = equipSelected(menu), preview = menu.querySelector(".kroky-quick-equip-preview");
+  assert.ok(equip); assert.equal(equip.disabled, true);
+  source.click();
   assert.deepEqual(f.calls.previews, [f.spear]);
-  assert.match(menu.querySelector(".kroky-quick-equip-preview").textContent, /Stats for Spear/);
-  assert.equal(menu.querySelector(".kroky-quick-equip-preview").hidden, false);
+  assert.match(preview.textContent, /Stats for Spear/); assert.equal(preview.hidden, false);
+  assert.equal(source.getAttribute("aria-pressed"), "true"); assert.equal(equip.disabled, false);
+  source.click();
+  assert.equal(source.getAttribute("aria-pressed"), "false"); assert.equal(equip.disabled, true);
+  assert.equal(preview.hidden, true, "deselecting without a hovered item hides the preview");
   assert.deepEqual(f.player.equipment.getEquippedInSlot(f.weapon).quickEquipItems, nativeBefore);
   assert.equal(f.calls.writes.length, 0); assert.deepEqual(f.calls.quick, []); assert.deepEqual(f.calls.equip, []);
+  assert.deepEqual([...Map.prototype.entries.call(f.bankItems)].map(([item, entry]) => [item.id, entry.quantity]), bankBefore);
   slots(menu)[0].click();
   assert.deepEqual(f.calls.quick, [{ slot: f.weapon, index: 0 }], "a preview must not arm click-to-overwrite on quick slots");
   assert.deepEqual(f.player.equipment.getEquippedInSlot(f.weapon).quickEquipItems, nativeBefore);
 });
 
+test("Equip selected invokes native equipment validation separately from choosing a Bank item", () => {
+  const f = fixture(), menu = f.show(); openBank(menu);
+  const equip = equipSelected(menu);
+  equip.click(); assert.deepEqual(f.calls.equip, [], "no selection leaves the action disabled");
+  bankItem(menu, f.spear).dispatch("mouseenter");
+  assert.equal(equip.disabled, true, "hover is inspection rather than an equip selection");
+  bankItem(menu, f.spear).click();
+  assert.deepEqual(f.calls.equip, []);
+  equip.click();
+  assert.deepEqual(f.calls.equip, [{ item: f.spear, set: 0, slot: f.weapon, quantity: 1 }]);
+  assert.equal(bankItem(menu, f.spear).getAttribute("aria-pressed"), "true", "equipping does not toggle selection off");
+  assert.equal(menu.querySelector(".kroky-quick-equip-picker").hidden, false);
+  assert.equal(f.calls.writes.length, 0); assert.deepEqual(f.calls.quick, []); assert.deepEqual(f.calls.set, []);
+});
+
+test("Equip selected uses all Bank quantity for stackable equipment and the active equipment set", () => {
+  const f = fixture(); f.player.selectedEquipmentSet = 1;
+  const menu = f.show(f.icon, f.quiver); openBank(menu);
+  bankItem(menu, f.arrows).click(); equipSelected(menu).click();
+  assert.deepEqual(f.calls.equip, [{ item: f.arrows, set: 1, slot: f.quiver, quantity: 15 }], "direct equip follows Bank's all-quantity rule rather than reserving a quick-equip copy");
+  assert.equal(f.calls.writes.length, 0); assert.deepEqual(f.calls.quick, []);
+});
+
+test("equipping the last selected Bank copy retains its stats while refreshing the search and action state", async () => {
+  const f = fixture(), equipped = f.player.equipment.getEquippedInSlot(f.weapon), menu = f.show(), picker = openBank(menu);
+  const search = picker.querySelector("input"), list = picker.querySelector(".kroky-quick-equip-items");
+  search.value = "spear"; search.dispatch("input"); bankItem(menu, f.spear).click();
+  list.scrollTop = 17;
+  bankItem(menu, f.spear).dispatch("mouseenter");
+  f.player.equipItem = function (item, set, slot, quantity) {
+    f.calls.equip.push({ item, set, slot, quantity });
+    f.bankItems.set(equipped.item, { item: equipped.item, quantity: equipped.quantity });
+    f.bankItems.delete(item); equipped.item = item; equipped.quantity = quantity;
+    f.emitEquipmentChanged(true); return true;
+  };
+  equipSelected(menu).click(); await Promise.resolve();
+  assert.deepEqual(f.calls.equip, [{ item: f.spear, set: 0, slot: f.weapon, quantity: 1 }]);
+  assert.equal(search.value, "spear"); assert.equal(list.scrollTop, 17);
+  assert.equal(bankItem(menu, f.spear), undefined); assert.equal(bankItem(menu, f.sword)?.hidden, true);
+  const preview = menu.querySelector(".kroky-quick-equip-preview");
+  assert.equal(preview.hidden, false); assert.match(preview.textContent, /Stats for Spear/);
+  assert.equal(f.calls.previews.length, 2, "the retained selection is compared again against the equipped item");
+  assert.equal(f.calls.previewOptions.at(-1).equipment, f.player.equipment);
+  assert.equal(equipSelected(menu).disabled, true); equipSelected(menu).click(); assert.equal(f.calls.equip.length, 1);
+  assert.equal(f.calls.scans, 2, "native equipment events coalesce into one refresh"); assert.equal(f.calls.writes.length, 0);
+});
+
+test("stale, unavailable, locked and disabled selections cannot invoke Equip selected", () => {
+  const f = fixture(), menu = f.show(); openBank(menu);
+  bankItem(menu, f.spear).click();
+  const equip = equipSelected(menu);
+  f.spear.equipRequirements = ["locked"]; equip.click();
+  assert.deepEqual(f.calls.equip, [], "requirements are checked again at activation time");
+  f.spear.equipRequirements = [];
+  f.bankItems.delete(f.spear); equip.click(); assert.deepEqual(f.calls.equip, []);
+  f.bankItems.set(f.spear, { item: f.spear, quantity: 1 });
+  f.player.selectedEquipmentSet = 1; equip.click(); assert.deepEqual(f.calls.equip, [], "an old picker cannot equip into a different set");
+  f.player.selectedEquipmentSet = 0; f.show(); openBank(menu); bankItem(menu, f.spear).click();
+  f.icon.setQuickEquipEnabled(false); equip.click();
+  assert.equal(equip.disabled, true); assert.deepEqual(f.calls.equip, []);
+  assert.equal(f.calls.writes.length, 0);
+});
+
+test("Equip selected rejects an already equipped nonquantity item and an item equipped in another slot", () => {
+  const f = fixture();
+  f.player.equipment.getSlotOfItem = item => item === f.sword ? f.weapon : item === f.axe ? f.quiver : undefined;
+  const menu = f.show(); openBank(menu);
+  bankItem(menu, f.sword).click();
+  assert.equal(equipSelected(menu).disabled, true, "an extra Bank copy does not make the same equipped weapon actionable");
+  equipSelected(menu).click(); assert.deepEqual(f.calls.equip, []);
+  bankItem(menu, f.axe).click();
+  assert.equal(equipSelected(menu).disabled, true, "equipping cannot duplicate an item already occupying another slot");
+  equipSelected(menu).click(); assert.deepEqual(f.calls.equip, []);
+  bankItem(menu, f.spear).click();
+  assert.equal(equipSelected(menu).disabled, false); equipSelected(menu).click();
+  assert.deepEqual(f.calls.equip, [{ item: f.spear, set: 0, slot: f.weapon, quantity: 1 }]);
+});
+
 test("keyboard picking and dropping assigns shortcuts without equipping and preserves replacement-only behavior", () => {
   const f = fixture(); const menu = f.show(); openBank(menu);
+  bankItem(menu, f.axe).click();
   const pickup = bankItem(menu, f.spear).dispatch("keydown", { key: " " });
   assert.equal(pickup.prevented, true, "Space picks up the item without scrolling the page");
   const placement = slots(menu)[2].dispatch("keydown", { key: "Enter" });
   assert.equal(placement.prevented, true);
   assert.equal(f.player.equipment.getEquippedInSlot(f.weapon).quickEquipItems[2], f.spear);
   assert.deepEqual(f.calls.quick, [], "keyboard assignment must not equip immediately");
+  assert.equal(bankItem(menu, f.axe).getAttribute("aria-pressed"), "true", "keyboard assignment retains the clicked equip selection");
+  assert.equal(bankItem(menu, f.spear).getAttribute("aria-pressed"), "false", "Space does not select its source for Equip selected");
   slots(menu)[2].click();
   assert.deepEqual(f.calls.quick, [{ slot: f.weapon, index: 2 }]);
   bankItem(menu, f.bow).dispatch("keydown", { key: " " }); slots(menu)[3].dispatch("keydown", { key: " " }); slots(menu)[3].click();
@@ -669,19 +758,17 @@ test("the first native connection keeps the title above shortcuts and assignment
   assert.match(status.textContent, /Axe assigned/);
 });
 
-test("equipment preview is one click-default radio selection and validates its supported modes", () => {
-  const f = fixture(), field = f.fields.get("equipment-item-stats-mode");
-  assert.ok(field); assert.equal(field.type, "radio-group");
-  assert.equal(field.label, "Show Item Stats in Equipment"); assert.equal(field.default, "click");
-  assert.deepEqual(field.options, [
-    { value: "click", label: "By clicking on item" },
-    { value: "hover", label: "By hovering over item" },
-  ]);
-  assert.equal(typeof f.setStatsMode("icon"), "string", "equipment does not expose the skill-only icon option");
-  assert.equal(f.settingsValues.get("equipment-item-stats-mode"), "click");
-  assert.equal(f.setStatsMode("hover"), undefined);
-  assert.equal(f.settingsValues.get("equipment-item-stats-mode"), "hover");
-  assert.equal(f.calls.writes.length, 0, "preferences use native settings rather than rewriting shortcut storage");
+test("equipment uses one selection and hover workflow without obsolete equip or stats-mode controls", () => {
+  const f = fixture();
+  assert.equal(f.fields.has("equipment-item-stats-mode"), false, "equipment click-versus-hover settings are removed");
+  assert.ok([...f.fields.values()].every(field => !/equip bank items on click/i.test(field.label)), "there is no direct-equip toggle");
+  const menu = f.show(); assertPopupUnequipOrder(menu);
+  const bank = menu.querySelector(".kroky-quick-equip-bank");
+  assert.match(bank.textContent, /^Bank/);
+  const chest = bank.querySelector("img"); assert.ok(chest);
+  assert.ok(bank.children.indexOf(chest) > 0, "the chest follows Bank text inside the tall button");
+  assert.equal(equipSelected(menu).disabled, true);
+  assert.equal(f.calls.writes.length, 0, "removing obsolete preferences leaves stored shortcuts unchanged");
 });
 
 test("equipment stats layout defaults to Compact and passes the active equipment slot to its fixed comparison renderer", () => {
@@ -754,10 +841,12 @@ test("Vanilla supports hover and keyboard assignment inline without opening the 
   assert.deepEqual(f.calls.nativeStats, []); assert.deepEqual(f.calls.equip, []); assert.deepEqual(f.calls.quick, []);
 });
 
-test("Vanilla keyboard assignment in click mode remains separate from inspection", () => {
+test("Vanilla keyboard assignment remains separate from its clicked equip selection", () => {
   const f = fixture(undefined, true, "click", true, "vanilla"), menu = f.show(); openBank(menu);
+  bankItem(menu, f.axe).click();
   bankItem(menu, f.spear).dispatch("keydown", { key: " " }); slots(menu)[1].dispatch("keydown", { key: "Enter" });
   assert.equal(f.player.equipment.getEquippedInSlot(f.weapon).quickEquipItems[1], f.spear);
+  assert.equal(bankItem(menu, f.axe).getAttribute("aria-pressed"), "true");
   assert.deepEqual(f.calls.nativeStats, []); assert.deepEqual(f.calls.equip, []); assert.deepEqual(f.calls.quick, []);
 });
 
@@ -861,22 +950,58 @@ test("item names appear only in the side preview while search leads directly int
   assert.deepEqual(f.calls.quick, []); assert.deepEqual(f.calls.equip, []); assert.equal(f.calls.writes.length, 0);
 });
 
-test("hover previews are opt-in and keyboard focus previews items without arming assignment", () => {
+test("hover and keyboard focus temporarily override selection and restore it when leaving an item", () => {
   const f = fixture(), menu = f.show(); openBank(menu);
-  bankItem(menu, f.spear).dispatch("mouseenter");
-  assert.deepEqual(f.calls.previews, [], "default click mode must not inspect items while the pointer passes over them");
-  f.setStatsMode("hover"); openBank(menu);
-  bankItem(menu, f.spear).dispatch("mouseenter");
+  const spear = bankItem(menu, f.spear), axe = bankItem(menu, f.axe), preview = menu.querySelector(".kroky-quick-equip-preview");
+  spear.dispatch("mouseenter");
   assert.deepEqual(f.calls.previews, [f.spear]);
-  bankItem(menu, f.spear).dispatch("focus"); bankItem(menu, f.spear).dispatch("mouseenter");
+  assert.equal(equipSelected(menu).disabled, true, "hover never creates an equip selection");
+  spear.dispatch("focus"); spear.dispatch("mouseenter");
   assert.deepEqual(f.calls.previews, [f.spear], "hover and focus on the same item reuse the visible preview");
-  bankItem(menu, f.axe).dispatch("focus");
+  spear.dispatch("mouseleave"); spear.dispatch("blur");
+  assert.equal(preview.hidden, true, "with no selection, leaving the hovered or focused item hides its stats");
+  spear.click(); axe.dispatch("mouseenter");
+  assert.equal(f.calls.previews.at(-1), f.axe);
+  assert.equal(spear.getAttribute("aria-pressed"), "true"); assert.equal(axe.getAttribute("aria-pressed"), "false");
+  axe.dispatch("mouseleave");
+  assert.equal(f.calls.previews.at(-1), f.spear, "leaving a different item restores the selected stats");
+  axe.dispatch("focus");
   assert.equal(f.calls.previews.at(-1), f.axe, "focus supplies the keyboard equivalent of hover");
+  axe.dispatch("blur"); assert.equal(f.calls.previews.at(-1), f.spear);
+  spear.dispatch("mouseenter"); spear.click();
+  assert.equal(spear.getAttribute("aria-pressed"), "false"); assert.equal(equipSelected(menu).disabled, true);
+  assert.equal(preview.hidden, false, "deselecting a still-hovered item leaves its transient preview visible");
+  spear.dispatch("mouseleave"); assert.equal(preview.hidden, true);
   const before = [...f.player.equipment.getEquippedInSlot(f.weapon).quickEquipItems];
   slots(menu)[0].click();
   assert.deepEqual(f.calls.quick, [{ slot: f.weapon, index: 0 }]);
   assert.deepEqual(f.player.equipment.getEquippedInSlot(f.weapon).quickEquipItems, before);
   assert.equal(f.calls.writes.length, 0);
+});
+
+test("search changes clear a transient hover while preserving any clicked equip selection", () => {
+  const f = fixture(), menu = f.show(), picker = openBank(menu), search = picker.querySelector("input"), preview = menu.querySelector(".kroky-quick-equip-preview");
+  bankItem(menu, f.axe).dispatch("mouseenter"); assert.equal(preview.hidden, false);
+  search.value = "spear"; search.dispatch("input");
+  assert.equal(preview.hidden, true, "filtering with no clicked selection removes the hover preview");
+  bankItem(menu, f.spear).click();
+  search.value = ""; search.dispatch("input"); bankItem(menu, f.axe).dispatch("mouseenter");
+  assert.equal(f.calls.previews.at(-1), f.axe);
+  search.value = "bow"; search.dispatch("input");
+  assert.equal(preview.hidden, false); assert.equal(f.calls.previews.at(-1), f.spear);
+  assert.equal(bankItem(menu, f.spear).hidden, true); assert.equal(bankItem(menu, f.spear).getAttribute("aria-pressed"), "true");
+  assert.equal(equipSelected(menu).disabled, false); assert.equal(f.calls.scans, 1, "searching still uses existing Bank buttons");
+});
+
+test("equipment refresh drops a stale hovered source and restores the selected item's current comparison", async () => {
+  const f = fixture(), menu = f.show(); openBank(menu);
+  bankItem(menu, f.spear).click(); bankItem(menu, f.axe).dispatch("mouseenter");
+  assert.equal(f.calls.previews.at(-1), f.axe);
+  f.bankItems.delete(f.axe); f.emitEquipmentChanged(); await Promise.resolve();
+  assert.equal(bankItem(menu, f.axe), undefined);
+  assert.equal(f.calls.previews.at(-1), f.spear);
+  assert.equal(bankItem(menu, f.spear).getAttribute("aria-pressed"), "true"); assert.equal(equipSelected(menu).disabled, false);
+  assert.equal(f.calls.scans, 2);
 });
 
 test("equipping through a quick slot refreshes an open search with items returned to Bank", async () => {
@@ -901,14 +1026,16 @@ test("equipping through a quick slot refreshes an open search with items returne
   assert.equal(picker.hidden, false);
   assert.equal(bankItem(menu, f.sword)?.hidden, false, "the returned Godsword appears without reopening Bank");
   assert.equal(bankItem(menu, f.axe), undefined, "the newly equipped item is removed from the picker");
-  assert.equal(preview.hidden, true, "a selected item that left Bank cannot keep stale stats visible");
-  assert.equal(preview.children.length, 0);
+  assert.equal(preview.hidden, false, "the selected item's stats remain visible after its last Bank copy is equipped");
+  assert.equal(f.calls.previews.at(-1), f.axe);
+  assert.equal(equipSelected(menu).disabled, true, "the retained selection cannot equip an unavailable Bank copy");
   assert.equal(f.calls.scans, 2, "equipmentChanged and itemEquipped from one equip coalesce into one bank refresh");
   assert.equal(f.calls.writes.length, 0, "equipping never rewrites quick-slot assignments");
   slots(menu)[0].click(); await Promise.resolve();
   assert.equal(search.value, "god");
   assert.equal(bankItem(menu, f.sword), undefined);
   assert.equal(bankItem(menu, f.axe)?.hidden, false, "the search stays live over subsequent equipment changes");
+  assert.equal(bankItem(menu, f.axe).getAttribute("aria-pressed"), "true"); assert.equal(equipSelected(menu).disabled, false);
   assert.equal(f.calls.scans, 3);
 });
 
@@ -932,7 +1059,9 @@ test("open equipment changes preserve visible selection and scroll while refresh
   assert.equal(f.calls.scans, 2);
   search.value = "axe"; search.dispatch("input");
   f.emitEquipmentChanged(); await Promise.resolve();
-  assert.equal(menu.querySelector(".kroky-quick-equip-preview").hidden, true, "an item outside the active query cannot remain selected");
+  assert.equal(menu.querySelector(".kroky-quick-equip-preview").hidden, false, "changing the query preserves a clicked selection even when its Bank button is filtered out");
+  assert.equal(f.calls.previews.at(-1), f.spear);
+  assert.equal(bankItem(menu, f.spear).getAttribute("aria-pressed"), "true"); assert.equal(equipSelected(menu).disabled, false);
 });
 
 test("quantity-only native equipment events refresh Bank counts and empty-slot unequip state", async () => {
@@ -982,25 +1111,27 @@ test("equipment event subscriptions remain singular and closed pickers never res
   await Promise.resolve(); assert.equal(f.calls.scans, 1, "replacement-player events also leave closed pickers alone");
 });
 
-test("preview mode restores per character and through decode while clearing an earlier mode's picker state", () => {
+test("character decode ignores obsolete stats modes and clears selection and hover state", () => {
   const f = fixture(undefined, true, "hover"), menu = f.show(); openBank(menu);
-  bankItem(menu, f.spear).dispatch("mouseenter"); assert.equal(f.calls.previews.at(-1), f.spear);
+  bankItem(menu, f.spear).click(); bankItem(menu, f.axe).dispatch("mouseenter");
   const preview = menu.querySelector(".kroky-quick-equip-preview"), picker = menu.querySelector(".kroky-quick-equip-picker");
-  f.setStatsMode("click");
-  assert.equal(picker.hidden, true); assert.equal(preview.hidden, true); assert.equal(preview.childNodes.length, 0);
-  openBank(menu); bankItem(menu, f.axe).dispatch("mouseenter"); assert.equal(f.calls.previews.length, 1);
-  new Game().decode(undefined, true, "hover"); openBank(menu); bankItem(menu, f.axe).dispatch("mouseenter");
-  assert.equal(f.calls.previews.at(-1), f.axe);
-  new Game().decode(undefined, true, "unsupported"); openBank(menu);
-  const count = f.calls.previews.length; bankItem(menu, f.spear).dispatch("mouseenter"); assert.equal(f.calls.previews.length, count);
-  bankItem(menu, f.spear).click(); assert.equal(f.calls.previews.at(-1), f.spear, "invalid saved values safely use click mode");
+  for (const legacy of ["click", "hover", "unsupported"]) {
+    new Game().decode(undefined, true, legacy);
+    assert.equal(picker.hidden, true); assert.equal(preview.hidden, true); assert.equal(preview.childNodes.length, 0);
+    assert.equal(equipSelected(menu).disabled, true);
+    openBank(menu); const source = bankItem(menu, f.axe);
+    assert.equal(source.getAttribute("aria-pressed"), "false");
+    source.dispatch("mouseenter"); assert.equal(f.calls.previews.at(-1), f.axe, "hover is available regardless of an obsolete saved mode");
+    source.dispatch("mouseleave"); assert.equal(preview.hidden, true, "an earlier character's selection cannot return on hover exit");
+    bankItem(menu, f.spear).click();
+  }
   assert.equal(f.calls.writes.length, 0);
 });
 
 test("closing the bank picker frees preview content and stale or disabled sources cannot reopen it", () => {
   const f = fixture(undefined, true, "hover"), menu = f.show(), picker = openBank(menu);
   const source = bankItem(menu, f.spear), preview = menu.querySelector(".kroky-quick-equip-preview");
-  source.dispatch("mouseenter"); assert.equal(preview.hidden, false);
+  source.click(); source.dispatch("mouseenter"); assert.equal(preview.hidden, false);
   menu.querySelector(".kroky-quick-equip-bank").click();
   assert.equal(picker.hidden, true); assert.equal(preview.hidden, true); assert.equal(preview.childNodes.length, 0);
   assert.ok(!picker.querySelector(".kroky-quick-equip-selected-name"));
@@ -1008,6 +1139,7 @@ test("closing the bank picker frees preview content and stale or disabled source
   assert.equal(f.icon.quickEquipTooltip.props.maxWidth, 350);
   assert.equal(f.icon.quickEquipTooltip.props.placement, "bottom", "closing Bank restores the native tooltip anchor");
   openBank(menu); const stale = bankItem(menu, f.axe), count = f.calls.previews.length;
+  assert.equal(equipSelected(menu).disabled, true); assert.equal(preview.hidden, true, "reopening starts without an earlier selection");
   f.player.selectedEquipmentSet = 1; stale.dispatch("mouseenter"); stale.click();
   assert.equal(f.calls.previews.length, count, "an item from an old equipment set cannot inspect or select into the current menu");
   f.player.selectedEquipmentSet = 0; f.show(); openBank(menu); const disabled = bankItem(menu, f.axe);
@@ -1019,8 +1151,13 @@ test("closing the bank picker frees preview content and stale or disabled source
 test("side previews flip away from the right edge without repeated bank scans or preview rendering", () => {
   const f = fixture();
   f.icon.image.getBoundingClientRect = () => ({ x: 1120, y: 10, left: 1120, top: 10, right: 1200, bottom: 60, width: 80, height: 50 });
-  const menu = f.show(), picker = openBank(menu); bankItem(menu, f.spear).click();
+  const menu = f.show(), picker = openBank(menu);
+  menu.querySelector(".kroky-quick-equip-column").getBoundingClientRect = () => ({ x: 950, y: 10, left: 950, top: 10, right: 1250, bottom: 210, width: 300, height: 200 });
+  bankItem(menu, f.spear).click();
   assert.equal(menu.querySelector(".kroky-quick-equip-layout").classList.contains("kroky-preview-left"), true);
+  const preview = menu.querySelector(".kroky-quick-equip-preview");
+  assert.equal(preview.style.maxWidth, "min(var(--kroky-stats-width), 922px)");
+  assert.equal(preview.style.maxHeight, "868px");
   assert.equal(f.icon.quickEquipTooltip.props.placement, "bottom-end", "right-edge menus keep their bank grid anchored while a left preview expands");
   assert.equal(f.calls.previews.length, 1); assert.equal(f.calls.scans, 1);
   const search = picker.querySelector("input"); search.value = "spear"; search.dispatch("input");
@@ -1035,4 +1172,54 @@ test("side previews flip away from the right edge without repeated bank scans or
   assert.equal(left.icon.quickEquipTooltip.props.placement, "bottom-start");
   leftMenu.querySelector(".kroky-quick-equip-bank").click();
   assert.equal(left.icon.quickEquipTooltip.props.placement, "bottom");
+});
+
+test("preview bounds follow actual column space through Popper without rescanning or rebuilding item stats", () => {
+  const f = fixture(), menu = f.show(); openBank(menu); bankItem(menu, f.spear).click();
+  const tooltip = f.icon.quickEquipTooltip, native = tooltip.nativePopperOptions;
+  const options = tooltip.props.popperOptions, modifier = options.modifiers.find(entry => entry.name === "kroky-preview-bounds");
+  assert.ok(modifier); assert.equal(modifier.enabled, true); assert.equal(modifier.phase, "afterWrite");
+  assert.equal(options.strategy, native.strategy); assert.ok(options.modifiers.includes(native.modifiers[0]), "the native modifiers remain intact");
+  const column = menu.querySelector(".kroky-quick-equip-column"), layout = menu.querySelector(".kroky-quick-equip-layout"), preview = menu.querySelector(".kroky-quick-equip-preview");
+  column.getBoundingClientRect = () => ({ left: 50, right: 350, top: 80, bottom: 280, width: 300, height: 200 });
+  modifier.fn();
+  assert.equal(layout.classList.contains("kroky-preview-left"), false);
+  assert.equal(preview.style.maxWidth, "min(var(--kroky-stats-width), 902px)"); assert.equal(preview.style.maxHeight, "804px");
+  column.getBoundingClientRect = () => ({ left: 900, right: 1200, top: 840, bottom: 1040, width: 300, height: 200 });
+  modifier.fn();
+  assert.equal(layout.classList.contains("kroky-preview-left"), true, "preview direction follows the popup column even when its owner icon has not moved");
+  assert.equal(preview.style.maxWidth, "min(var(--kroky-stats-width), 872px)"); assert.equal(preview.style.maxHeight, "44px");
+  assert.equal(f.calls.previews.length, 1); assert.equal(f.calls.scans, 1, "positioning never performs Bank data work");
+  f.toggle(false);
+  assert.equal(tooltip.props.popperOptions, native, "disabling the rework restores the exact native Popper options");
+  f.toggle(true);
+  assert.equal(tooltip.props.popperOptions.modifiers.filter(entry => entry.name === "kroky-preview-bounds").length, 1, "re-enabling installs only one positioning callback");
+  assert.ok(tooltip.props.popperOptions.modifiers.includes(native.modifiers[0]));
+  f.toggle(false); assert.equal(tooltip.props.popperOptions, native);
+});
+
+test("narrow previews fit above or below a stable Bank column and restore desktop positioning", () => {
+  const f = fixture(), menu = f.show(); openBank(menu);
+  document.documentElement.clientWidth = 680;
+  const column = menu.querySelector(".kroky-quick-equip-column"), preview = menu.querySelector(".kroky-quick-equip-preview");
+  column.getBoundingClientRect = () => ({ left: 20, right: 340, top: 100, bottom: 400, width: 320, height: 300 });
+  bankItem(menu, f.spear).dispatch("mouseenter");
+  assert.equal(preview.style.top, "calc(100% + .75rem)"); assert.equal(preview.style.bottom, "auto", "a preview below the column cannot cover its hovered Bank items");
+  assert.equal(preview.style.left, "0"); assert.equal(preview.style.right, "auto");
+  assert.equal(preview.style.maxWidth, "min(var(--kroky-stats-width), 644px)"); assert.equal(preview.style.maxHeight, "472px");
+  const modifier = f.icon.quickEquipTooltip.props.popperOptions.modifiers.find(entry => entry.name === "kroky-preview-bounds");
+  column.getBoundingClientRect = () => ({ left: 340, right: 660, top: 450, bottom: 750, width: 320, height: 300 });
+  modifier.fn();
+  assert.equal(preview.style.top, "auto"); assert.equal(preview.style.bottom, "calc(100% + .75rem)", "near the bottom of the viewport, previews fit above the Bank column");
+  assert.equal(preview.style.left, "auto"); assert.equal(preview.style.right, "0");
+  assert.equal(preview.style.maxWidth, "min(var(--kroky-stats-width), 644px)"); assert.equal(preview.style.maxHeight, "422px");
+  const css = document.getElementById("kroky-quick-equip-style").textContent;
+  assert.match(css, /\.kroky-quick-equip-preview \{ position: absolute;/, "preview content stays outside Popper's measured column");
+  const narrowCSS = css.slice(css.indexOf("@media (max-width: 700px)"));
+  assert.match(narrowCSS, /\.kroky-quick-equip-column \{ max-height: calc\(50vh - 1rem\); \}/, "the column leaves preview space before any hover, without imposing a fixed height on short lists");
+  assert.doesNotMatch(narrowCSS, /position: static|overflow-y: auto/, "narrow hover previews cannot resize or scroll the popup's outer layout");
+  document.documentElement.clientWidth = 1280; modifier.fn();
+  for (const property of ["top", "bottom", "left", "right"]) assert.equal(preview.style[property], "", "resizing restores desktop side-placement rules");
+  assert.equal(preview.style.maxWidth, "min(var(--kroky-stats-width), 592px)"); assert.equal(preview.style.maxHeight, "434px");
+  assert.equal(f.calls.previews.length, 1); assert.equal(f.calls.scans, 1, "placement changes do not rebuild stats or scan Bank");
 });

@@ -72,23 +72,30 @@ With the setting enabled, equipment slots in Combat and the top-bar equipment me
 **General → Enable 3 Extra Quick Slots** defaults to on, is saved per character and adds a second row for six shortcuts in total.
 Disabling it keeps the three native shortcuts and Bank picker while retaining the additional assignments for re-enabling.
 The **Bank** chest button beside them opens a searchable picker of compatible bank equipment that meets its equip requirements.
-An open picker refreshes after equipment changes while preserving its search, using the native equipment-change event without timers or polling.
-The quick slots, Bank and Unequip Current button are centred together above the item grid.
+The quick slots, **Bank**, **Equip selected** and **Unequip Current** controls stay visible and centred together above the item grid.
+The solid green Bank button spans two quick-slot rows, with Bank text above the chest icon.
+Beside it, the blue Equip selected button sits above the solid red Unequip Current button, each one quick-slot row high with white text.
+When extra quick slots are disabled, the single row is vertically centred in the two-row control area.
+Click a bank item to select it for equipping and preview its stats; click it again to clear the selection.
+Clicking a bank item never equips it or assigns a shortcut.
+Use Equip selected to equip the selected item through the native equipment checks without assigning a shortcut.
+The button is dimmed and disabled when no item is selected or the selected item is unavailable to equip.
+Hovering an item temporarily previews its stats; leaving the item restores the selected item's preview or hides the preview when nothing is selected.
+Equipping preserves the selected item's stats even if the last copy leaves the bank list under the game's normal inventory behavior.
+An open picker refreshes after equipment changes while preserving its search and selection and updating stat comparisons, using the native equipment-change event without timers or polling.
 Drag an item onto a shortcut to assign or replace it without equipping it.
 **General → Equipment Stats Layout** selects **Vanilla** or **Compact**, defaults to Compact and is saved per character.
-Both layouts show stats beside the picker without opening another dialog, with the selected name in the preview header.
+Both layouts show stats beside the picker without opening another dialog, with the inspected item's name in the preview header.
 Vanilla uses the game's three-column View Item Stats format with artwork and descriptions, offensive stats and defensive stats side by side.
 Compact uses two columns, with the name, artwork, description, special attacks and requirements on the left and offensive stats above defensive stats on the right.
-The preview opens on the left when necessary and moves below the picker on narrow screens.
+The preview opens on the left when necessary and moves above or below the picker on narrow screens, using the available space.
 Each preview box fits the width and height of its own content, independently of the bank list.
 The viewport limits its maximum size, with scrolling only when necessary.
 Items without available stats retain their name and artwork when present.
-**General → Show Item Stats in Equipment** selects **By clicking on item** or **By hovering over item**, defaults to click and is saved per character.
 Both layouts include complete offensive and defensive tables with zero values and applicable damage resistances.
 The inspected item's values and changes from equipped gear occupy separate numeric columns.
 Comparisons use the active equipment set and the picker's equipment slot, including every item displaced by two-handed equipment.
 Improvements appear green and reductions red, with a lower attack interval treated as an improvement.
-Inspection does not assign or equip the item.
 For keyboard assignment, focus a bank item and press Space, then focus a target shortcut and press Enter or Space.
 Click a shortcut to equip its item with the native equipment checks.
 **General → Show Unequip Button on Equipment Icons** defaults to off and is saved per character.
@@ -120,12 +127,13 @@ The mod works independently of Workforce and also pins Workforce's controls and 
 - Expand equipment-slot quick equip to up to six shortcuts in Combat and the top-bar equipment menu.
 - Enable or disable three extra quick slots per character while retaining the Bank picker and saved assignments.
 - Replace Set buttons with a searchable bank picker for assigning compatible equipment by drag and drop or keyboard selection.
-- Inspect bank equipment in a side preview with a per-character click or hover selection.
+- Select or deselect bank equipment by clicking, preview other items while hovering, and use Equip selected to equip without assigning a shortcut.
+- Keep the selected preview after equipping the last bank copy and refresh searches and comparisons after equipment changes.
 - Choose a Vanilla three-column inline preview or a Compact two-column preview with complete item details and separate item-value and equipped-difference columns.
 - Fit preview boxes to their content and centre the quick-equip controls above the bank grid.
 - Indent radio choices beneath their setting headings.
 - Choose a stats icon, click or hover on skill-card main artwork independently of recipe Sources and Uses and ingredient navigation.
-- Always keep Unequip Current beside Bank, with an optional per-character toggle for additional red minus-square controls on equipment icons.
+- Centre shortcuts beside a tall green Bank button and stacked blue Equip selected and red Unequip Current buttons, with an optional per-character toggle for additional red minus-square controls on equipment icons.
 - Enable or disable Enhanced Equipment Menu per character, restoring the native menu immediately while retaining all shortcut assignments.
 - Highlight the currently viewed skill in the left navigation with a lighter grey background.
 - Add an optional, per-character toggle for blue **?** buttons just outside recipe item icons' top-right corners, mirroring the native shop-coin overlay.
