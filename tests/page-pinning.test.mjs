@@ -1021,12 +1021,39 @@ test("Bank inventory and item details stay in their native columns through pinni
     f.update(); f.update();
     assert.equal(menu.moves, moves, "periodic updates keep the visible mode menu mounted");
     menu.classList.add("d-none"); f.update();
-    assert.equal(menu.parentNode, row);
+    assert.equal(menu.parentNode, controls.parentNode, "hidden mode menus stay ready for the next native toggle");
   }
   enabled = false; f.update();
   assert.equal(f.root.classList.contains("kroky-page-pinned"), false);
   assert.deepEqual(bank.node.children, [controls, row]);
   assert.deepEqual([inventory.moves, box.moves, details.moves], moves);
+});
+
+test("pinned Bank mode panels stay mounted before mode changes instead of entering the inventory row", () => {
+  const f = fixture();
+  const bank = f.page("Bank", false);
+  bank.row.remove();
+  const controls = new Element("bank-options-menu");
+  const row = new Element(); row.className = "row row-deck gutters-tiny";
+  const modes = ["move", "sell"].map(mode => {
+    const menu = new Element(`bank-${mode}-mode-menu`); menu.className = "col-12 d-none";
+    row.append(menu);
+    return menu;
+  });
+  const inventory = new Element("bank-tab-menu"), sidebar = new Element("bank-sidebar-menu");
+  row.append(inventory, sidebar); bank.node.append(controls, row);
+  f.game.openPage = bank.page; f.update(); f.button.click();
+  const wrapper = controls.parentNode;
+  for (const menu of modes) assert.equal(menu.parentNode === wrapper, true, "hidden mode panels must already be outside the inventory row before the next click");
+  const mountedMoves = [...modes, inventory, sidebar].map(node => node.moves);
+  for (const active of [modes[0], undefined, modes[1], modes[0], modes[1], undefined]) {
+    for (const menu of modes) menu.classList.toggle("d-none", menu !== active);
+    for (const menu of modes) assert.equal(menu.parentNode === wrapper, true, "a native mode toggle cannot place a visible full-width panel beside inventory before the next pinning update");
+    f.update(); f.update();
+    assert.deepEqual([...modes, inventory, sidebar].map(node => node.moves), mountedMoves, "mode visibility changes must not disconnect any Bank component");
+  }
+  f.button.click();
+  for (const menu of modes) assert.equal(menu.parentNode, row, "unpinning restores each mode panel to its native row");
 });
 
 test("Combat's destructive XP-table disconnect lifecycle is avoided while its navigation is pinned", () => {

@@ -36,7 +36,25 @@ Optional Skill Boosts controls are pinned across skills and Combat without requi
 On desktop, the pinned Bank has a compact full-width toolbar above its inventory and item-details columns.
 Bank tabs and labelled Space, Bank and Tab totals stay above the inventory on the left.
 The inventory and right-hand details panel fill the available viewport height and scroll independently.
+Move and Sell mode panels stay mounted in the pinned toolbar so toggling them does not briefly collapse the inventory.
 Narrow screens retain the game's native Bank layout.
+
+**General → Better Moving** defaults to off and is saved per character.
+Enable it to replace the Bank's grey **Move items to new Tab** button with **Toggle Move Mode**.
+While enabled, the mode buttons read **Toggle Move Mode** and **Toggle Sell Mode** when inactive, changing to **Cancel Move Mode** and **Cancel Sell Mode** for the active mode.
+Both buttons keep the same width in either state so the toolbar does not shift.
+Move Mode uses the same red alert style as Sell Mode and lets you select several items in the current tab without opening item details.
+Shift-click selects the visible range from the last normally clicked item in either direction while preserving existing selections.
+With items selected, the other tabs pulse gold (#DAA664) every 1.4 seconds, fading from almost transparent to 50% opacity with a glow extending 3px outside each tab; click a destination tab or drag any selected item onto it to move every selected stack.
+The glow remains visible along the top edge and above the selected tab's shadow.
+Each move clears the selection, keeps you in the source tab and leaves Move Mode active for the next batch.
+With nothing selected, tabs do not glow and clicking them switches tabs normally.
+Focused tabs support Enter or Space for the same navigation and move actions.
+Move Mode and Sell Mode cannot be active together.
+The rightmost **Deselect All** button appears in either mode and clears the selection while keeping that mode active.
+It uses the same blue as Workforce's **+1 Worker** controls and is disabled at 12% opacity when nothing is selected.
+The old Select Tab and Confirm Move controls are hidden while Better Moving is enabled, and disabling the setting immediately restores the native behavior.
+Reduced-motion preferences replace the pulse with a static amber highlight.
 
 **Enable Wide Layout** uses the available desktop width for Woodcutting, Fishing, Mining, Astrology, Archaeology, Thieving, Shop, Bank, Farming and Township.
 It also expands Workforce's production recipe grids when installed.
@@ -160,6 +178,11 @@ The mod works independently of Workforce and also pins Workforce's controls and 
 
 ### 1.1.0
 
+- Add optional Better Moving with persistent Move Mode and multiselected stack transfers by destination-tab click or drag and drop.
+- Clear all selections in Move or Sell Mode with a blue Deselect All button that dims when the selection is empty.
+- Select visible item ranges in either direction with Shift-click.
+- Pulse destination tabs in gold (#DAA664) from almost transparent to 50% opacity every 1.4 seconds with a 3px outer glow only while items are selected, retaining ordinary tab navigation with no selection.
+- Keep mode buttons the same width with active Cancel labels, match Move Mode's alert to Sell Mode, and draw destination glows above tab shadows.
 - Share owned gear across equipment-set references while keeping real items in the active set and Bank.
 - Preserve remaining shared stack quantities on switches and return real inactive holdings to Bank during migration.
 - Choose the Bank quantity to equip with a native slider and exact numeric input.
@@ -196,4 +219,4 @@ The mod works independently of Workforce and also pins Workforce's controls and 
 
 ## Upload
 
-Upload **krokys-better-ui-1.1.0.zip** with `manifest.json`, `setup.mjs`, `page-pinning.mjs`, `wide-layout.mjs`, `item-stats.mjs`, `loadout-plan.mjs`, `loadout-transaction.mjs`, `equipment-loadouts.mjs`, `quick-equip.mjs` and `item-sources-and-uses.mjs` at the archive root.
+Upload **krokys-better-ui-1.1.0.zip** with `manifest.json`, `setup.mjs`, `page-pinning.mjs`, `wide-layout.mjs`, `better-moving.mjs`, `item-stats.mjs`, `loadout-plan.mjs`, `loadout-transaction.mjs`, `equipment-loadouts.mjs`, `quick-equip.mjs` and `item-sources-and-uses.mjs` at the archive root.

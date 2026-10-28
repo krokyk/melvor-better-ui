@@ -46,7 +46,25 @@ Progress calculations cover the visible skill and stat groups; hidden skills and
 On desktop, the pinned Bank has a compact full-width toolbar above its inventory and item-details columns.
 Bank tabs and labelled Space, Bank and Tab totals stay above the inventory on the left.
 The inventory and right-hand details panel fill the available viewport height and scroll independently.
+Move and Sell mode panels stay mounted in the pinned toolbar so toggling them does not briefly collapse the inventory.
 Narrow screens retain the game's native Bank layout.
+
+**General → Better Moving** defaults to off and is saved per character.
+Enable it to replace the Bank's grey **Move items to new Tab** button with **Toggle Move Mode**.
+While enabled, the mode buttons read **Toggle Move Mode** and **Toggle Sell Mode** when inactive, changing to **Cancel Move Mode** and **Cancel Sell Mode** for the active mode.
+Both buttons keep the same width in either state so the toolbar does not shift.
+Move Mode uses the same red alert style as Sell Mode and lets you select several items in the current tab without opening item details.
+Shift-click selects the visible range from the last normally clicked item in either direction while preserving existing selections.
+With items selected, the other tabs pulse gold (#DAA664) every 1.4 seconds, fading from almost transparent to 50% opacity with a glow extending 3px outside each tab; click a destination tab or drag any selected item onto it to move every selected stack.
+The glow remains visible along the top edge and above the selected tab's shadow.
+Each move clears the selection, keeps you in the source tab and leaves Move Mode active for the next batch.
+With nothing selected, tabs do not glow and clicking them switches tabs normally.
+Focused tabs support Enter or Space for the same navigation and move actions.
+Move Mode and Sell Mode cannot be active together.
+The rightmost **Deselect All** button appears in either mode and clears the selection while keeping that mode active.
+It uses the same blue as Workforce's **+1 Worker** controls and is disabled at 12% opacity when nothing is selected.
+The old Select Tab and Confirm Move controls are hidden while Better Moving is enabled, and disabling the setting immediately restores the native behavior.
+Reduced-motion preferences replace the pulse with a static amber highlight.
 
 Open **Mod Settings → Kroky's Better UI → General → Enable Wide Layout** to use the available desktop width independently of pinning.
 The toggle defaults to on and is saved per character.
@@ -179,7 +197,7 @@ The additional three are saved with Better UI character data separately for each
 
 Load this folder with Melvor's Creator Toolkit, or import `krokys-better-ui-1.1.0.zip` through **Creator Toolkit → Local Mods**.
 Enable the mod and reload the game.
-The release archive contains `manifest.json`, `setup.mjs`, `page-pinning.mjs`, `wide-layout.mjs`, `item-stats.mjs`, `loadout-plan.mjs`, `loadout-transaction.mjs`, `equipment-loadouts.mjs`, `quick-equip.mjs` and `item-sources-and-uses.mjs` at its root.
+The release archive contains `manifest.json`, `setup.mjs`, `page-pinning.mjs`, `wide-layout.mjs`, `better-moving.mjs`, `item-stats.mjs`, `loadout-plan.mjs`, `loadout-transaction.mjs`, `equipment-loadouts.mjs`, `quick-equip.mjs` and `item-sources-and-uses.mjs` at its root.
 Ready-to-paste listing text and release notes are in [MOD_IO.md](MOD_IO.md).
 
 ## Development checks
