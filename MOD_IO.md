@@ -39,9 +39,15 @@ The inventory and right-hand details panel fill the available viewport height an
 Move and Sell mode panels stay mounted in the pinned toolbar so toggling them does not briefly collapse the inventory.
 Narrow screens retain the game's native Bank layout.
 
+**General → Enable Compact Bank Controls** groups the blue Sort icon with the cog and filter on the right, with Space, Bank and Tab totals on the left.
+Move Mode, Sell Mode and Deselect All align with Search Bank.
+Mode buttons use move and GP icons, with a red X for the active mode.
+The setting defaults to off, is saved per character and works independently of pinning and Better Moving.
+Disabling it restores the original control layout and labels.
+
 **General → Better Moving** defaults to off and is saved per character.
 Enable it to replace the Bank's grey **Move items to new Tab** button with **Toggle Move Mode**.
-While enabled, the mode buttons read **Toggle Move Mode** and **Toggle Sell Mode** when inactive, changing to **Cancel Move Mode** and **Cancel Sell Mode** for the active mode.
+With Compact Bank Controls disabled, the mode buttons read **Toggle Move Mode** and **Toggle Sell Mode** when inactive, changing to **Cancel Move Mode** and **Cancel Sell Mode** for the active mode.
 Both buttons keep the same width in either state so the toolbar does not shift.
 Move Mode uses the same red alert style as Sell Mode and lets you select several items in the current tab without opening item details.
 Shift-click selects the visible range from the last normally clicked item in either direction while preserving existing selections.

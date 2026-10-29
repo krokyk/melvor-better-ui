@@ -148,7 +148,7 @@ function fixture(enabled, load = true) {
   const ctx = {
     settings: { section(name) {
       assert.equal(name, "General");
-      return { add(field) { fields.set(field.name, field); values.set(field.name, enabled ?? field.default); }, get: name => values.get(name) };
+      return { add(field) { fields.set(field.name, field); values.set(field.name, field.name === "better-moving-enabled" ? enabled ?? field.default : field.default); }, get: name => values.get(name) };
     } },
     onCharacterLoaded: callback => hooks.character.push(callback),
     onInterfaceReady: callback => hooks.interface.push(callback),

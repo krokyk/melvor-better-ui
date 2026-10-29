@@ -49,9 +49,17 @@ The inventory and right-hand details panel fill the available viewport height an
 Move and Sell mode panels stay mounted in the pinned toolbar so toggling them does not briefly collapse the inventory.
 Narrow screens retain the game's native Bank layout.
 
+Open **Mod Settings → Kroky's Better UI → General → Enable Compact Bank Controls** to compact the Bank toolbar independently of page pinning and Better Moving.
+The setting defaults to off and is saved per character.
+Sort uses an up/down arrows icon beside the cog and filter buttons at the right of the Bank totals bar, with matching button heights and its native blue colour.
+Space, Bank and Tab totals align together on the left.
+Move Mode, Sell Mode and Deselect All align vertically with Search Bank.
+Move Mode uses a move icon and Sell Mode uses the GP icon; an active mode shows a red X.
+Disabling the setting restores the native Sort position, mode labels and toolbar layout.
+
 **General → Better Moving** defaults to off and is saved per character.
 Enable it to replace the Bank's grey **Move items to new Tab** button with **Toggle Move Mode**.
-While enabled, the mode buttons read **Toggle Move Mode** and **Toggle Sell Mode** when inactive, changing to **Cancel Move Mode** and **Cancel Sell Mode** for the active mode.
+With Compact Bank Controls disabled, the mode buttons read **Toggle Move Mode** and **Toggle Sell Mode** when inactive, changing to **Cancel Move Mode** and **Cancel Sell Mode** for the active mode.
 Both buttons keep the same width in either state so the toolbar does not shift.
 Move Mode uses the same red alert style as Sell Mode and lets you select several items in the current tab without opening item details.
 Shift-click selects the visible range from the last normally clicked item in either direction while preserving existing selections.
