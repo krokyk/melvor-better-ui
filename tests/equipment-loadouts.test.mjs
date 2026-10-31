@@ -9,7 +9,7 @@ const storageKey = "equipment-loadout-references";
 
 afterEach(() => {
   mock.restoreAll();
-  for (const name of ["Game", "Equipment", "EquipmentSetMenu", "BankSelectedItemMenuElement", "ItemEquippedEvent", "fflate", "notifyPlayer", "document"]) delete globalThis[name];
+  for (const name of ["Game", "Equipment", "EquipmentSetMenu", "BankSelectedItemMenuElement", "ItemEquippedEvent", "fflate", "notifyPlayer", "document", "mod", "customElements"]) delete globalThis[name];
 });
 
 class Element {
@@ -271,7 +271,11 @@ function fixture({ configure = () => {}, saved, load = true } = {}) {
       setItem(key, value) { if (f.failStorageWrite) throw new Error("Storage write failed."); f.writes.push([key, value]); f.storage.set(key, value); },
       removeItem(key) { f.storage.delete(key); },
     },
-    onCharacterLoaded(callback) { f.hooks.loaded = callback; }, onInterfaceReady(callback) { f.hooks.interface = callback; },
+    onCharacterLoaded(callback) { f.hooks.loaded = callback; },
+    onInterfaceReady(callback) {
+      const previous = f.hooks.interface;
+      f.hooks.interface = () => { previous?.(); return callback(); };
+    },
     patch(Type, name) {
       f.patches.push({ Type, name });
       const descriptor = Object.getOwnPropertyDescriptor(Type.prototype, name);
@@ -307,6 +311,131 @@ function ownership(f) {
 }
 function state(f) { return { native: f.save(), charges: [...f.game.itemCharges], references: f.feature.getPresets(), totals: ownership(f) }; }
 function references(f, index, slot, item) { assert.equal(f.feature.getPresets()[index]?.[slot.id], item.id); }
+
+function simulatorFixture(f, loaded = Promise.resolve(true)) {
+  const imports = [];
+  // Combat Simulator 3.2.0 reads the requested native set inside these synchronous button handlers.
+  class SimulatorEquipmentPage {
+    constructor() { this._equipmentSetContainer = new Element(); this._createEquipmentSets(); }
+    _createEquipmentSets() {
+      this._equipmentSetContainer.replaceChildren();
+      f.player.equipmentSets.forEach((_set, index) => {
+        const button = new Element("button");
+        button.onclick = function (event) {
+          const set = f.player.equipmentSets[index], equipment = set.equipment;
+          const imported = {
+            equipment: new Map(equipment.equippedArray.filter(slot => !slot.isEmpty).map(slot => [slot.slot.id, slot.item.id])),
+            summons: [f.slots.summon1, f.slots.summon2].map(slot => equipment.equippedItems[slot.id].item.id),
+            prayers: [...(set.prayerSelection ?? [])].map(prayer => prayer.id),
+            spells: Object.fromEntries(["attack", "aurora", "curse"].map(key => [key, set.spellSelection?.[key]?.id ?? ""])),
+            owner: this, event,
+          };
+          imports.push(imported);
+          f.failSimulatorImport?.();
+          return imported;
+        };
+        this._equipmentSetContainer.append(button);
+      });
+    }
+  }
+  const page = new SimulatorEquipmentPage();
+  globalThis.mod = { api: { mythCombatSimulator: { isLoaded: loaded } } };
+  globalThis.customElements = { get: name => name === "mcs-equipment-page" ? SimulatorEquipmentPage : undefined };
+  document.querySelectorAll = selector => selector === "mcs-equipment-page" ? [page] : [];
+  return { page, imports };
+}
+
+test("Combat Simulator imports inactive shared references before reading spells and summons without moving real items", async () => {
+  const f = fixture({ configure(f) {
+    f.wear(0, f.items.sword);
+    f.wear(1, f.items.greatsword);
+    f.wear(1, f.items.arrows, f.slots.quiver, 30);
+    f.wear(1, f.items.tablet, f.slots.summon1, 40);
+    f.wear(1, f.items.otherTablet, f.slots.summon2, 50);
+    f.player.equipmentSets[1].prayerSelection = new Set([{ id: "test:Prayer" }]);
+    f.player.equipmentSets[1].spellSelection = { attack: { id: "test:Spell" }, aurora: { id: "test:Aurora" } };
+  } });
+  const simulator = simulatorFixture(f), original = f.player.equipmentSets.map(set => set.equipment);
+  const before = state(f), calls = { ...f.calls }, writes = f.writes.length;
+  await f.hooks.interface();
+  const button = simulator.page._equipmentSetContainer.children[1], event = {};
+  const imported = button.onclick(event);
+  assert.equal(imported.equipment.get(f.slots.weapon.id), f.items.greatsword.id);
+  assert.equal(imported.equipment.get(f.slots.shield.id), f.items.greatsword.id, "occupied slots follow the native equipment view");
+  assert.equal(imported.equipment.get(f.slots.quiver.id), f.items.arrows.id);
+  assert.deepEqual(imported.summons, [f.items.tablet.id, f.items.otherTablet.id]);
+  assert.deepEqual(imported.prayers, ["test:Prayer"]);
+  assert.deepEqual(imported.spells, { attack: "test:Spell", aurora: "test:Aurora", curse: "" });
+  assert.equal(imported.owner, button); assert.equal(imported.event, event);
+  assert.deepEqual(state(f), before); assert.deepEqual(f.calls, calls); assert.equal(f.writes.length, writes);
+  f.player.equipmentSets.forEach((set, index) => assert.equal(set.equipment, original[index]));
+  assert.equal(rootEntries(original[1]).length, 0, "inactive native equipment still owns no gear");
+});
+
+test("Combat Simulator retains native active imports and reads updated references after rebuilding import buttons", async () => {
+  const f = copyFixture(), simulator = simulatorFixture(f);
+  await f.hooks.interface();
+  const before = state(f), active = f.player.equipment;
+  const imported = simulator.page._equipmentSetContainer.children[1].onclick();
+  assert.equal(imported.equipment.get(f.slots.weapon.id), f.items.sword.id);
+  assert.equal(f.player.equipment, active); assert.deepEqual(state(f), before);
+  const inactive = simulator.page._equipmentSetContainer.children[0].onclick();
+  assert.equal(inactive.equipment.get(f.slots.weapon.id), f.items.axe.id);
+  f.bank.seed(f.items.hat, 1);
+  assert.equal(f.player.equipItem(f.items.hat, 0, f.slots.helmet), true);
+  simulator.page._createEquipmentSets();
+  const rebuilt = simulator.page._equipmentSetContainer.children[0], wrapped = rebuilt.onclick;
+  await f.hooks.interface();
+  assert.equal(rebuilt.onclick, wrapped, "repeated interface callbacks do not stack wrappers");
+  const updatedBefore = state(f), updated = rebuilt.onclick();
+  assert.equal(updated.equipment.get(f.slots.helmet.id), f.items.hat.id);
+  assert.equal(simulator.imports.length, 3);
+  assert.deepEqual(state(f), updatedBefore);
+  const empty = simulator.page._equipmentSetContainer.children[2].onclick();
+  assert.equal(empty.equipment.size, 0, "empty references stay empty");
+});
+
+test("Combat Simulator import failures restore the exact inactive equipment object and inventory", async () => {
+  const f = copyFixture(), simulator = simulatorFixture(f);
+  await f.hooks.interface();
+  const physical = f.player.equipmentSets[0].equipment, before = state(f);
+  f.failSimulatorImport = () => {
+    assert.equal(f.player.equipmentSets[0].equipment.checkForItem(f.items.axe), true);
+    throw new Error("Simulator import failed");
+  };
+  assert.throws(() => simulator.page._equipmentSetContainer.children[0].onclick(), /Simulator import failed/);
+  assert.equal(f.player.equipmentSets[0].equipment, physical);
+  assert.deepEqual(state(f), before);
+});
+
+test("Combat Simulator compatibility waits without blocking later interface-ready hooks", async () => {
+  for (const success of [true, false]) {
+    const f = copyFixture();
+    let finish;
+    const simulator = simulatorFixture(f, new Promise(resolve => { finish = resolve; }));
+    const button = simulator.page._equipmentSetContainer.children[0], original = button.onclick;
+    const installed = f.hooks.interface();
+    const blocked = installed !== undefined;
+    assert.equal(button.onclick, original, "pending simulator load leaves its handler untouched");
+    finish(success); await installed;
+    assert.equal(blocked, false, "the simulator can only finish loading after this interface-ready hook returns");
+    assert.equal(button.onclick === original, !success);
+  }
+});
+
+test("absent or incompatible Combat Simulator APIs leave equipment loadouts independent", () => {
+  for (const provider of [undefined, { api: {} }, { api: { mythCombatSimulator: {} } }]) {
+    const f = copyFixture(), before = state(f), patches = f.patches.length;
+    if (provider === undefined) delete globalThis.mod;
+    else globalThis.mod = provider;
+    globalThis.customElements = { get() { assert.fail("an absent simulator must not inspect its custom elements"); } };
+    f.document.querySelectorAll = () => assert.fail("an absent simulator must not inspect its UI");
+    assert.equal(f.hooks.interface(), undefined);
+    assert.equal(f.patches.length, patches);
+    assert.equal(f.feature.ready, true);
+    assert.deepEqual(state(f), before);
+  }
+});
 
 function copyFixture(configure = () => {}) {
   return fixture({ configure(f) {

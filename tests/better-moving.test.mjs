@@ -52,6 +52,7 @@ class Element {
 function fixture(enabled, load = true) {
   const fields = new Map(), values = new Map(), hooks = { character: [], interface: [] };
   const calls = { bulk: 0, single: 0, navigation: 0 }, head = new Element("head");
+  const sellSelections = [];
   let tabs;
   const options = new Element("bank-options-menu"), menu = new Element("bank-move-mode-menu"), banner = new Element("p"), alert = new Element(), toolbar = new Element();
   const nativeButtonLabel = new Element("lang-string", "Move items to new Tab");
@@ -77,6 +78,7 @@ function fixture(enabled, load = true) {
     constructor() {
       this.itemsByTab = [items.slice(0, 3), items.slice(3), []]; this.items = new Map(items.map(item => [item.item, item]));
       this.selectedBankTab = 0; this.selectedItems = new Set(); this.itemSelectionMode = 0; this.selectedBankItem = items[0];
+      this.lockedItems = new Set();
       reindex(this);
     }
     get tabCount() { return this.itemsByTab.length; }
@@ -90,10 +92,14 @@ function fixture(enabled, load = true) {
     }
     toggleItemSelected(item) { this.selectedItems.has(item) ? this.selectedItems.delete(item) : this.selectedItems.add(item); }
     toggleItemForMoving(item) { this.toggleItemSelected(item); }
+    toggleItemForSelling(item) {
+      if (this.lockedItems.has(item.item)) return;
+      this.toggleItemSelected(item); sellSelections.push([...this.selectedItems]);
+    }
     selectItemOnClick(item) {
       if (this.itemSelectionMode === 0) this.selectedBankItem = this.items.get(item);
       else if (this.itemSelectionMode === 1) this.toggleItemForMoving(this.items.get(item));
-      else this.toggleItemSelected(this.items.get(item));
+      else this.toggleItemForSelling(this.items.get(item));
     }
     moveSelectedItemsToTab(tabID) {
       calls.bulk++;
@@ -180,7 +186,7 @@ function fixture(enabled, load = true) {
     return event;
   };
   if (load) { loaded(); ready(); }
-  return { game, bank: game.bank, items, icons, click, key, calls, tabs, field, toggle, values, loaded, ready, head, menu, banner, alert, toolbar, button: options.moveModeButton, sellButton: options.sellModeButton, nativeButtonLabel, nativeSellButtonLabel, nativeBannerLabel };
+  return { game, bank: game.bank, items, icons, click, key, calls, sellSelections, tabs, field, toggle, values, loaded, ready, head, menu, banner, alert, toolbar, button: options.moveModeButton, sellButton: options.sellModeButton, nativeButtonLabel, nativeSellButtonLabel, nativeBannerLabel };
 }
 
 const targets = f => f.tabs.tabs.map(tab => tab.tabLink.classList.contains("kroky-bank-move-target"));
@@ -365,21 +371,50 @@ test("new bank tabs inherit the current selection highlight", () => {
   f.bank.moveItemModeOnClick(); assert.deepEqual(targets(f), [false, false, false, false]);
 });
 
-test("Shift-click selects inclusive forward and backward ranges from the last ordinary click", () => {
-  const f = fixture(true); f.bank.moveItemModeOnClick();
+for (const mode of [1, 2]) test(`Mode ${mode}: Shift-click selects inclusive forward and backward ranges from the last ordinary click`, () => {
+  const f = fixture(true); f.bank.setItemSelectionMode(mode);
   f.click(f.items[0]); const forward = f.click(f.items[2], true);
   assert.equal(forward.prevented, true); assert.equal(forward.stopped, true);
   assert.deepEqual([...f.bank.selectedItems], f.items.slice(0, 3));
   f.click(f.items[1], true);
   assert.equal(f.bank.selectedItems.size, 3, "repeating Shift-click adds without toggling already selected items");
-  f.bank.moveItemModeOnClick(); f.bank.moveItemModeOnClick();
+  f.bank.setItemSelectionMode(0); f.bank.setItemSelectionMode(mode);
   f.click(f.items[2]); f.click(f.items[0], true);
   assert.deepEqual(new Set(f.bank.selectedItems), new Set(f.items.slice(0, 3)));
   assert.equal(f.bank.selectedBankItem, undefined);
 });
 
-test("Shift-click follows visible row order, skips filtered items, and keeps existing selections", () => {
-  const f = fixture(true); f.bank.moveItemModeOnClick();
+test("Sell Mode supports Shift-click ranges without moving items or highlighting destinations", () => {
+  const f = fixture(true); f.bank.sellItemModeOnClick();
+  f.click(f.items[0]); const range = f.click(f.items[2], true);
+  assert.equal(range.prevented, true); assert.equal(range.stopped, true);
+  assert.deepEqual([...f.bank.selectedItems], f.items.slice(0, 3));
+  f.click(f.items[1], true);
+  assert.equal(f.bank.selectedItems.size, 3, "repeated ranges preserve already selected items");
+  assert.equal(f.bank.selectedBankItem, undefined);
+  assert.deepEqual(targets(f), [false, false, false]);
+  assert.equal(f.tabs.selectTab(1, f.bank), "navigate");
+  assert.deepEqual([...f.bank.selectedItems], f.items.slice(0, 3), "Sell selections remain selected across tabs");
+  assert.equal(f.calls.bulk, 0); assert.equal(f.calls.single, 0);
+  assert.equal(f.bank.itemSelectionMode, 2);
+});
+
+test("Sell ranges retain native lock checks and sale-value refreshes, and stay optional", () => {
+  const f = fixture(true); f.bank.sellItemModeOnClick();
+  f.bank.lockedItems.add(f.items[1].item);
+  f.click(f.items[0]); f.click(f.items[2], true);
+  assert.deepEqual([...f.bank.selectedItems], [f.items[0], f.items[2]]);
+  assert.deepEqual(f.sellSelections, [[f.items[0]], [f.items[0], f.items[2]]]);
+  f.click(f.items[2], true);
+  assert.equal(f.sellSelections.length, 2, "repeated ranges leave selected items selected");
+  f.toggle(false); f.bank.setItemSelectionMode(0); f.bank.sellItemModeOnClick();
+  f.bank.lockedItems.clear();
+  f.click(f.items[0]); assert.equal(f.click(f.items[2], true).stopped, false);
+  assert.deepEqual([...f.bank.selectedItems], [f.items[0], f.items[2]]);
+});
+
+for (const mode of [1, 2]) test(`Mode ${mode}: Shift-click follows visible row order, skips filtered items, and keeps existing selections`, () => {
+  const f = fixture(true); f.bank.setItemSelectionMode(mode);
   f.tabs.tabs[0].itemContainer.replaceChildren(f.icons.get(f.items[2]), f.icons.get(f.items[1]), f.icons.get(f.items[0]));
   f.icons.get(f.items[1]).classList.add("d-none");
   f.click(f.items[2]); f.click(f.items[0], true);

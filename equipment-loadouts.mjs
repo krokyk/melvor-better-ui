@@ -19,6 +19,7 @@ function decode(value) {
 export function installEquipmentLoadouts(ctx, game, planner, applyEquipmentTransaction, prepareQuickEquipCopy) {
   const player = game.combat.player, Player = player.constructor;
   let presets = [], ready = false, busy = false, failure, restoreAfterLoad = false;
+  let simulatorPatched = false;
   const projections = new Map();
   const roots = equipment => equipment.equippedArray.filter(entry => !entry.isEmpty && entry.occupiedBy === undefined)
     .map(({ slot, item, quantity }) => ({ slot, item, quantity }));
@@ -325,6 +326,37 @@ export function installEquipmentLoadouts(ctx, game, planner, applyEquipmentTrans
       this.equipSlotButtonContainer.append(note);
     });
   }
+
+  ctx.onInterfaceReady(() => {
+    const simulator = typeof mod === "undefined" ? undefined : mod.api?.mythCombatSimulator;
+    if (typeof simulator?.isLoaded?.then !== "function" || simulatorPatched) return;
+    // Interface-ready hooks run in mod order; the simulator can finish loading in a later hook.
+    simulator.isLoaded.then(loaded => {
+      if (!loaded) return;
+      const Page = typeof customElements === "undefined" ? undefined : customElements.get("mcs-equipment-page");
+      if (simulatorPatched || typeof Page?.prototype._createEquipmentSets !== "function") return;
+      const wrapImports = page => {
+        Array.from(page._equipmentSetContainer?.children ?? []).forEach((button, index) => {
+          const original = button.onclick;
+          if (typeof original !== "function") return;
+          button.onclick = function (...args) {
+            const set = player.equipmentSets[index];
+            if (!ready || busy || !set || index === player.selectedEquipmentSet) return original.apply(this, args);
+            let equipment;
+            try { equipment = projection(index); }
+            catch (error) { notify(`Combat Simulator could not read this loadout: ${error.message}`); return original.apply(this, args); }
+            const physical = set.equipment;
+            // shortcut: Combat Simulator 3.2.0 imports synchronously; revisit if its import handlers become asynchronous.
+            try { set.equipment = equipment; return original.apply(this, args); }
+            finally { set.equipment = physical; }
+          };
+        });
+      };
+      ctx.patch(Page, "_createEquipmentSets").after(function () { wrapImports(this); });
+      simulatorPatched = true;
+      document.querySelectorAll("mcs-equipment-page").forEach(wrapImports);
+    }).catch(error => console.warn("[Better UI] Combat Simulator equipment imports could not be enhanced.", error));
+  });
 
   ctx.patch(Game, "decode").after(function () {
     if (this !== game) return;

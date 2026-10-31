@@ -176,7 +176,7 @@ export function installBetterMoving(ctx, game) {
 
   function selectRange(event) {
     const bank = game.bank;
-    if (!moving(bank)) return;
+    if (!enabled || (bank.itemSelectionMode !== 1 && bank.itemSelectionMode !== 2)) return;
     const icon = event.target.closest("bank-item-icon");
     const container = document.getElementById("bank-tab-menu").tabs[bank.selectedBankTab].itemContainer;
     if (!icon || !container.contains(icon)) return;
@@ -188,7 +188,7 @@ export function installBetterMoving(ctx, game) {
     event.stopImmediatePropagation();
     for (const node of icons.slice(Math.min(start, end), Math.max(start, end) + 1)) {
       const bankItem = bank.items.get(node.item);
-      if (bankItem && !bank.selectedItems.has(bankItem)) bank.toggleItemForMoving(bankItem);
+      if (bankItem && !bank.selectedItems.has(bankItem)) bank.selectItemOnClick(node.item);
     }
   }
 
@@ -203,7 +203,7 @@ export function installBetterMoving(ctx, game) {
   });
   settings.add({
     type: "switch", name: settingName, label: "Better Moving", default: false,
-    hint: "Select Bank items with clicks or Shift-click ranges, then click another tab or drag the selection onto it. Move Mode stays active between moves.",
+    hint: "Shift-click selects item ranges in Move or Sell Mode. In Move Mode, click another tab or drag the selection onto it to move the items. Move Mode stays active between moves.",
     onChange(value) {
       if (typeof value !== "boolean") return "Choose enabled or disabled.";
       enabled = value;

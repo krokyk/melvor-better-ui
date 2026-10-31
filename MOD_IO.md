@@ -50,8 +50,9 @@ Enable it to replace the Bank's grey **Move items to new Tab** button with **Tog
 With Compact Bank Controls disabled, the mode buttons read **Toggle Move Mode** and **Toggle Sell Mode** when inactive, changing to **Cancel Move Mode** and **Cancel Sell Mode** for the active mode.
 Both buttons keep the same width in either state so the toolbar does not shift.
 Move Mode uses the same red alert style as Sell Mode and lets you select several items in the current tab without opening item details.
-Shift-click selects the visible range from the last normally clicked item in either direction while preserving existing selections.
-With items selected, the other tabs pulse gold (#DAA664) every 1.4 seconds, fading from almost transparent to 50% opacity with a glow extending 3px outside each tab; click a destination tab or drag any selected item onto it to move every selected stack.
+In Move Mode and Sell Mode, Shift-click selects the visible range from the last normally clicked item in either direction while preserving existing selections.
+Sell Mode skips locked items and updates the game's sale totals while retaining its normal selling controls and confirmation.
+In Move Mode with items selected, the other tabs pulse gold (#DAA664) every 1.4 seconds, fading from almost transparent to 50% opacity with a glow extending 3px outside each tab; click a destination tab or drag any selected item onto it to move every selected stack.
 The glow remains visible along the top edge and above the selected tab's shadow.
 Each move clears the selection, keeps you in the source tab and leaves Move Mode active for the next batch.
 With nothing selected, tabs do not glow and clicking them switches tabs normally.
@@ -176,6 +177,24 @@ The pin choice starts unpinned for new users and is remembered in this browser o
 Existing Workforce pin preferences migrate automatically.
 The mod works independently of Workforce and also pins Workforce's controls and activity summaries when installed.
 
+### Optional mod integrations
+
+Better UI has no required third-party mod dependencies.
+Its native-game features and shared equipment sets work independently of the optional mods below.
+
+| Optional mod | Integration | When unavailable |
+| --- | --- | --- |
+| Kroky's Workforce | Pins supported controls and worker summaries, expands supported recipe grids, and enhances supported artwork and recipe icons | Better UI continues enhancing the native game without Workforce-specific controls |
+| Skill Boosts | Includes its menu in pinned skill and Combat controls | Pinning continues without the additional menu |
+| Show Item Sources And Uses | Recipe and upgrade-material **?** shortcuts open its item dialog | The shortcut setting is disabled with an explanation while retaining its saved preference |
+| [Myth] Combat Simulator 3.2.0 | Equipment-set imports include remembered inactive gear, retaining native spell, prayer, food and summoning-synergy imports | No simulator import hooks are installed; shared equipment sets continue working independently |
+
+Combat Simulator compatibility activates automatically after a successful simulator load, without another setting.
+If the simulator is absent, disabled, fails to load or lacks the supported API, its compatibility hooks stay inactive.
+Equipment-set imports leave the active set, real gear and Bank stock unchanged.
+The bridge targets Combat Simulator 3.2.0's synchronous equipment-set imports.
+Reload after changing optional mods so their integrations can be detected.
+
 ## Version
 
 1.1.0
@@ -184,9 +203,10 @@ The mod works independently of Workforce and also pins Workforce's controls and 
 
 ### 1.1.0
 
+- Import remembered inactive equipment sets into [Myth] Combat Simulator 3.2.0 while retaining its native import behavior and the real inventory.
 - Add optional Better Moving with persistent Move Mode and multiselected stack transfers by destination-tab click or drag and drop.
 - Clear all selections in Move or Sell Mode with a blue Deselect All button that dims when the selection is empty.
-- Select visible item ranges in either direction with Shift-click.
+- Select visible item ranges in Move Mode and Sell Mode with Shift-click, respecting item locks when selling.
 - Pulse destination tabs in gold (#DAA664) from almost transparent to 50% opacity every 1.4 seconds with a 3px outer glow only while items are selected, retaining ordinary tab navigation with no selection.
 - Keep mode buttons the same width with active Cancel labels, match Move Mode's alert to Sell Mode, and draw destination glows above tab shadows.
 - Share owned gear across equipment-set references while keeping real items in the active set and Bank.

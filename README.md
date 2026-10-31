@@ -62,8 +62,9 @@ Enable it to replace the Bank's grey **Move items to new Tab** button with **Tog
 With Compact Bank Controls disabled, the mode buttons read **Toggle Move Mode** and **Toggle Sell Mode** when inactive, changing to **Cancel Move Mode** and **Cancel Sell Mode** for the active mode.
 Both buttons keep the same width in either state so the toolbar does not shift.
 Move Mode uses the same red alert style as Sell Mode and lets you select several items in the current tab without opening item details.
-Shift-click selects the visible range from the last normally clicked item in either direction while preserving existing selections.
-With items selected, the other tabs pulse gold (#DAA664) every 1.4 seconds, fading from almost transparent to 50% opacity with a glow extending 3px outside each tab; click a destination tab or drag any selected item onto it to move every selected stack.
+In Move Mode and Sell Mode, Shift-click selects the visible range from the last normally clicked item in either direction while preserving existing selections.
+Sell Mode skips locked items and updates the game's sale totals while retaining its normal selling controls and confirmation.
+In Move Mode with items selected, the other tabs pulse gold (#DAA664) every 1.4 seconds, fading from almost transparent to 50% opacity with a glow extending 3px outside each tab; click a destination tab or drag any selected item onto it to move every selected stack.
 The glow remains visible along the top edge and above the selected tab's shadow.
 Each move clears the selection, keeps you in the source tab and leaves Move Mode active for the next batch.
 With nothing selected, tabs do not glow and clicking them switches tabs normally.
@@ -200,6 +201,24 @@ Both controls use the game's normal unequip checks and preserve shortcut assignm
 There is no shortcut-delete action; dropping another item replaces the assignment.
 The first three shortcuts retain their native save data.
 The additional three are saved with Better UI character data separately for each equipment set and equipment slot.
+
+## Optional mod integrations
+
+Better UI has no required third-party mod dependencies.
+Its native-game features and shared equipment sets work independently of the optional mods below.
+
+| Optional mod | Integration | When unavailable |
+| --- | --- | --- |
+| Kroky's Workforce | Pins supported controls and worker summaries, expands supported recipe grids, and enhances supported artwork and recipe icons | Better UI continues enhancing the native game without Workforce-specific controls |
+| Skill Boosts | Includes its menu in pinned skill and Combat controls | Pinning continues without the additional menu |
+| Show Item Sources And Uses | Recipe and upgrade-material **?** shortcuts open its item dialog | The shortcut setting is disabled with an explanation while retaining its saved preference |
+| [Myth] Combat Simulator 3.2.0 | Equipment-set imports include remembered inactive gear, retaining native spell, prayer, food and summoning-synergy imports | No simulator import hooks are installed; shared equipment sets continue working independently |
+
+Combat Simulator compatibility activates automatically after the simulator loads successfully and has no additional setting.
+An absent, disabled, failed-to-load or unsupported simulator API leaves this integration inactive.
+Importing a set leaves the active equipment set, real gear and Bank stock unchanged.
+The bridge targets Combat Simulator 3.2.0's synchronous equipment-set imports.
+Reload the game after changing optional mods so their integrations can be detected.
 
 ## Installation
 
