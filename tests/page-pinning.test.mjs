@@ -3,7 +3,7 @@ import { afterEach, test } from "node:test";
 import { installPagePinning } from "../page-pinning.mjs";
 
 afterEach(() => {
-  for (const name of ["document", "window", "getComputedStyle", "ResizeObserver", "$", "tippy", "skillNav"]) delete globalThis[name];
+  for (const name of ["document", "window", "getComputedStyle", "ResizeObserver", "$", "tippy", "skillNav", "townshipUI"]) delete globalThis[name];
 });
 
 class Element {
@@ -691,6 +691,47 @@ test("native charged-enhancement tooltips recover after every relocation and rem
   f.button.click(); check();
   enabled = false; f.update(); check();
   assert.deepEqual(native.block.children, [native.upper, native.mastery, native.tree]);
+});
+
+test("Township resource tooltips retain their live breakdown after pinning, unpinning and page cleanup", () => {
+  let enabled = true;
+  const f = fixture([], true, () => enabled), township = f.page("Township"), panel = new Element();
+  panel.className = "sticky-div-mobile";
+  const display = new Element("township-resource-display"); panel.append(display); township.row.append(panel);
+  const resource = { name: "Wood", amount: 1000, generation: 24 };
+  f.game.township = {};
+  let disconnects = 0, repairs = 0;
+  const freshTooltip = () => ({ props: {}, setContent(content) { this.content = content; } });
+  display.tooltip = freshTooltip();
+  display.setResource = (actual, skill) => {
+    assert.equal(actual, resource); assert.equal(skill, f.game.township);
+    repairs++;
+    display.tooltip.props.onShow = instance => instance.setContent(`${actual.name}: ${actual.amount}; generation: +${actual.generation}`);
+  };
+  globalThis.townshipUI = { resourceDisplays: new Map([[resource, display]]) };
+  display.setResource(resource, f.game.township); repairs = 0;
+  // Native disconnectedCallback destroys tippy; connectedCallback creates it without setResource's onShow.
+  panel.remove = function() {
+    if (this.parentNode) { disconnects++; display.tooltip = freshTooltip(); }
+    Element.prototype.remove.call(this);
+  };
+  const check = () => {
+    display.tooltip.content = "";
+    display.tooltip.props.onShow?.(display.tooltip);
+    assert.equal(display.tooltip.content, `${resource.name}: ${resource.amount}; generation: +${resource.generation}`);
+    assert.equal(repairs, disconnects, "each relocation restores native resource tooltip binding once");
+    const count = repairs;
+    f.update(); f.update();
+    assert.equal(repairs, count, "stable updates leave Township tooltips untouched");
+  };
+  f.game.openPage = township.page; f.update();
+  f.button.click(); check(); assert.equal(disconnects, 1);
+  resource.amount = 2000; resource.generation = 36; check();
+  f.button.click(); check(); assert.equal(panel.parentNode, township.row);
+  f.button.click(); check();
+  enabled = false; f.update(); check(); assert.equal(panel.parentNode, township.row);
+  enabled = true; f.update(); check();
+  f.game.openPage = f.skill.page; f.update(); check(); assert.equal(panel.parentNode, township.row);
 });
 
 test("native mastery realm tooltips recover once per ancestor disconnect without stable-update repairs", () => {

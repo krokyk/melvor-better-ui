@@ -117,12 +117,16 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
   };
 
   const refreshTooltips = node => {
-    // Reconnecting native enhancement displays recreates their tooltips without content.
+    // Reconnecting native displays recreates their tooltips without content.
     if (node.querySelector("upgrade-chain-display") && game.shop?.renderQueue) game.shop.renderQueue.upgrades = true;
     for (const display of node.querySelectorAll("item-charge-display")) {
       const itemID = display.getAttribute("data-item-id");
       const item = itemID ? game.items?.getObjectByID(itemID) : undefined;
       if (item) display.setItem(item);
+    }
+    if (typeof townshipUI !== "undefined" && game.township) {
+      for (const [resource, display] of townshipUI.resourceDisplays ?? [])
+        if (node.contains(display)) display.setResource(resource, game.township);
     }
     for (const pool of node.querySelectorAll("mastery-pool-display")) {
       for (const [realm, display] of pool.realmDisplayMap ?? []) {
