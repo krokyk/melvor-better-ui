@@ -63,9 +63,10 @@ It uses the same blue as Workforce's **+1 Worker** controls and is disabled at 1
 The old Select Tab and Confirm Move controls are hidden while Better Moving is enabled, and disabling the setting immediately restores the native behavior.
 Reduced-motion preferences replace the pulse with a static amber highlight.
 
-**Enable Wide Layout** uses the available desktop width for Woodcutting, Fishing, Mining, Astrology, Archaeology, Thieving, Shop, Bank, Farming and Township.
+**Enable Wide Layout** uses the available desktop width for Woodcutting, Fishing, Mining, Harvesting, Astrology, Archaeology, Thieving, Shop, Bank, Farming and Township.
 It also expands Workforce's production recipe grids when installed.
 Each card layout has its own readable minimum and maximum width, so wider screens fit more columns.
+Locked Astrology and Farming cards use the same grid sizing as unlocked cards.
 Bank keeps compact inventory icons beside a bounded details column.
 The setting works independently of pinning, defaults to on and is saved per character.
 It applies at viewport widths of 1,200 pixels and above; narrower screens keep their existing layout.

@@ -2,7 +2,8 @@
 const layouts = [
   ["#woodcutting-tree-container", "woodcutting-tree", 20, 30],
   ["#mining-ores-container", "mining-rock", 22, 30],
-  ["#astrology-container-content", "constellation-menu", 24, 32],
+  ["#harvesting-veins-container", "harvesting-vein", 22, 30],
+  ["#astrology-container-content", ":is(constellation-menu, locked-constellation-menu)", 24, 32],
   ["#archaeology-dig-sites-container", "archaeology-dig-site-container", 28, 36],
   ["#thieving-npc-container", "thieving-area-panel", 36, 52],
   ["#fishing-area-menu-container", ":is(.kroky-fishing-section, fishing-area-menu)", 32, 42],
@@ -14,7 +15,7 @@ const layouts = [
 const scope = "#page-container.kroky-wide-layout";
 const styles = `
 @media (min-width: 1200px) {
-  ${scope} #main-container > :is(#woodcutting-container, #fishing-container, #mining-container, #astrology-container, #archaeology-container, #thieving-container, #shop-container, #farming-container, #township-container, #bank-container),
+  ${scope} #main-container > :is(#woodcutting-container, #fishing-container, #mining-container, #astrology-container, #archaeology-container, #harvesting-container, #thieving-container, #shop-container, #farming-container, #township-container, #bank-container),
   ${scope} #main-container > .content:has(.kroky-production:not([hidden]) > div:not([hidden]) > details) { max-width: none; }
   ${layouts.map(([grid, card, min, max]) => `
   ${scope} ${grid} { --kroky-card-min: ${min}rem; --kroky-card-max: ${max}rem; display: grid; width: 100%; grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--kroky-card-min)), 1fr)); gap: 1rem; align-items: stretch; margin-left: 0; margin-right: 0; }

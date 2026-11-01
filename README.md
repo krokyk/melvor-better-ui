@@ -83,7 +83,7 @@ Cards retain their controls and use these minimum and maximum widths:
 | Layout | Minimum | Maximum |
 | --- | --- | --- |
 | Woodcutting | 20rem | 30rem |
-| Mining and Workforce production recipes | 22rem | 30rem |
+| Mining, Harvesting and Workforce production recipes | 22rem | 30rem |
 | Astrology | 24rem | 32rem |
 | Archaeology | 28rem | 36rem |
 | Thieving areas | 36rem | 52rem |
@@ -94,6 +94,7 @@ Cards retain their controls and use these minimum and maximum widths:
 
 Bank inventory uses the remaining width beside a details column bounded between 24rem and 36rem.
 Township resource summaries use the expanded page width while building cards wrap in their own grid.
+Locked Astrology and Farming cards use the same grid sizing as unlocked cards.
 Workforce production recipe cards share one range across Smithing, Fletching, Crafting, Runecrafting, Herblore, Summoning and Alt. Magic.
 Native production views, Combat, Cooking, Firemaking, Music and Agility retain their normal page widths.
 Below 1,200 pixels the wide-layout setting leaves the existing layout unchanged.
