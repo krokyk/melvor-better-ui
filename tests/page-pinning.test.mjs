@@ -918,6 +918,23 @@ test("newly mounted controls enter their original document order while pinned", 
   release.click(); assert.equal(releases, 2);
 });
 
+test("loader-hidden headers prepare their controls without overwriting measured geometry", () => {
+  const f = fixture([["kroky-better-ui:pin", "true"]]);
+  const offset = f.update.offset;
+  let reads = 0;
+  f.header.getClientRects = () => [];
+  f.header.getBoundingClientRect = () => { reads++; return { height: 0 }; };
+  f.update(); f.events.get("resize")();
+  assert.ok(f.pinned(), "stable controls remain prepared behind the native loader");
+  assert.equal(reads, 0, "hidden native geometry cannot determine the visible header height");
+  assert.equal(f.update.offset, offset);
+  f.header.getClientRects = () => [{}];
+  f.header.getBoundingClientRect = () => { reads++; return { height: 80 }; };
+  f.events.get("resize")();
+  assert.equal(reads > 0, true, "visible geometry catches up without rebuilding controls");
+  assert.equal(f.update.offset, offset + 16);
+});
+
 test("viewport resize and content growth share a half-screen cap and publish the exact scroll offset", () => {
   const f = fixture();
   f.button.click();

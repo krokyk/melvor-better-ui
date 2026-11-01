@@ -13,7 +13,7 @@ export async function setup(ctx) {
     const settingName = "page-pinning-enabled";
     const wideSettingName = "wide-layout-enabled";
     const compactSettingName = "compact-skill-header-enabled";
-    let enabled = true, interfaceReady = false, nextUpdate = 0;
+    let enabled = true, interfacePrepared = false, interfaceReady = false, nextUpdate = 0;
     let lastPage, pageObserver;
     let wideEnabled = true, compactEnabled = true;
     const updatePinning = installPagePinning(ctx, game, () => enabled, () => compactEnabled);
@@ -23,13 +23,15 @@ export async function setup(ctx) {
       nextUpdate = performance.now() + 200;
       updatePinning();
     };
+    const canRefresh = () => interfaceReady && game.enableRendering !== false && game._isInOnlineLoop !== false &&
+      (typeof document === "undefined" || document.visibilityState !== "hidden");
     settings.add({
       type: "switch", name: settingName, label: "Enable Page Pinning", default: true,
       hint: "Show the thumbtack button in the page header. Disable to restore the normal layout while keeping your pin preference.",
       onChange(value) {
         if (typeof value !== "boolean") return "Choose enabled or disabled.";
         enabled = value;
-        if (interfaceReady) updatePinning();
+        if (interfacePrepared) updatePinning();
       },
     });
     settings.add({
@@ -38,7 +40,7 @@ export async function setup(ctx) {
       onChange(value) {
         if (typeof value !== "boolean") return "Choose enabled or disabled.";
         compactEnabled = value;
-        if (interfaceReady) updatePinning();
+        if (interfacePrepared) updatePinning();
       },
     });
     settings.add({
@@ -47,7 +49,7 @@ export async function setup(ctx) {
       onChange(value) {
         if (typeof value !== "boolean") return "Choose enabled or disabled.";
         wideEnabled = value;
-        if (interfaceReady) updateWideLayout();
+        if (interfacePrepared) updateWideLayout();
       },
     });
     let quickEquip;
@@ -62,16 +64,15 @@ export async function setup(ctx) {
       enabled = settings.get(settingName) !== false;
       wideEnabled = settings.get(wideSettingName) !== false;
       compactEnabled = settings.get(compactSettingName) !== false;
-      if (interfaceReady) { updatePinning(); updateWideLayout(); }
+      if (interfacePrepared) { refreshPinning(); updateWideLayout(); }
     };
-    ctx.onCharacterLoaded(restore);
-    ctx.onInterfaceReady(() => {
-      interfaceReady = true;
+    const prepare = () => {
+      interfacePrepared = true;
       restore();
       if (pageObserver || typeof MutationObserver !== "function" || !game.pages?.forEach) return;
       // Page visibility changes finish before this callback runs and before the browser paints.
       pageObserver = new MutationObserver(() => {
-        if (game.openPage === lastPage) return;
+        if (!canRefresh() || game.openPage === lastPage) return;
         const page = document.getElementById(game.openPage?.containerID);
         if (page && !page.classList.contains("d-none")) refreshPinning();
       });
@@ -79,10 +80,16 @@ export async function setup(ctx) {
         const node = document.getElementById(page.containerID);
         if (node) pageObserver.observe(node, { attributes: true, attributeFilter: ["class"] });
       });
+    };
+    ctx.onCharacterLoaded(prepare);
+    ctx.onInterfaceReady(() => { interfaceReady = true; prepare(); });
+    // Workforce may prepare its controls later in the same awaited character-loading sequence.
+    if (typeof document !== "undefined") document.addEventListener?.("kroky-workforce-layout-ready", () => {
+      if (interfacePrepared) refreshPinning();
     });
     ctx.patch(Game, "decode").after(restore);
     ctx.patch(Game, "render").after(() => {
-      if (!interfaceReady) return;
+      if (!canRefresh()) return;
       const now = performance.now();
       if (game.openPage === lastPage && now < nextUpdate) return;
       refreshPinning();

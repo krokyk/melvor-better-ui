@@ -39,8 +39,9 @@ test("independent config restores on load and QuickLoad, updates new pages immed
     const node = { hidden: false, parentElement: parent, children: [card], classList: { contains: name => name === "d-none" && node.hidden } };
     return [page.containerID, node];
   }));
-  const observers = [];
-  globalThis.document = { getElementById: id => roots.get(id) ?? null };
+  const observers = [], documentEvents = new Map();
+  globalThis.document = { getElementById: id => roots.get(id) ?? null,
+    addEventListener: (name, callback) => documentEvents.set(name, callback) };
   globalThis.MutationObserver = class {
     constructor(callback) { this.callback = callback; this.observed = []; observers.push(this); }
     observe(node, options) { this.observed.push({ node, options }); }
@@ -141,10 +142,16 @@ test("independent config restores on load and QuickLoad, updates new pages immed
     assert.equal(field.default, true);
   }
   game.render(); assert.deepEqual(updates, { pinning: [], compact: [], wide: [] });
-  assert.equal(observers.length, 0, "page observation waits for the interface");
+  assert.equal(observers.length, 0, "page observation waits for character restoration");
+  documentEvents.get("kroky-workforce-layout-ready")();
+  assert.deepEqual(updates, { pinning: [], compact: [], wide: [] }, "Workforce can prepare before Better UI restores its character");
   assert.equal(compact.onChange(false), undefined);
   game.decode({ [pinning.name]: false, [compact.name]: false, [wide.name]: true }); hooks.character();
-  assert.deepEqual(updates, { pinning: [], compact: [], wide: [] }, "saved settings and toggles wait until the interface is ready");
+  assert.deepEqual(updates, { pinning: [false], compact: [false], wide: [true] }, "saved layouts apply inside character loading before offline replay");
+  assert.equal(observers.length, 1);
+  documentEvents.get("kroky-workforce-layout-ready")();
+  assert.deepEqual(updates, { pinning: [false, false], compact: [false, false], wide: [true] }, "later Workforce preparation refreshes pinned controls without reapplying global CSS");
+  for (const entries of Object.values(updates)) entries.length = 0;
   hooks.interface(); assert.deepEqual(updates, { pinning: [false], compact: [false], wide: [true] });
   assert.equal(observers.length, 1);
   assert.deepEqual(observers[0].observed.map(entry => entry.node), [...roots.values()], "only registered page roots are observed, not their parent or cards");
@@ -228,6 +235,18 @@ test("independent config restores on load and QuickLoad, updates new pages immed
   assert.equal(skillStatsInstalled, 1, "restoring settings and rendering never reinstall skill stats");
   assert.equal(loadoutsInstalled, 1, "restoring settings and rendering never reinstall equipment loadouts");
   assert.equal(movingInstalled, 1, "restoring settings and rendering never reinstall Better Moving");
+  const beforeReplay = updates.pinning.length;
+  game._isInOnlineLoop = false; game.enableRendering = true; now += 1000;
+  game.openPage = pageA;
+  game.render(); observers[0].callback([]);
+  assert.equal(updates.pinning.length, beforeReplay, "offline replay suppresses recurring render and navigation work even while rendering is enabled");
+  game._isInOnlineLoop = true; document.visibilityState = "hidden";
+  game.render(); observers[0].callback([]);
+  assert.equal(updates.pinning.length, beforeReplay, "hidden documents retain their pending navigation");
+  document.visibilityState = "visible"; game.render();
+  assert.equal(updates.pinning.length, beforeReplay + 1, "the first visible online frame catches up after replay");
+  game.enableRendering = false; now += 1000; game.render();
+  assert.equal(updates.pinning.length, beforeReplay + 1, "native rendering suppression remains authoritative");
 });
 
 test("render remains the page-change fallback without MutationObserver or the page registry", async () => {

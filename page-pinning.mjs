@@ -368,6 +368,7 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
     if (header) observer?.observe(header);
   };
   const measure = () => {
+    if (header?.getClientRects?.().length === 0) return;
     if (!root?.classList.contains("kroky-page-pinned")) {
       setStyle(document.documentElement, "--kroky-page-pin-offset", `${nativeOffset()}px`);
       return;
