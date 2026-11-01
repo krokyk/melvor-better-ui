@@ -1279,3 +1279,29 @@ test("genuinely oversized global headers portal their own dropdowns without inte
   f.button.click();
   assert.equal(menu.parentNode, owner);
 });
+
+test("Farming pinning preserves the native plot insertion anchor through category changes and cleanup", () => {
+  const f = fixture(), farming = f.page("Farming"), grid = new Element(); grid.id = "farming-plot-container";
+  const options = new Element("farming-category-options"), controls = new Element(), plant = new Element("button");
+  controls.className = "block block-content text-center"; controls.append(plant); options.append(controls);
+  const unlocked = new Element("farming-plot"), locked = new Element("locked-farming-plot"), nextLocked = new Element("locked-farming-plot");
+  grid.append(options, unlocked); farming.cards.remove(); farming.row.append(grid);
+  const showPlots = plots => { let previous = options; for (const plot of plots) { previous.after(plot); previous = plot; } };
+  let planted = 0; plant.addEventListener("click", () => planted++);
+  f.game.openPage = farming.page; f.button.click();
+  showPlots([unlocked, locked]); f.update();
+  assert.equal(grid.children.includes(unlocked), true, "native category changes insert unlocked plots in the original grid");
+  assert.equal(grid.children.includes(locked), true, "native category changes insert locked plots in the original grid");
+  assert.equal(options.parentNode === grid, true);
+  assert.equal(controls.parentNode === farming.node.querySelector(".kroky-page-pin-controls"), true);
+  const moves = controls.moves; f.update(); f.update();
+  assert.equal(controls.moves, moves, "the moved inner controls stay pinned instead of alternating parents");
+  showPlots([nextLocked, unlocked]); f.update(); plant.click();
+  assert.equal(grid.children.includes(nextLocked), true); assert.equal(grid.children.includes(unlocked), true); assert.equal(planted, 1);
+  f.button.click();
+  assert.equal(controls.parentNode === options, true); assert.equal(options.parentNode === grid, true);
+  f.button.click(); f.game.openPage = f.skill.page; f.update();
+  assert.equal(controls.parentNode === options, true, "leaving Farming restores its original controls");
+  assert.equal(grid.children.includes(nextLocked), true); assert.equal(grid.children.includes(unlocked), true);
+  plant.click(); assert.equal(planted, 2, "the original native action retains its handler");
+});

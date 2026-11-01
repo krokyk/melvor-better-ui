@@ -485,7 +485,12 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
       // Keep Bank labels themed and narrow-screen controls in their native layout.
       const bank = container.querySelector("bank-tab-menu");
       // Keep mode panels mounted so toggles cannot briefly collapse the inventory row.
-      const candidates = [...container.querySelectorAll(targets)].filter(node =>
+      const candidates = [...container.querySelectorAll(targets)].flatMap(node => {
+        if (!node.matches("farming-category-options")) return [node];
+        // Farming inserts plots after this element, so keep its anchor in the native grid.
+        const controls = node.querySelector(".block") ?? [...moved].find(([, marker]) => marker.parentElement === node)?.[0];
+        return controls ? [controls] : [];
+      }).filter(node =>
         (!bank || window.innerWidth >= 992 && !bank.contains(node)) &&
         (visible(node) || node.matches("bank-move-mode-menu,bank-sell-mode-menu")));
       const selected = candidates.filter(node => !candidates.some(parent => parent !== node && parent.contains(node)));
