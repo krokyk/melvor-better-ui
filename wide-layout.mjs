@@ -8,7 +8,7 @@ const layouts = [
   ["#fishing-area-menu-container", ":is(.kroky-fishing-section, fishing-area-menu)", 32, 42],
   [".kroky-production-grid", ".kroky-production-card", 22, 30],
   ["#new-shop .row.row-deck", ".col-12", 24, 34],
-  ["#farming-plot-container", "farming-plot", 20, 28],
+  ["#farming-plot-container", ":is(farming-plot, locked-farming-plot)", 20, 28],
   ["#ts-town", "building-in-town", 18, 26],
 ];
 const scope = "#page-container.kroky-wide-layout";
