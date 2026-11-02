@@ -8,6 +8,7 @@ export async function setup(ctx) {
   const { installQuickEquip } = await ctx.loadModule("quick-equip.mjs");
   const { installItemSourcesAndUses } = await ctx.loadModule("item-sources-and-uses.mjs");
   const { installBetterMoving } = await ctx.loadModule("better-moving.mjs");
+  const { installShopStock } = await ctx.loadModule("shop-stock.mjs");
   ctx.onModsLoaded(() => {
     const settings = ctx.settings.section("General");
     const settingName = "page-pinning-enabled";
@@ -60,6 +61,7 @@ export async function setup(ctx) {
     installItemStats(ctx, game, getStatsLayout);
     installItemSourcesAndUses(ctx, game);
     installBetterMoving(ctx, game);
+    installShopStock(ctx);
     const restore = () => {
       enabled = settings.get(settingName) !== false;
       wideEnabled = settings.get(wideSettingName) !== false;
