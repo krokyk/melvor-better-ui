@@ -8,6 +8,10 @@ The currently viewed skill has a lighter grey background in the left navigation.
 The highlight follows navigation and works when page pinning is disabled.
 Shop item costs show current Bank stock in a blue oval beneath each required-item icon, including Quick Buy and purchase confirmations.
 The badges refresh with Bank changes, show zero for missing items and reveal exact quantities on hover.
+The skill-tree modal has a compact **Spend All** button beside the point total.
+After one confirmation, it unlocks the displayed tree's cheapest affordable upgrades first, using native order for equal point costs and respecting normal costs and prerequisites.
+Skill-tree controls glow when an upgrade is affordable and its prerequisites are met: the sidebar link for any ready skill, each ready skill in the chooser, and that skill's header button.
+The gold outer glow pulses between half and full intensity and updates from native changes without polling.
 
 Open **Mod Settings → Kroky's Better UI → General → Enable Page Pinning** to enable or disable the feature.
 The setting defaults to on and is saved per character.

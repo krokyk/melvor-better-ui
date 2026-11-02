@@ -9,6 +9,8 @@ export async function setup(ctx) {
   const { installItemSourcesAndUses } = await ctx.loadModule("item-sources-and-uses.mjs");
   const { installBetterMoving } = await ctx.loadModule("better-moving.mjs");
   const { installShopStock } = await ctx.loadModule("shop-stock.mjs");
+  const { installSkillTreeSpendAll } = await ctx.loadModule("skill-tree-spend-all.mjs");
+  const { installSkillTreeGlow } = await ctx.loadModule("skill-tree-glow.mjs");
   ctx.onModsLoaded(() => {
     const settings = ctx.settings.section("General");
     const settingName = "page-pinning-enabled";
@@ -62,6 +64,8 @@ export async function setup(ctx) {
     installItemSourcesAndUses(ctx, game);
     installBetterMoving(ctx, game);
     installShopStock(ctx);
+    installSkillTreeSpendAll(ctx, game);
+    installSkillTreeGlow(ctx, game);
     const restore = () => {
       enabled = settings.get(settingName) !== false;
       wideEnabled = settings.get(wideSettingName) !== false;

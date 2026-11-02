@@ -16,6 +16,8 @@ One shared pin choice follows you across skills, Combat, Bank, Shop, Settings, F
 The currently viewed skill has a lighter grey background in the left navigation, independently of page pinning.
 Shop item costs show current Bank stock in a blue oval beneath each required-item icon, including Quick Buy and purchase confirmations.
 Badges refresh with Bank changes and show exact quantities on hover while keeping the required amount and affordability colour visible.
+**Spend All** beside the skill-tree point total unlocks the displayed tree's cheapest affordable upgrades first after one confirmation, respecting normal costs and prerequisites.
+Skill-tree controls show a gold outer glow when an upgrade can be unlocked, covering the sidebar link, skill chooser entries and each skill's header button through native change updates.
 
 The pinned stack uses at most half the screen height and scrolls internally when necessary.
 Combat's native XP table stays connected, and dropdown menus remain accessible outside scrolling sections.
