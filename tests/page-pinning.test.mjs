@@ -1328,6 +1328,29 @@ test("generic pinned controls follow actual page padding, including Cartography'
   assert.ok(cartography.node.querySelector(".kroky-page-pin-controls"));
 });
 
+test("Cartography pin spacing keeps its native-sized canvas inside the viewport", () => {
+  const f = fixture([], false, () => true, () => false);
+  window.innerWidth = 2536; window.innerHeight = 1404; f.header.height = 64;
+  const cartography = new Element(), headerHome = new Element(), header = new Element("skill-header"), map = new Element("world-map-display"), canvas = new Element("canvas");
+  cartography.id = "cartography-container"; cartography.className = "d-flex flex-grow-1 flex-column mt-1-mobile";
+  map.id = "cartography-map-display"; map.className = "flex-grow-1 cartography-map-container";
+  canvas.width = 2296; canvas.height = 1290;
+  headerHome.append(header); map.append(canvas); cartography.append(headerHome, map); f.main.append(cartography);
+  f.game.openPage = { id: "melvorAoD:Cartography", containerID: cartography.id }; f.update(); f.button.click();
+  const wrapper = cartography.querySelector(".kroky-page-pin-controls"); wrapper.height = 42.625;
+  const css = document.head.querySelector("style").textContent;
+  const cartographyRule = css.match(/#page-container\.kroky-page-pinned #cartography-container > \.kroky-page-pin-controls\s*\{([^}]+)\}/)?.[1];
+  const gap = Number.parseFloat(cartographyRule?.match(/margin-bottom:\s*([\d.]+)/)?.[1] ?? "16");
+  // Native PIXI retains this canvas size when pinning changes its preceding header.
+  const canvasBottom = f.header.height + wrapper.height + gap + canvas.height;
+  const documentHeight = Math.max(window.innerHeight, Math.ceil(canvasBottom));
+  const clientWidth = window.innerWidth - (documentHeight > window.innerHeight ? 15 : 0);
+  assert.equal(documentHeight, window.innerHeight, "the pinned header must not add a vertical scrollbar beside the native canvas");
+  assert.ok(240 + canvas.width <= clientWidth, "the canvas must fit without a scrollbar-induced horizontal overflow");
+  assert.equal(map.parentNode, cartography); assert.equal(canvas.parentNode, map);
+  f.button.click(); assert.equal(header.parentNode, headerHome); assert.equal(canvas.parentNode, map);
+});
+
 test("all pages including Township, Farming, Bank, Settings and Shop share the same pin choice", () => {
   const f = fixture();
   f.button.click();

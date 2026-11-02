@@ -53,6 +53,7 @@ const styles = `
 .kroky-page-pin-controls > .skill-info { margin: 0 -1rem 1rem; width: calc(100% + 2rem); max-width: none; }
 .kroky-page-pin-controls :is(.sticky-div-mobile, .sticky-category-menu-mobile) { position: static !important; top: auto !important; }
 .kroky-page-pin-controls .kroky-activity-summary { margin-top: .5rem; }
+#page-container.kroky-page-pinned #cartography-container > .kroky-page-pin-controls { margin-bottom: 0; }
 @media (min-width: 992px) {
   #page-container.kroky-page-pinned #shop-container { padding-left: 0; padding-right: 0; }
   #page-container.kroky-page-pinned #shop-container > .kroky-page-pin-controls { width: 100%; margin-left: 0; margin-right: 0; }
