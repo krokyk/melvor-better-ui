@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
+import { readFileSync } from "node:fs";
 import { installPagePinning } from "../page-pinning.mjs";
 
 afterEach(() => {
@@ -167,6 +168,49 @@ function fixture(initialStorage = [], initialPage = true, isEnabled = () => true
   const button = header.querySelector(".kroky-page-pin");
   return { html, root, main, header, theme, left, storage, events, observers, jqueryEvents, page, skill, game, update, button,
     pinned: () => skill.node.querySelector(".kroky-page-pin-controls") };
+}
+
+const nativeLayouts = JSON.parse(readFileSync(new URL("fixtures/pinning-native-layouts.json", import.meta.url), "utf8"));
+for (const { name, layout } of nativeLayouts) {
+  test(`${name}'s native layout pins its headers while preserving its content, controls and exact origins`, () => {
+    const f = fixture([], false, () => true, () => false);
+    const make = spec => {
+      const node = new Element(spec.tag);
+      for (const [key, value] of Object.entries(spec.attrs ?? {})) {
+        node.setAttribute(key, value);
+        if (key === "id") node.id = value;
+        if (key === "class") node.className = value;
+      }
+      node.append(...(spec.children ?? []).map(make));
+      return node;
+    };
+    const native = make(layout); native.classList.remove("d-none"); f.main.append(native);
+    const page = { id: `native:${name}`, containerID: native.id };
+    const header = native.querySelector("skill-header"), root = name === "Cartography" ? header : native.children[0];
+    const headerHome = header.parentNode, nativeChildren = [...native.children], rootHome = root.parentNode;
+    const realm = native.querySelector("realm-select-menu"), realmHome = realm?.parentNode;
+    const content = native.children.at(-1), contentChildren = [...content.children], action = new Element("button");
+    content.append(action);
+    let clicks = 0; action.addEventListener("click", () => clicks++);
+    f.game.openPage = page; f.update(); f.button.click();
+    const wrapper = native.querySelector(".kroky-page-pin-controls");
+    assert.equal(root.parentNode, wrapper);
+    assert.equal(header.parentNode, name === "Cartography" ? wrapper : headerHome);
+    assert.equal(content.parentNode, native); assert.equal(action.parentNode, content); action.click();
+    if (realm) {
+      assert.equal(realm.parentNode, wrapper);
+      realm.classList.add("d-none"); f.update(); assert.equal(realm.parentNode, realmHome);
+      realm.classList.remove("d-none"); f.update(); assert.equal(realm.parentNode, wrapper);
+    }
+    const moves = root.moves; f.update(); f.update(); assert.equal(root.moves, moves);
+    f.button.click();
+    assert.equal(root.parentNode, rootHome); assert.equal(header.parentNode, headerHome);
+    assert.deepEqual(native.children, nativeChildren);
+    assert.deepEqual(content.children, [...contentChildren, action]); action.click(); assert.equal(clicks, 2);
+    f.button.click(); f.game.openPage = f.skill.page; f.update();
+    assert.equal(root.parentNode, rootHome); assert.equal(realm?.parentNode, realmHome);
+    assert.equal(action.parentNode, content);
+  });
 }
 
 function nativeSkillHeader(skill, charges = true) {
@@ -732,6 +776,39 @@ test("Township resource tooltips retain their live breakdown after pinning, unpi
   enabled = false; f.update(); check(); assert.equal(panel.parentNode, township.row);
   enabled = true; f.update(); check();
   f.game.openPage = f.skill.page; f.update(); check(); assert.equal(panel.parentNode, township.row);
+});
+
+test("locked local realm requirements survive pinning and restore without changing selection callbacks", () => {
+  const f = fixture(), menu = f.skill.realm, option = new Element("realm-select-option"), link = new Element("a");
+  const realm = { name: "Locked realm", unlockRequirements: ["Requires level 60"] };
+  menu.append(option); option.append(link); option.realm = realm;
+  let selections = 0, disconnects = 0, repairs = 0;
+  const callback = () => { selections++; }; link.addEventListener("click", callback);
+  const tooltip = () => ({ props: {}, setContent(content) { this.content = content; } });
+  option.tooltip = tooltip();
+  option.setRealm = actual => {
+    assert.equal(actual, realm); repairs++;
+    option.tooltip.props.onShow = instance => instance.setContent(actual.unlockRequirements.join(""));
+  };
+  option.setRealm(realm); repairs = 0;
+  // Native RealmSelectOption recreates a locked realm's tooltip without its setRealm callback.
+  menu.remove = function() {
+    if (this.parentNode) { disconnects++; option.tooltip = tooltip(); }
+    Element.prototype.remove.call(this);
+  };
+  const check = () => {
+    option.tooltip.content = ""; option.tooltip.props.onShow?.(option.tooltip);
+    assert.equal(option.tooltip.content, realm.unlockRequirements.join(""));
+    assert.equal(repairs, disconnects);
+    assert.equal(link.listeners.click, callback); link.click();
+    const count = repairs; f.update(); f.update(); assert.equal(repairs, count);
+  };
+  f.button.click(); check();
+  realm.unlockRequirements[0] = "Requires level 80"; check();
+  f.button.click(); check(); assert.equal(menu.parentNode, f.skill.row);
+  f.button.click(); check();
+  f.game.openPage = f.page("Cooking").page; f.update(); check();
+  assert.equal(selections, 5);
 });
 
 test("native mastery realm tooltips recover once per ancestor disconnect without stable-update repairs", () => {

@@ -128,6 +128,9 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
       for (const [resource, display] of townshipUI.resourceDisplays ?? [])
         if (node.contains(display)) display.setResource(resource, game.township);
     }
+    for (const option of node.querySelectorAll("realm-select-option")) {
+      if (option.realm && option.tooltip) option.setRealm(option.realm);
+    }
     for (const pool of node.querySelectorAll("mastery-pool-display")) {
       for (const [realm, display] of pool.realmDisplayMap ?? []) {
         if (display.realmTooltip?.state?.isDestroyed && typeof tippy === "function") {

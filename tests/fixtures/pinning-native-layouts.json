@@ -1,0 +1,348 @@
+[
+  {
+    "name": "Cooking",
+    "source": "Melvor native pageContainer.php, interface 12097",
+    "layout": {
+      "tag": "div",
+      "attrs": {
+        "class": "content d-none",
+        "id": "cooking-container"
+      },
+      "children": [
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "skill-info"
+          },
+          "children": [
+            {
+              "tag": "skill-header",
+              "attrs": {
+                "data-skill-id": "melvorD:Cooking"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "row gutters-tiny row-deck",
+            "id": "cooking-menu-container"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "Agility",
+    "source": "Melvor native pageContainer.php, interface 12097",
+    "layout": {
+      "tag": "div",
+      "attrs": {
+        "class": "content d-none",
+        "id": "agility-container"
+      },
+      "children": [
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "skill-info"
+          },
+          "children": [
+            {
+              "tag": "skill-header",
+              "attrs": {
+                "data-skill-id": "melvorD:Agility"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "row row-deck"
+          },
+          "children": [
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "col-12"
+              },
+              "children": [
+                {
+                  "tag": "div",
+                  "attrs": {
+                    "class": "block block-rounded block-link-pop border-top border-agility border-4x"
+                  }
+                }
+              ]
+            },
+            {
+              "tag": "realm-select-menu",
+              "attrs": {
+                "class": "col-12",
+                "data-skill-id": "melvorD:Agility"
+              }
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "col-6 col-lg-3"
+              },
+              "children": [
+                {
+                  "tag": "button",
+                  "attrs": {
+                    "role": "button",
+                    "class": "btn btn-success m-2 w-100",
+                    "id": "agility-start-button"
+                  }
+                }
+              ]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "col-6 col-lg-3"
+              },
+              "children": [
+                {
+                  "tag": "button",
+                  "attrs": {
+                    "role": "button",
+                    "class": "btn btn-danger m-2 w-100",
+                    "id": "agility-stop-button"
+                  }
+                }
+              ]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "col-6 col-lg-3"
+              },
+              "children": [
+                {
+                  "tag": "div",
+                  "attrs": {
+                    "class": "dropdown"
+                  }
+                }
+              ]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "col-6 col-lg-3"
+              },
+              "children": [
+                {
+                  "tag": "div",
+                  "attrs": {
+                    "class": "dropdown"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "row row-deck gutters-tiny",
+            "id": "skill-content-container-20"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "Thieving",
+    "source": "Melvor native pageContainer.php, interface 12097",
+    "layout": {
+      "tag": "div",
+      "attrs": {
+        "class": "content d-none",
+        "id": "thieving-container"
+      },
+      "children": [
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "skill-info"
+          },
+          "children": [
+            {
+              "tag": "skill-header",
+              "attrs": {
+                "data-skill-id": "melvorD:Thieving"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "row row-deck"
+          },
+          "children": [
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "col-12",
+                "id": "offline-thieving-alert"
+              },
+              "children": [
+                {
+                  "tag": "div",
+                  "attrs": {
+                    "class": "alert alert-danger alert-dismissable w-100",
+                    "role": "alert"
+                  }
+                }
+              ]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "col-12 col-md-6 col-lg-4"
+              },
+              "children": [
+                {
+                  "tag": "div",
+                  "attrs": {
+                    "class": "block block-rounded block-link-pop border-top border-thieving border-4x"
+                  }
+                }
+              ]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "col-12 col-md-6 col-lg-4"
+              },
+              "children": [
+                {
+                  "tag": "div",
+                  "attrs": {
+                    "class": "block block-rounded block-link-pop border-top border-thieving border-4x"
+                  }
+                }
+              ]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "col-12 col-lg-4"
+              },
+              "children": [
+                {
+                  "tag": "div",
+                  "attrs": {
+                    "class": "block block-rounded block-link-pop border-top border-thieving border-4x"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "row gutters-tiny",
+            "id": "thieving-npc-container"
+          },
+          "children": [
+            {
+              "tag": "realm-select-menu",
+              "attrs": {
+                "class": "col-12",
+                "data-skill-id": "melvorD:Thieving"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "Cartography",
+    "source": "Melvor native pageContainer.php, interface 12097",
+    "layout": {
+      "tag": "div",
+      "attrs": {
+        "class": "d-none flex-grow-1 flex-column mt-1-mobile",
+        "id": "cartography-container"
+      },
+      "children": [
+        {
+          "tag": "div",
+          "children": [
+            {
+              "tag": "skill-header",
+              "attrs": {
+                "data-skill-id": "melvorAoD:Cartography"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "world-map-display",
+          "attrs": {
+            "id": "cartography-map-display",
+            "class": "flex-grow-1 cartography-map-container"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "Music",
+    "source": "[Myth] Music music.html template, mod.io 3096259",
+    "layout": {
+      "tag": "div",
+      "attrs": {
+        "class": "content d-none",
+        "id": "music-container"
+      },
+      "children": [
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "skill-info music-skill-info"
+          },
+          "children": [
+            {
+              "tag": "skill-header",
+              "attrs": {
+                "data-skill-id": "mythMusic:Music"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "row row-deck"
+          },
+          "children": [
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "col-12",
+                "id": "bard-container"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "row row-deck gutters-tiny",
+            "id": "instruments-container"
+          }
+        }
+      ]
+    }
+  }
+]
