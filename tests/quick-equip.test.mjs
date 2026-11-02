@@ -263,6 +263,7 @@ test("shared Combat and header grids default to unequip beside Bank without equi
   assert.equal(unequip, menu.unequipButton, "placement reuses the native control");
   assertPopupUnequipOrder(menu);
   assert.equal(unequip.textContent, "Unequip Current");
+  assert.equal(unequip.title, "", "the visible action does not need a duplicate tooltip");
   assert.deepEqual(f.calls.unequip, [{ slot: f.weapon, set: 0 }]);
   const header = new f.EquipmentGridIconElement(); f.body.append(header);
   const headerMenu = f.show(header);
@@ -1326,6 +1327,11 @@ test("item names appear only in the side preview while nonquantity Bank items hi
   const search = picker.querySelector("input");
   const items = picker.querySelector(".kroky-quick-equip-items"), preview = menu.querySelector(".kroky-quick-equip-preview");
   assert.ok(preview); assert.equal(preview.hidden, true);
+  for (const button of items.children) {
+    const item = f.items.find(item => item.id === button.dataset.itemId), quantity = f.game.bank.getQty(item);
+    assert.equal(button.title, `In Bank: ${formatNumber(quantity)}`, "only stock belongs in the tooltip beside the item preview");
+    assert.equal(button.getAttribute("aria-label"), `${item.name} (${formatNumber(quantity)})`, "accessible names still identify each item");
+  }
   assert.ok(!picker.querySelector(".kroky-quick-equip-selected-name"), "the duplicated name below Search Bank is removed");
   assert.equal(search.parentElement, items.parentElement);
   const quantity = search.nextSibling;

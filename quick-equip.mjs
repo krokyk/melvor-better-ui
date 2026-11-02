@@ -433,8 +433,8 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
       const button = document.createElement("button"), image = document.createElement("img");
       button.type = "button"; button.className = "btn btn-outline-secondary kroky-quick-equip-bank-item";
       button.draggable = true; button.dataset.itemId = item.id;
-      button.title = `${item.name} (${formatNumber(quantity)})`;
-      button.setAttribute("aria-label", button.title); button.setAttribute("aria-pressed", "false");
+      button.title = `In Bank: ${formatNumber(quantity)}`;
+      button.setAttribute("aria-label", `${item.name} (${formatNumber(quantity)})`); button.setAttribute("aria-pressed", "false");
       image.src = item.media; image.alt = ""; button.append(image);
       button.addEventListener("dragstart", event => {
         if (!canAssign(view, item)) { event.preventDefault(); return; }
@@ -750,7 +750,7 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
     if (!binding.active) {
       binding.active = true;
       button.type = "button"; button.className = "btn btn-sm btn-danger text-white kroky-quick-equip-unequip-current";
-      button.textContent = "Unequip Current"; button.title = "Unequip Current";
+      button.textContent = "Unequip Current"; button.title = "";
       icon.image.setAttribute("tabindex", "0");
       icon.image.setAttribute("role", "button");
       icon.image.setAttribute("aria-label", `Quick equip: ${equipped.slot.emptyName}`);
