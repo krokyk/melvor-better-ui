@@ -191,6 +191,7 @@ Its native-game features and shared equipment sets work independently of the opt
 | --- | --- | --- |
 | Kroky's Workforce | Pins supported controls and worker summaries, expands supported recipe grids, and enhances supported artwork and recipe icons | Better UI continues enhancing the native game without Workforce-specific controls |
 | Skill Boosts | Includes its menu in pinned skill and Combat controls | Pinning continues without the additional menu |
+| Speedup++ | Processes offline replay at ×1 and restores the selected multiplier afterward | Replay uses the game's native behavior |
 | Show Item Sources And Uses | Recipe and upgrade-material **?** shortcuts open its item dialog | The shortcut setting is disabled with an explanation while retaining its saved preference |
 | [Myth] Combat Simulator 3.2.0 | Equipment-set imports include remembered inactive gear, retaining native spell, prayer, food and summoning-synergy imports | No simulator import hooks are installed; shared equipment sets continue working independently |
 
@@ -207,6 +208,8 @@ Reload after changing optional mods so their integrations can be detected.
 ## Changelog
 
 ### 1.1.0
+
+- Run Speedup++ offline replay at ×1 and recover the previous multiplier after replay or an interrupted reload.
 
 - Import remembered inactive equipment sets into [Myth] Combat Simulator 3.2.0 while retaining its native import behavior and the real inventory.
 - Add optional Better Moving with persistent Move Mode and multiselected stack transfers by destination-tab click or drag and drop.
@@ -250,4 +253,4 @@ Reload after changing optional mods so their integrations can be detected.
 
 ## Upload
 
-Upload **krokys-better-ui-1.1.0.zip** with `manifest.json`, `setup.mjs`, `page-pinning.mjs`, `wide-layout.mjs`, `better-moving.mjs`, `item-stats.mjs`, `loadout-plan.mjs`, `loadout-transaction.mjs`, `equipment-loadouts.mjs`, `quick-equip.mjs` and `item-sources-and-uses.mjs` at the archive root.
+Upload **krokys-better-ui-1.1.0.zip** with `manifest.json` and the runtime `.mjs` files, including `replay-speed.mjs`, at the archive root.

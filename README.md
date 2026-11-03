@@ -220,6 +220,7 @@ Its native-game features and shared equipment sets work independently of the opt
 | --- | --- | --- |
 | Kroky's Workforce | Pins supported controls and worker summaries, expands supported recipe grids, and enhances supported artwork and recipe icons | Better UI continues enhancing the native game without Workforce-specific controls |
 | Skill Boosts | Includes its menu in pinned skill and Combat controls | Pinning continues without the additional menu |
+| Speedup++ | Processes offline replay at ×1 and restores the selected multiplier afterward | Replay uses the game's native behavior |
 | Show Item Sources And Uses | Recipe and upgrade-material **?** shortcuts open its item dialog | The shortcut setting is disabled with an explanation while retaining its saved preference |
 | [Myth] Combat Simulator 3.2.0 | Equipment-set imports include remembered inactive gear, retaining native spell, prayer, food and summoning-synergy imports | No simulator import hooks are installed; shared equipment sets continue working independently |
 
@@ -228,12 +229,14 @@ An absent, disabled, failed-to-load or unsupported simulator API leaves this int
 Importing a set leaves the active equipment set, real gear and Bank stock unchanged.
 The bridge targets Combat Simulator 3.2.0's synchronous equipment-set imports.
 Reload the game after changing optional mods so their integrations can be detected.
+With Speedup++ installed, offline rewards accrue at ×1 during replay.
+If a save occurs before replay finishes, Better UI restores the previous multiplier the next time that character loads.
 
 ## Installation
 
 Load this folder with Melvor's Creator Toolkit, or import `krokys-better-ui-1.1.0.zip` through **Creator Toolkit → Local Mods**.
 Enable the mod and reload the game.
-The release archive contains `manifest.json`, `setup.mjs`, `page-pinning.mjs`, `wide-layout.mjs`, `better-moving.mjs`, `shop-stock.mjs`, `item-stats.mjs`, `loadout-plan.mjs`, `loadout-transaction.mjs`, `equipment-loadouts.mjs`, `quick-equip.mjs` and `item-sources-and-uses.mjs` at its root.
+The release archive contains `manifest.json` and the runtime `.mjs` files, including `replay-speed.mjs`, at its root.
 Ready-to-paste listing text and release notes are in [MOD_IO.md](MOD_IO.md).
 
 ## Development checks

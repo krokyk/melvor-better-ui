@@ -11,6 +11,7 @@ export async function setup(ctx) {
   const { installShopStock } = await ctx.loadModule("shop-stock.mjs");
   const { installSkillTreeSpendAll } = await ctx.loadModule("skill-tree-spend-all.mjs");
   const { installSkillTreeGlow } = await ctx.loadModule("skill-tree-glow.mjs");
+  const { installReplaySpeed } = await ctx.loadModule("replay-speed.mjs");
   ctx.onModsLoaded(() => {
     const settings = ctx.settings.section("General");
     const settingName = "page-pinning-enabled";
@@ -66,6 +67,7 @@ export async function setup(ctx) {
     installShopStock(ctx);
     installSkillTreeSpendAll(ctx, game);
     installSkillTreeGlow(ctx, game);
+    installReplaySpeed(ctx, game);
     const restore = () => {
       enabled = settings.get(settingName) !== false;
       wideEnabled = settings.get(wideSettingName) !== false;

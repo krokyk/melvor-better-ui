@@ -21,7 +21,7 @@ test("setup loads its packaged modules through Melvor's standalone module URLs",
     onModsLoaded() { registered = true; },
   });
   assert.equal(registered, true);
-  assert.deepEqual(loaded, ["page-pinning.mjs", "wide-layout.mjs", "item-stats.mjs", "loadout-plan.mjs", "loadout-transaction.mjs", "equipment-loadouts.mjs", "quick-equip.mjs", "item-sources-and-uses.mjs", "better-moving.mjs", "shop-stock.mjs", "skill-tree-spend-all.mjs", "skill-tree-glow.mjs"]);
+  assert.deepEqual(loaded, ["page-pinning.mjs", "wide-layout.mjs", "item-stats.mjs", "loadout-plan.mjs", "loadout-transaction.mjs", "equipment-loadouts.mjs", "quick-equip.mjs", "item-sources-and-uses.mjs", "better-moving.mjs", "shop-stock.mjs", "skill-tree-spend-all.mjs", "skill-tree-glow.mjs", "replay-speed.mjs"]);
 });
 
 test("independent config restores on load and QuickLoad, updates new pages immediately, and throttles same-page pinning", async () => {
@@ -96,6 +96,7 @@ test("independent config restores on load and QuickLoad, updates new pages immed
         assert.equal(actualCtx, ctx); assert.equal(actualGame, game);
         skillTreeGlowInstalled++; installed.push("skill-tree-glow");
       } };
+      if (path === "replay-speed.mjs") return { installReplaySpeed() {} };
       const pinning = path === "page-pinning.mjs";
       assert.ok(pinning || path === "wide-layout.mjs");
       return { [pinning ? "installPagePinning" : "installWideLayout"](actualCtx, actualGame, isEnabled, isCompactHeaderEnabled) {
@@ -320,6 +321,7 @@ test("render remains the page-change fallback without MutationObserver or the pa
           assert.equal(actualCtx, ctx); assert.equal(actualGame, game);
           skillTreeGlowInstalled++;
         } };
+        if (path === "replay-speed.mjs") return { installReplaySpeed() {} };
         return path === "page-pinning.mjs"
           ? { installPagePinning: () => () => calls.pinning++ }
           : { installWideLayout: () => () => calls.wide++ };
