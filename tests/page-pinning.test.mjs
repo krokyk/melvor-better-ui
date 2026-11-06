@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { installPagePinning } from "../page-pinning.mjs";
 
 afterEach(() => {
-  for (const name of ["document", "window", "getComputedStyle", "ResizeObserver", "$", "tippy", "skillNav", "townshipUI"]) delete globalThis[name];
+  for (const name of ["document", "window", "getComputedStyle", "ResizeObserver", "$", "tippy", "skillNav", "townshipUI", "MutationObserver"]) delete globalThis[name];
 });
 
 class Element {
@@ -125,7 +125,7 @@ test("a skill shared by Combat and Alt Magic highlights only the viewed page's s
   assert.equal(altMagicLink.getAttribute("aria-current"), null);
 });
 
-function fixture(initialStorage = [], initialPage = true, isEnabled = () => true, isCompactHeaderEnabled = () => true) {
+function fixture(initialStorage = [], initialPage = true, isEnabled = () => true, isCompactHeaderEnabled = () => true, resizeObserver = true, ctx = {}) {
   const html = new Element("html"), head = new Element("head"), body = new Element("body");
   const root = new Element(); root.id = "page-container";
   const main = new Element("main"); main.id = "main-container";
@@ -145,11 +145,13 @@ function fixture(initialStorage = [], initialPage = true, isEnabled = () => true
   };
   globalThis.getComputedStyle = node => ({ display: node.style.display ?? "block",
     paddingTop: node.style.paddingTop ?? "0px", paddingLeft: node.style.paddingLeft ?? "0px", paddingRight: node.style.paddingRight ?? "0px" });
-  globalThis.ResizeObserver = class {
+  if (resizeObserver) globalThis.ResizeObserver = class {
     constructor(callback) { this.callback = callback; this.nodes = new Set(); observers.push(this); }
     observe(node) { this.nodes.add(node); }
+    unobserve(node) { this.nodes.delete(node); }
     disconnect() { this.nodes.clear(); }
   };
+  else delete globalThis.ResizeObserver;
   const jqueryEvents = new Map();
   globalThis.$ = () => ({ on: (name, callback) => jqueryEvents.set(name, callback) });
   const page = (name, skill = true) => {
@@ -163,7 +165,7 @@ function fixture(initialStorage = [], initialPage = true, isEnabled = () => true
     return { node, info, row, realm, cards, page: { id: `melvorD:${name}`, containerID: node.id } };
   };
   const skill = page("Smithing"), game = { openPage: initialPage ? skill.page : undefined };
-  const update = installPagePinning({}, game, isEnabled, isCompactHeaderEnabled);
+  const update = installPagePinning(ctx, game, isEnabled, isCompactHeaderEnabled);
   update();
   const button = header.querySelector(".kroky-page-pin");
   return { html, root, main, header, theme, left, storage, events, observers, jqueryEvents, page, skill, game, update, button,
@@ -1036,6 +1038,65 @@ test("newly mounted controls enter their original document order while pinned", 
   release.click(); assert.equal(releases, 2);
 });
 
+test("stable pinned progress updates avoid geometry reads, repeat observations and duplicate visibility lookups", () => {
+  const f = fixture([["kroky-better-ui:pin", "true"]]), native = nativeSkillHeader(f.skill);
+  const skill = { level: 120, currentLevelCap: 120, nextLevelProgress: 1, abyssalLevel: 52, currentAbyssalLevelCap: 60,
+    nextAbyssalLevelProgress: 50, getRealmsWithMastery: () => [] };
+  f.game.openPage.action = skill; f.update();
+  const wrapper = f.pinned(), offset = f.update.offset, rect = f.header.getBoundingClientRect, observe = f.observers[0].observe;
+  const scroll = Object.getOwnPropertyDescriptor(Element.prototype, "scrollHeight").get, computed = getComputedStyle;
+  let rectangles = 0, scrollReads = 0, observations = 0, duplicateStyles = 0, seen = new Set();
+  for (const node of [f.header, f.theme, wrapper]) node.getBoundingClientRect = function (...args) { rectangles++; return rect.apply(this, args); };
+  Object.defineProperty(wrapper, "scrollHeight", { get() { scrollReads++; return scroll.call(this); } });
+  f.observers[0].observe = function (...args) { observations++; return observe.apply(this, args); };
+  globalThis.getComputedStyle = node => {
+    if (seen.has(node)) duplicateStyles++; seen.add(node); return computed(node);
+  };
+  for (let index = 0; index < 100; index++) { seen = new Set(); skill.nextAbyssalLevelProgress = index; f.update(); }
+  assert.equal(rectangles, 0); assert.equal(scrollReads, 0); assert.equal(observations, 0);
+  assert.equal(duplicateStyles, 0, "shared ancestor display is read once per update");
+  assert.equal(f.update.offset, offset); assert.equal(f.pinned(), wrapper);
+  assert.equal(native.header.abyssalXp.style.getPropertyValue("--kroky-summary-fill"), "99%");
+});
+
+test("pin geometry still updates synchronously for structure and realm changes and from actual resize notifications", () => {
+  let compact = true;
+  const f = fixture([["kroky-better-ui:pin", "true"]], true, () => true, () => compact), native = nativeSkillHeader(f.skill);
+  f.game.openPage.action = { level: 120, currentLevelCap: 120, nextLevelProgress: 1, abyssalLevel: 52, currentAbyssalLevelCap: 60,
+    nextAbyssalLevelProgress: 50, getRealmsWithMastery: () => [] }; f.update();
+  const rect = f.header.getBoundingClientRect;
+  let reads = 0;
+  f.header.getBoundingClientRect = function (...args) { reads++; return rect.apply(this, args); };
+  const measured = action => { const before = reads; action(); assert.equal(reads > before, true); };
+  const toolbar = new Element(); toolbar.className = "kroky-gathering-toolbar"; f.skill.row.before(toolbar);
+  measured(() => f.update());
+  assert.equal(toolbar.parentNode, f.pinned());
+  measured(() => { native.header.abyssalLevel.parentElement.classList.add("d-none"); f.update(); });
+  measured(() => { native.header.abyssalLevel.parentElement.classList.remove("d-none"); f.update(); });
+  measured(() => { compact = false; f.update(); });
+  measured(() => { compact = true; f.update(); });
+  measured(() => { window.innerWidth = 800; f.update(); });
+  measured(() => f.events.get("resize")());
+  measured(() => { f.header.height = 90; f.observers[0].callback(); });
+  assert.ok(f.observers[0].nodes.has(f.header)); assert.ok(f.observers[0].nodes.has(f.pinned()));
+  f.header.getClientRects = () => [];
+  const next = new Element(); next.className = "kroky-activity-controls"; f.skill.row.before(next);
+  const before = reads; f.update(); assert.equal(reads, before, "hidden geometry stays pending");
+  f.header.getClientRects = () => [{}]; measured(() => f.update());
+  document.visibilityState = "hidden";
+  const visibleReads = reads; f.observers[0].callback(); assert.equal(reads, visibleReads);
+  document.visibilityState = "visible"; measured(() => f.update());
+});
+
+test("pin geometry retains periodic measurement when ResizeObserver is unavailable", () => {
+  const f = fixture([["kroky-better-ui:pin", "true"]], true, () => true, () => true, false);
+  assert.equal(f.observers.length, 0);
+  const rect = f.header.getBoundingClientRect; let reads = 0;
+  f.header.getBoundingClientRect = function (...args) { reads++; return rect.apply(this, args); };
+  f.update(); f.update();
+  assert.equal(reads, 2);
+});
+
 test("loader-hidden headers prepare their controls without overwriting measured geometry", () => {
   const f = fixture([["kroky-better-ui:pin", "true"]]);
   const offset = f.update.offset;
@@ -1286,6 +1347,40 @@ test("short landscape Combat keeps both native sections scrollable within the ha
   assert.equal(top.moves, originalMoves);
 });
 
+test("uncapped pin content resizes rebalance capped Combat sections and detached controls stop being observed", () => {
+  const f = fixture(), combat = f.page("Combat", false); combat.row.remove();
+  const top = new Element(); top.id = "combat-top-menu"; top.height = 0;
+  const natural = new Element(); natural.height = 160; top.append(natural);
+  const nav = new Element("category-menu"); nav.height = 20;
+  combat.node.append(top, nav, combat.cards);
+  window.innerHeight = 390; window.innerWidth = 844; f.header.height = f.theme.height = 100;
+  f.game.openPage = combat.page; f.update(); f.button.click();
+  const wrapper = combat.node.querySelector(".kroky-page-pin-controls"); wrapper.height = 0;
+  const variable = name => parseFloat(f.html.style.getPropertyValue(`--kroky-page-pin-${name}`)) || 0;
+  const allocated = (node, reserve) => Math.min(node.scrollHeight, Math.max(0, variable("cap") - variable("header-height") - variable(reserve)));
+  top.getBoundingClientRect = () => ({ height: allocated(top, "reserved-height") });
+  wrapper.getBoundingClientRect = () => ({ height: allocated(wrapper, "static-height") });
+  f.events.get("resize")();
+  assert.equal(variable("static-height"), 75); assert.equal(wrapper.getBoundingClientRect().height, 20);
+  const notify = node => { if (f.observers[0].nodes.has(node)) f.observers[0].callback([{ target: node }]); };
+  nav.height = 100;
+  assert.equal(top.getBoundingClientRect().height, 75); assert.equal(wrapper.getBoundingClientRect().height, 20, "outer capped boxes do not resize when their natural content grows");
+  notify(nav); f.update();
+  assert.ok(variable("static-height") >= 47 && variable("static-height") <= 48);
+  assert.ok(wrapper.getBoundingClientRect().height >= 47 && wrapper.getBoundingClientRect().height <= 48);
+  assert.ok(f.observers[0].nodes.has(f.theme)); assert.ok(f.observers[0].nodes.has(natural));
+  natural.height = 20; notify(natural);
+  assert.equal(variable("static-height"), 20); assert.equal(wrapper.getBoundingClientRect().height, 75);
+  natural.height = 160;
+  assert.equal(top.getBoundingClientRect().height, 20, "the static outer box also hides natural-content growth");
+  notify(natural);
+  assert.ok(variable("static-height") >= 47 && variable("static-height") <= 48);
+  nav.hidden = true; f.update();
+  assert.equal(f.observers[0].nodes.has(nav), false, "a control restored outside the pin stack cannot trigger background measurements");
+  f.game.openPage = f.skill.page; f.update();
+  assert.equal(f.observers[0].nodes.has(natural), false); assert.equal(f.observers[0].nodes.has(top), false);
+});
+
 test("pinned Combat offsets follow the native container padding as the viewport changes", () => {
   const f = fixture();
   const combat = f.page("Combat", false);
@@ -1462,4 +1557,110 @@ test("Farming pinning preserves the native plot insertion anchor through categor
   assert.equal(controls.parentNode === options, true, "leaving Farming restores its original controls");
   assert.equal(grid.children.includes(nextLocked), true); assert.equal(grid.children.includes(unlocked), true);
   plant.click(); assert.equal(planted, 2, "the original native action retains its handler");
+});
+
+function visibilityFixture(ctx = {}) {
+  const mutations = [];
+  globalThis.MutationObserver = class {
+    constructor(callback) { this.callback = callback; this.nodes = new Map(); this.records = []; mutations.push(this); }
+    observe(node, options) { this.nodes.set(node, options); }
+    disconnect() { this.nodes.clear(); this.records = []; }
+    takeRecords() { const records = this.records; this.records = []; return records; }
+    enqueue(record) {
+      const options = this.nodes.get(record.target);
+      if (record.type === "attributes" ? options?.attributeFilter.includes(record.attributeName) : options?.childList) this.records.push(record);
+    }
+  };
+  const f = fixture([], true, () => true, () => true, true, ctx), native = nativeSkillHeader(f.skill), all = node => [node, ...node.children.flatMap(all)];
+  for (const node of all(f.html)) {
+    const attribute = node.getAttribute;
+    node.getAttribute = function (name) {
+      if (name === "class") return this.className || null;
+      if (name === "style") return Object.entries(this.style).filter(([, value]) => typeof value !== "function").map(([key, value]) => `${key}:${value};`).join("") || null;
+      if (name === "hidden") return this.hidden ? "" : attribute.call(this, name);
+      return attribute.call(this, name);
+    };
+  }
+  f.game.openPage.action = { level: 120, currentLevelCap: 120, nextLevelProgress: 1, abyssalLevel: 52, currentAbyssalLevelCap: 60,
+    nextAbyssalLevelProgress: 50, getRealmsWithMastery: () => [] };
+  const computed = getComputedStyle;
+  let reads = 0;
+  globalThis.getComputedStyle = node => {
+    reads++;
+    const value = computed(node);
+    if (node === f.skill.row && (f.skill.cards.classList.contains("hide-source-row") || f.html.classList.contains("hide-native-row") || f.skill.row.children.some(child => child.id === "hide-row-marker"))) return { ...value, display: "none" };
+    if (node === f.skill.realm && node.classList.contains("css-hidden")) return { ...value, display: "none" };
+    return value;
+  };
+  f.button.click(); f.update();
+  const mutate = (node, name, action) => {
+    const oldValue = node.getAttribute(name); action();
+    mutations[0]?.enqueue({ type: "attributes", target: node, attributeName: name, oldValue });
+  };
+  return { ...f, native, mutations, mutate, readCount: () => reads, clearReads: () => { reads = 0; } };
+}
+
+test("persistent pin visibility reuses stable display values and leaves progress leaves and card descendants unwatched", () => {
+  const f = visibilityFixture(); f.clearReads();
+  for (let index = 0; index < 100; index++) { f.game.openPage.action.nextAbyssalLevelProgress = index; f.update(); }
+  assert.equal(f.readCount(), 0, "stable pin updates cannot force computed-style resolution");
+  const observer = f.mutations[0];
+  assert.ok(observer.nodes.size < 50); assert.ok([...observer.nodes.values()].every(options => options.subtree !== true));
+  assert.equal(observer.nodes.has(f.native.header.skillXp), false); assert.equal(observer.nodes.has(f.native.header.abyssalXp), false);
+  f.mutate(f.native.header.abyssalXp, "style", () => f.native.header.abyssalXp.style.setProperty("--kroky-summary-fill", "22%"));
+  f.update(); assert.equal(f.readCount(), 0);
+  const card = new Element(); f.skill.cards.append(card);
+  observer.enqueue({ type: "attributes", target: card, attributeName: "class", oldValue: null });
+  f.update(); assert.equal(f.readCount(), 0, "unobserved card descendants cannot invalidate pin visibility");
+});
+
+test("same-task native class, inline display, ancestor, sibling and structural changes invalidate persistent pin visibility", () => {
+  const f = visibilityFixture(); const observer = f.mutations[0];
+  f.mutate(f.skill.realm, "class", () => f.skill.realm.classList.add("css-hidden")); f.update();
+  assert.equal(f.skill.realm.parentNode, f.skill.row);
+  f.mutate(f.skill.realm, "class", () => f.skill.realm.classList.remove("css-hidden")); f.update();
+  assert.equal(f.skill.realm.parentNode, f.pinned());
+  f.mutate(f.skill.row, "style", () => { f.skill.row.style.display = "none"; }); f.update();
+  assert.equal(f.skill.realm.parentNode, f.skill.row);
+  f.mutate(f.skill.row, "style", () => { delete f.skill.row.style.display; }); f.update();
+  assert.equal(f.skill.realm.parentNode, f.pinned());
+  f.mutate(f.skill.cards, "class", () => f.skill.cards.classList.add("hide-source-row")); f.update();
+  assert.equal(f.skill.realm.parentNode, f.skill.row, "CSS sibling state on an original native section remains authoritative");
+  f.mutate(f.skill.cards, "class", () => f.skill.cards.classList.remove("hide-source-row")); f.update();
+  assert.equal(f.skill.realm.parentNode, f.pinned());
+  f.mutate(f.html, "class", () => f.html.classList.add("hide-native-row")); f.update();
+  assert.equal(f.skill.realm.parentNode, f.skill.row);
+  f.mutate(f.html, "class", () => f.html.classList.remove("hide-native-row")); f.update();
+  assert.equal(f.skill.realm.parentNode, f.pinned());
+  const marker = new Element(); marker.id = "hide-row-marker"; f.skill.row.append(marker);
+  observer.enqueue({ type: "childList", target: f.skill.row, addedNodes: [marker], removedNodes: [] }); f.update();
+  assert.equal(f.skill.realm.parentNode, f.skill.row);
+  marker.remove(); observer.enqueue({ type: "childList", target: f.skill.row, addedNodes: [], removedNodes: [marker] }); f.update();
+  assert.equal(f.skill.realm.parentNode, f.pinned());
+  f.clearReads();
+  f.mutate(f.skill.cards, "class", () => f.skill.cards.classList.add("temporary-state"));
+  f.mutate(f.skill.cards, "class", () => f.skill.cards.classList.remove("temporary-state")); f.update();
+  assert.equal(f.readCount(), 0, "a batch whose final attributes equal their original values does not force style resolution");
+});
+
+test("persistent pin display cache resets on resize and page or pin changes without retaining old native nodes", () => {
+  const f = visibilityFixture(), observer = f.mutations[0];
+  const old = f.skill.realm;
+  f.events.get("resize")(); f.clearReads(); f.update(); assert.ok(f.readCount() > 0);
+  const other = f.page("Fishing"); f.game.openPage = other.page; f.update();
+  assert.equal(observer.nodes.has(old), false);
+  f.button.click(); assert.equal(observer.nodes.size, 0, "unpinning disconnects visibility observation");
+  f.button.click(); f.update(); assert.ok(observer.nodes.size > 0);
+});
+
+test("character restoration and queued observer callbacks clear cached visibility before the next pin refresh", () => {
+  let characterLoaded;
+  const f = visibilityFixture({ onCharacterLoaded(callback) { characterLoaded = callback; } }), observer = f.mutations[0];
+  assert.equal(typeof characterLoaded, "function"); characterLoaded(); assert.equal(observer.nodes.size, 0);
+  f.clearReads(); f.update(); assert.ok(f.readCount() > 0);
+  f.mutate(f.skill.realm, "class", () => f.skill.realm.classList.add("css-hidden"));
+  observer.callback(observer.takeRecords());
+  f.update(); assert.equal(f.skill.realm.parentNode, f.skill.row);
+  f.mutate(f.skill.realm, "class", () => f.skill.realm.classList.remove("css-hidden"));
+  f.update(); assert.equal(f.skill.realm.parentNode, f.pinned());
 });

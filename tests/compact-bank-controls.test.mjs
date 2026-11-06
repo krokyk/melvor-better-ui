@@ -3,7 +3,7 @@ import { afterEach, test } from "node:test";
 import { installBetterMoving } from "../better-moving.mjs";
 
 afterEach(() => {
-  for (const name of ["document", "Bank", "BankTabMenuElement", "Game"]) delete globalThis[name];
+  for (const name of ["document", "Bank", "BankTabMenuElement", "BankItemIconElement", "Game"]) delete globalThis[name];
 });
 
 class Element {
@@ -26,6 +26,7 @@ class Element {
   get className() { return this.getAttribute("class") ?? ""; }
   set className(value) { this.setAttribute("class", value); }
   get children() { return this.childNodes.filter(node => node instanceof Element); }
+  get nextSibling() { return this.parentElement?.childNodes[this.parentElement.childNodes.indexOf(this) + 1]; }
   get textContent() { return this.childNodes.map(node => typeof node === "string" ? node : node.textContent).join(""); }
   set textContent(value) { this.replaceChildren(value); }
   getAttribute(name) { return this.attributes.get(name) ?? null; }
@@ -58,6 +59,7 @@ class Element {
     }
     return null;
   }
+  querySelectorAll(selector) { return this.children.flatMap(child => [...((selector.startsWith(".") ? child.classList.contains(selector.slice(1)) : child.tagName === selector) ? [child] : []), ...child.querySelectorAll(selector)]); }
   addEventListener(name, callback) { this.events.set(name, callback); }
 }
 
@@ -80,6 +82,11 @@ function fixture() {
     items = new Map();
     tabCount = 2;
     moves = [];
+    itemUpgrades = new Map();
+    shouldShowBasedOnFilter() { return true; }
+    onBankFilterChange() {}
+    toggleItemLock(bankItem) { this.lockedItems.has(bankItem.item) ? this.lockedItems.delete(bankItem.item) : this.lockedItems.add(bankItem.item); }
+    lockedItems = new Set();
     setItemSelectionMode(mode) { this.itemSelectionMode = mode; if (mode === 0) this.selectedItems.clear(); }
     toggleItemSelected() {}
     removeItemQuantity() {}
@@ -88,11 +95,14 @@ function fixture() {
   };
   globalThis.BankTabMenuElement = class extends Element {
     tabs = [0, 1].map(() => ({ tabLink: new Element("a") }));
+    itemIcons = new Map();
+    showAllItems() {}
     updateTabCount() {}
     selectTab(tabID, bank) { bank.selectedBankTab = tabID; }
   };
+  globalThis.BankItemIconElement = class { setItem() {} };
   const tabs = new BankTabMenuElement();
-  globalThis.Game = class { bank = new Bank(); gp = { media: "assets/gp.svg" }; decode() {} };
+  globalThis.Game = class { bank = new Bank(); gp = { media: "assets/gp.svg" }; settings = { bankFilterShowAll: true }; decode() {} };
   const game = new Game();
   const sortClick = () => "native sort";
   options.sortButton.addEventListener("click", sortClick);
@@ -104,6 +114,7 @@ function fixture() {
     getElementById: id => nodes.get(id),
     querySelector: selector => selector === "#bank-tab-menu .bg-dark-bank-info ul" ? tools : null,
   };
+  const patchers = new WeakMap();
   const ctx = {
     settings: { section: () => ({
       add(config) { fields.set(config.name, config); values.set(config.name, config.default); },
@@ -112,11 +123,17 @@ function fixture() {
     onCharacterLoaded(callback) { hooks.character = callback; },
     onInterfaceReady(callback) { hooks.interface = callback; },
     patch(Class, name) {
-      const original = Class.prototype[name];
-      return {
-        after(callback) { Class.prototype[name] = function (...args) { const result = original.apply(this, args); callback.call(this, result, ...args); return result; }; },
-        replace(callback) { Class.prototype[name] = function (...args) { return callback.call(this, original.bind(this), ...args); }; },
-      };
+      let methods = patchers.get(Class); if (!methods) patchers.set(Class, methods = new Map());
+      let patch = methods.get(name);
+      if (!patch) {
+        const original = Class.prototype[name]; patch = { before: [], after: [], replace: [] }; methods.set(name, patch);
+        Class.prototype[name] = function (...args) {
+          for (const callback of patch.before) callback.apply(this, args);
+          let invoke = original.bind(this); for (const callback of patch.replace) { const next = invoke; invoke = (...values) => callback.call(this, next, ...values); }
+          const result = invoke(...args); for (const callback of patch.after) callback.call(this, result, ...args); return result;
+        };
+      }
+      return { before: callback => patch.before.push(callback), after: callback => patch.after.push(callback), replace: callback => patch.replace.push(callback) };
     },
   };
   installBetterMoving(ctx, game);
@@ -127,17 +144,18 @@ function fixture() {
 test("compact Bank controls restore native nodes and remain independent of Better Moving across mode and character changes", () => {
   const f = fixture(), compact = "compact-bank-controls-enabled", moving = "better-moving-enabled";
   const { sortButton: sort, moveModeButton: move, sellModeButton: sell } = f.options;
-  const originalSort = [...sort.childNodes], originalClass = sort.className;
   assert.equal(f.fields.get(compact).default, false);
   assert.equal(f.fields.get(moving).default, false);
   assert.equal(typeof f.fields.get(compact).onChange("true"), "string");
   f.hooks.interface();
+  const themedSort = [...sort.childNodes], themedClass = sort.className;
   assert.equal(sort.parentElement, f.buttons);
+  assert.equal(sort.textContent, "Sort"); assert.equal(sort.classList.contains("btn-info"), true);
   assert.equal(move.textContent, "Toggle Move Mode");
   f.set(compact, true);
   assert.equal(f.root.classList.contains("kroky-compact-bank-controls"), true);
-  assert.equal(f.tools.children[0].children[0], sort);
-  assert.equal(sort.classList.contains("btn-info"), true);
+  assert.equal(f.tools.children[0].children[1], sort);
+  assert.equal(sort.classList.contains("btn-info"), true); assert.equal(sort.classList.contains("btn-outline-primary"), false);
   assert.equal(sort.getAttribute("aria-label"), "Sort Bank");
   assert.equal(sort.children[0].className, "fa fa-exchange-alt");
   assert.equal(sort.events.get("click"), f.sortClick);
@@ -165,11 +183,11 @@ test("compact Bank controls restore native nodes and remain independent of Bette
   assert.equal(f.game.bank.itemSelectionMode, 2);
   assert.equal(f.root.classList.contains("kroky-compact-bank-controls"), false);
   assert.equal(sort.parentElement, f.buttons);
-  assert.equal(f.buttons.children[0], sort);
-  assert.deepEqual(sort.childNodes, originalSort);
-  assert.equal(sort.className, originalClass);
-  assert.equal(sort.getAttribute("aria-label"), null);
-  assert.equal(sort.getAttribute("title"), null);
+  assert.equal(f.buttons.children[1], sort);
+  assert.deepEqual(sort.childNodes, themedSort);
+  assert.equal(sort.className, themedClass);
+  assert.equal(sort.getAttribute("aria-label"), "Sort Bank");
+  assert.equal(sort.getAttribute("title"), "Sort Bank");
   assert.equal(move.textContent, "Toggle Move Mode");
   assert.equal(sell.textContent, "Toggle Sell Mode");
   assert.equal(sell.getAttribute("aria-pressed"), null);
@@ -202,7 +220,25 @@ test("compact Bank controls restore native nodes and remain independent of Bette
   assert.equal(f.game.bank.itemSelectionMode, 0);
   assert.equal(deselect.hidden, true);
   f.values.set(compact, true); f.hooks.character();
-  assert.equal(f.tools.children[0].children[0], sort);
+  assert.equal(f.tools.children[0].children[1], sort);
   assert.equal(move.textContent, "Move Mode");
   assert.equal(deselect.hidden, true, "compact controls do not enable Better Moving");
+});
+
+test("Categories stays immediately before the original Sort button in both layouts without duplicate controls or action changes", () => {
+  const f = fixture(); f.hooks.interface();
+  const sort = f.options.sortButton, group = sort.parentElement.querySelector(".kroky-bank-item-filters"), input = group.querySelectorAll("input").find(node => node.value === "upgrade");
+  const categories = group.querySelector("button"), categoryContents = [...categories.childNodes], sortContents = [...sort.childNodes];
+  assert.equal(categories.textContent, "Categories"); assert.equal(categories.classList.contains("btn-info"), true); assert.equal(categories.classList.contains("btn-outline-warning"), false);
+  assert.equal(categories.children[0].className, "fa fa-filter"); assert.equal(categories.children[0].getAttribute("aria-hidden"), "true");
+  assert.equal(group.nextSibling, sort); assert.equal(input.checked, false);
+  input.checked = true; input.events.get("change")();
+  for (const compact of [true, false, true, false]) {
+    f.set("compact-bank-controls-enabled", compact); f.tabs.updateTabCount();
+    assert.equal(group.nextSibling, sort); assert.equal(input.checked, true); assert.equal(sort.events.get("click"), f.sortClick);
+    assert.equal(sort.parentElement.children.filter(node => node.classList.contains("kroky-bank-item-filters")).length, 1);
+    assert.equal(sort.parentElement, compact ? f.tools.children[0] : f.buttons);
+    assert.deepEqual(categories.childNodes, categoryContents); assert.deepEqual(sort.childNodes, sortContents);
+  }
+  f.hooks.character(); assert.equal(input.checked, false); assert.equal(group.nextSibling, sort);
 });

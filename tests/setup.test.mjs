@@ -21,13 +21,14 @@ test("setup loads its packaged modules through Melvor's standalone module URLs",
     onModsLoaded() { registered = true; },
   });
   assert.equal(registered, true);
-  assert.deepEqual(loaded, ["page-pinning.mjs", "wide-layout.mjs", "item-stats.mjs", "loadout-plan.mjs", "loadout-transaction.mjs", "equipment-loadouts.mjs", "quick-equip.mjs", "item-sources-and-uses.mjs", "better-moving.mjs", "shop-stock.mjs", "skill-tree-spend-all.mjs", "skill-tree-glow.mjs", "replay-speed.mjs"]);
+  assert.deepEqual(loaded, ["page-pinning.mjs", "wide-layout.mjs", "item-stats.mjs", "loadout-plan.mjs", "loadout-transaction.mjs", "equipment-loadouts.mjs", "quick-equip.mjs", "item-sources-and-uses.mjs", "better-moving.mjs", "bank-keyboard.mjs", "bank-tab-order.mjs", "bank-item-type.mjs", "background-rendering.mjs", "shop-stock.mjs", "upgrade-stock.mjs", "agility-cost-stock.mjs", "township-task-order.mjs", "skill-tree-spend-all.mjs", "skill-tree-glow.mjs", "replay-speed.mjs"]);
 });
 
 test("independent config restores on load and QuickLoad, updates new pages immediately, and throttles same-page pinning", async () => {
   const hooks = {}, values = new Map(), fields = new Map();
   const updates = { pinning: [], compact: [], wide: [] };
-  let sourcesInstalled = 0, quickEquipInstalled = 0, skillStatsInstalled = 0, loadoutsInstalled = 0, movingInstalled = 0, shopStockInstalled = 0, skillTreeSpendAllInstalled = 0, skillTreeGlowInstalled = 0;
+  let sourcesInstalled = 0, quickEquipInstalled = 0, skillStatsInstalled = 0, loadoutsInstalled = 0, movingInstalled = 0, shopStockInstalled = 0, upgradeStockInstalled = 0, skillTreeSpendAllInstalled = 0, skillTreeGlowInstalled = 0;
+  let agilityCostInstalled = 0, agilityCostUpdates = 0, bankFilterUpdates = 0, bankKeyboardInstalled = 0, bankTabOrderInstalled = 0, bankItemTypeInstalled = 0, townshipTaskOrderInstalled = 0;
   const createItemStatsPreview = () => {}, getStatsLayout = () => "vanilla", installed = [];
   const loadoutPlanner = { planLoadout() {} }, applyEquipmentTransaction = () => {};
   const shortcutCopies = [], preparedCopy = {};
@@ -83,10 +84,38 @@ test("independent config restores on load and QuickLoad, updates new pages immed
       if (path === "better-moving.mjs") return { installBetterMoving(actualCtx, actualGame) {
         assert.equal(actualCtx, ctx); assert.equal(actualGame, game);
         movingInstalled++; installed.push("moving");
+        return () => { bankFilterUpdates++; };
+      } };
+      if (path === "bank-keyboard.mjs") return { installBankKeyboard(actualCtx, actualGame) {
+        assert.equal(actualCtx, ctx); assert.equal(actualGame, game);
+        bankKeyboardInstalled++; installed.push("bank-keyboard");
+      } };
+      if (path === "bank-tab-order.mjs") return { installBankTabOrder(actualCtx, actualGame) {
+        assert.equal(actualCtx, ctx); assert.equal(actualGame, game);
+        bankTabOrderInstalled++; installed.push("bank-tab-order");
+      } };
+      if (path === "bank-item-type.mjs") return { installBankItemType(actualCtx, actualGame) {
+        assert.equal(actualCtx, ctx); assert.equal(actualGame, game); bankItemTypeInstalled++; installed.push("bank-item-type");
+      } };
+      if (path === "background-rendering.mjs") return { installBackgroundRendering(actualCtx, actualGame) {
+        assert.equal(actualCtx, ctx); assert.equal(actualGame, game); installed.push("background-rendering"); return () => {};
       } };
       if (path === "shop-stock.mjs") return { installShopStock(actualCtx) {
         assert.equal(actualCtx, ctx);
         shopStockInstalled++; installed.push("shop-stock");
+      } };
+      if (path === "upgrade-stock.mjs") return { installUpgradeStock(actualCtx, actualGame) {
+        assert.equal(actualCtx, ctx); assert.equal(actualGame, game);
+        upgradeStockInstalled++; installed.push("upgrade-stock");
+      } };
+      if (path === "agility-cost-stock.mjs") return { installAgilityCostStock(actualCtx, actualGame) {
+        assert.equal(actualCtx, ctx); assert.equal(actualGame, game);
+        agilityCostInstalled++; installed.push("agility-cost-stock");
+        return () => { agilityCostUpdates++; };
+      } };
+      if (path === "township-task-order.mjs") return { installTownshipTaskOrder(actualCtx, actualGame) {
+        assert.equal(actualCtx, ctx); assert.equal(actualGame, game);
+        townshipTaskOrderInstalled++; installed.push("township-task-order");
       } };
       if (path === "skill-tree-spend-all.mjs") return { installSkillTreeSpendAll(actualCtx, actualGame) {
         assert.equal(actualCtx, ctx); assert.equal(actualGame, game);
@@ -135,6 +164,8 @@ test("independent config restores on load and QuickLoad, updates new pages immed
   assert.equal(skillStatsInstalled, 0, "skill stats wait for all mods to load");
   assert.equal(loadoutsInstalled, 0, "equipment loadouts wait for all mods to load");
   assert.equal(movingInstalled, 0, "Better Moving waits for all mods to load");
+  assert.equal(bankKeyboardInstalled, 0, "Bank keyboard navigation waits for all mods to load");
+  assert.equal(bankTabOrderInstalled + townshipTaskOrderInstalled, 0);
   assert.equal(shopStockInstalled, 0, "shop stock hooks wait for all mods to load");
   hooks.mods();
   assert.equal(sourcesInstalled, 1);
@@ -142,12 +173,17 @@ test("independent config restores on load and QuickLoad, updates new pages immed
   assert.equal(skillStatsInstalled, 1);
   assert.equal(loadoutsInstalled, 1);
   assert.equal(movingInstalled, 1);
+  assert.equal(bankKeyboardInstalled, 1);
+  assert.equal(bankTabOrderInstalled, 1); assert.equal(bankItemTypeInstalled, 1);
+  assert.equal(townshipTaskOrderInstalled, 1);
   assert.equal(shopStockInstalled, 1);
+  assert.equal(upgradeStockInstalled, 1);
+  assert.equal(agilityCostInstalled, 1);
   assert.equal(skillTreeSpendAllInstalled, 1);
   assert.equal(skillTreeGlowInstalled, 1);
   assert.equal(prepareQuickEquipCopy(2, 1), preparedCopy);
   assert.deepEqual(shortcutCopies, [[2, 1]]);
-  assert.deepEqual(installed, ["loadouts", "equipment", "skills", "sources", "moving", "shop-stock", "skill-tree", "skill-tree-glow"], "loadout lifecycle hooks precede quick equip while existing UI installs retain their order");
+  assert.deepEqual(installed, ["loadouts", "equipment", "skills", "sources", "moving", "bank-keyboard", "bank-tab-order", "bank-item-type", "background-rendering", "shop-stock", "upgrade-stock", "agility-cost-stock", "township-task-order", "skill-tree", "skill-tree-glow"], "loadout lifecycle hooks precede quick equip while existing UI installs retain their order");
   const pinning = fields.get("page-pinning-enabled"), wide = fields.get("wide-layout-enabled");
   const compact = fields.get("compact-skill-header-enabled");
   assert.equal(fields.size, 3);
@@ -159,6 +195,8 @@ test("independent config restores on load and QuickLoad, updates new pages immed
     assert.equal(field.default, true);
   }
   game.render(); assert.deepEqual(updates, { pinning: [], compact: [], wide: [] });
+  assert.equal(agilityCostUpdates, 0);
+  assert.equal(bankFilterUpdates, 0);
   assert.equal(observers.length, 0, "page observation waits for character restoration");
   documentEvents.get("kroky-workforce-layout-ready")();
   assert.deepEqual(updates, { pinning: [], compact: [], wide: [] }, "Workforce can prepare before Better UI restores its character");
@@ -191,10 +229,16 @@ test("independent config restores on load and QuickLoad, updates new pages immed
   assert.equal(game.render(), "native render");
   assert.equal(updates.wide.length, wideCount, "CSS wide layouts do not need render updates");
   const count = updates.pinning.length;
+  const costRefreshes = agilityCostUpdates;
+  const filterRefreshes = bankFilterUpdates;
   now = 199; game.render();
   assert.equal(updates.pinning.length, count); assert.equal(updates.wide.length, wideCount);
+  assert.equal(agilityCostUpdates, costRefreshes);
+  assert.equal(bankFilterUpdates, filterRefreshes);
   now = 200; game.render();
   assert.equal(updates.pinning.length, count + 1); assert.equal(updates.wide.length, wideCount);
+  assert.equal(agilityCostUpdates, costRefreshes + 1);
+  assert.equal(bankFilterUpdates, filterRefreshes + 1);
   assert.equal(updates.compact.length, count + 1);
   assert.equal(updates.pinning.at(-1), true); assert.equal(updates.wide.at(-1), false);
   const renderPage = (time, page, expectedEvents) => {
@@ -252,6 +296,9 @@ test("independent config restores on load and QuickLoad, updates new pages immed
   assert.equal(skillStatsInstalled, 1, "restoring settings and rendering never reinstall skill stats");
   assert.equal(loadoutsInstalled, 1, "restoring settings and rendering never reinstall equipment loadouts");
   assert.equal(movingInstalled, 1, "restoring settings and rendering never reinstall Better Moving");
+  assert.equal(bankKeyboardInstalled, 1, "restoring settings and rendering never reinstall Bank keyboard navigation");
+  assert.equal(bankTabOrderInstalled, 1); assert.equal(bankItemTypeInstalled, 1);
+  assert.equal(townshipTaskOrderInstalled, 1);
   assert.equal(shopStockInstalled, 1, "restoring settings and rendering never reinstall shop stock hooks");
   const beforeReplay = updates.pinning.length;
   game._isInOnlineLoop = false; game.enableRendering = true; now += 1000;
@@ -270,7 +317,8 @@ test("independent config restores on load and QuickLoad, updates new pages immed
 test("render remains the page-change fallback without MutationObserver or the page registry", async () => {
   for (const hasObserver of [false, true]) {
     const hooks = {}, calls = { pinning: 0, wide: 0 };
-    let sourcesInstalled = 0, quickEquipInstalled = 0, skillStatsInstalled = 0, loadoutsInstalled = 0, movingInstalled = 0, shopStockInstalled = 0, skillTreeSpendAllInstalled = 0, skillTreeGlowInstalled = 0;
+    let sourcesInstalled = 0, quickEquipInstalled = 0, skillStatsInstalled = 0, loadoutsInstalled = 0, movingInstalled = 0, shopStockInstalled = 0, upgradeStockInstalled = 0, skillTreeSpendAllInstalled = 0, skillTreeGlowInstalled = 0;
+    let agilityCostInstalled = 0, bankKeyboardInstalled = 0, bankTabOrderInstalled = 0, bankItemTypeInstalled = 0, townshipTaskOrderInstalled = 0;
     const createItemStatsPreview = () => {};
     const loadoutPlanner = { planLoadout() {} }, applyEquipmentTransaction = () => {};
     let now = 0;
@@ -308,10 +356,38 @@ test("render remains the page-change fallback without MutationObserver or the pa
         if (path === "better-moving.mjs") return { installBetterMoving(actualCtx, actualGame) {
           assert.equal(actualCtx, ctx); assert.equal(actualGame, game);
           movingInstalled++;
+          return () => {};
+        } };
+        if (path === "bank-keyboard.mjs") return { installBankKeyboard(actualCtx, actualGame) {
+          assert.equal(actualCtx, ctx); assert.equal(actualGame, game);
+          bankKeyboardInstalled++;
+        } };
+        if (path === "bank-tab-order.mjs") return { installBankTabOrder(actualCtx, actualGame) {
+          assert.equal(actualCtx, ctx); assert.equal(actualGame, game);
+          bankTabOrderInstalled++;
+        } };
+        if (path === "bank-item-type.mjs") return { installBankItemType(actualCtx, actualGame) {
+          assert.equal(actualCtx, ctx); assert.equal(actualGame, game); bankItemTypeInstalled++;
+        } };
+        if (path === "background-rendering.mjs") return { installBackgroundRendering(actualCtx, actualGame) {
+          assert.equal(actualCtx, ctx); assert.equal(actualGame, game); return () => {};
         } };
         if (path === "shop-stock.mjs") return { installShopStock(actualCtx) {
           assert.equal(actualCtx, ctx);
           shopStockInstalled++;
+        } };
+        if (path === "upgrade-stock.mjs") return { installUpgradeStock(actualCtx, actualGame) {
+          assert.equal(actualCtx, ctx); assert.equal(actualGame, game);
+          upgradeStockInstalled++;
+        } };
+        if (path === "agility-cost-stock.mjs") return { installAgilityCostStock(actualCtx, actualGame) {
+          assert.equal(actualCtx, ctx); assert.equal(actualGame, game);
+          agilityCostInstalled++;
+          return () => {};
+        } };
+        if (path === "township-task-order.mjs") return { installTownshipTaskOrder(actualCtx, actualGame) {
+          assert.equal(actualCtx, ctx); assert.equal(actualGame, game);
+          townshipTaskOrderInstalled++;
         } };
         if (path === "skill-tree-spend-all.mjs") return { installSkillTreeSpendAll(actualCtx, actualGame) {
           assert.equal(actualCtx, ctx); assert.equal(actualGame, game);
@@ -321,7 +397,7 @@ test("render remains the page-change fallback without MutationObserver or the pa
           assert.equal(actualCtx, ctx); assert.equal(actualGame, game);
           skillTreeGlowInstalled++;
         } };
-        if (path === "replay-speed.mjs") return { installReplaySpeed() {} };
+      if (path === "replay-speed.mjs") return { installReplaySpeed() {} };
         return path === "page-pinning.mjs"
           ? { installPagePinning: () => () => calls.pinning++ }
           : { installWideLayout: () => () => calls.wide++ };
@@ -353,7 +429,12 @@ test("render remains the page-change fallback without MutationObserver or the pa
     assert.equal(skillStatsInstalled, 1);
     assert.equal(loadoutsInstalled, 1);
     assert.equal(movingInstalled, 1);
+    assert.equal(bankKeyboardInstalled, 1);
+    assert.equal(bankTabOrderInstalled, 1); assert.equal(bankItemTypeInstalled, 1);
+    assert.equal(townshipTaskOrderInstalled, 1);
     assert.equal(shopStockInstalled, 1);
+    assert.equal(upgradeStockInstalled, 1);
+    assert.equal(agilityCostInstalled, 1);
     assert.equal(skillTreeSpendAllInstalled, 1);
     assert.equal(skillTreeGlowInstalled, 1);
   }

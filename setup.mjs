@@ -8,7 +8,14 @@ export async function setup(ctx) {
   const { installQuickEquip } = await ctx.loadModule("quick-equip.mjs");
   const { installItemSourcesAndUses } = await ctx.loadModule("item-sources-and-uses.mjs");
   const { installBetterMoving } = await ctx.loadModule("better-moving.mjs");
+  const { installBankKeyboard } = await ctx.loadModule("bank-keyboard.mjs");
+  const { installBankTabOrder } = await ctx.loadModule("bank-tab-order.mjs");
+  const { installBankItemType } = await ctx.loadModule("bank-item-type.mjs");
+  const { installBackgroundRendering } = await ctx.loadModule("background-rendering.mjs");
   const { installShopStock } = await ctx.loadModule("shop-stock.mjs");
+  const { installUpgradeStock } = await ctx.loadModule("upgrade-stock.mjs");
+  const { installAgilityCostStock } = await ctx.loadModule("agility-cost-stock.mjs");
+  const { installTownshipTaskOrder } = await ctx.loadModule("township-task-order.mjs");
   const { installSkillTreeSpendAll } = await ctx.loadModule("skill-tree-spend-all.mjs");
   const { installSkillTreeGlow } = await ctx.loadModule("skill-tree-glow.mjs");
   const { installReplaySpeed } = await ctx.loadModule("replay-speed.mjs");
@@ -23,6 +30,7 @@ export async function setup(ctx) {
     const updatePinning = installPagePinning(ctx, game, () => enabled, () => compactEnabled);
     const updateWideLayout = installWideLayout(ctx, game, () => wideEnabled);
     const refreshPinning = () => {
+      flushBackgroundRendering();
       lastPage = game.openPage;
       nextUpdate = performance.now() + 200;
       updatePinning();
@@ -63,8 +71,15 @@ export async function setup(ctx) {
     const getStatsLayout = quickEquip?.getStatsLayout;
     installItemStats(ctx, game, getStatsLayout);
     installItemSourcesAndUses(ctx, game);
-    installBetterMoving(ctx, game);
+    const updateBankFilters = installBetterMoving(ctx, game);
+    installBankKeyboard(ctx, game);
+    installBankTabOrder(ctx, game);
+    installBankItemType(ctx, game);
+    const flushBackgroundRendering = installBackgroundRendering(ctx, game);
     installShopStock(ctx);
+    installUpgradeStock(ctx, game);
+    const updateAgilityCosts = installAgilityCostStock(ctx, game);
+    installTownshipTaskOrder(ctx, game);
     installSkillTreeSpendAll(ctx, game);
     installSkillTreeGlow(ctx, game);
     installReplaySpeed(ctx, game);
@@ -101,6 +116,8 @@ export async function setup(ctx) {
       const now = performance.now();
       if (game.openPage === lastPage && now < nextUpdate) return;
       refreshPinning();
+      updateAgilityCosts();
+      updateBankFilters();
     });
   });
 }

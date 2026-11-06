@@ -3,9 +3,10 @@ import { afterEach, test } from "node:test";
 import { readFile } from "node:fs/promises";
 import { createContext, runInContext } from "node:vm";
 import { installItemSourcesAndUses } from "../item-sources-and-uses.mjs";
+import { installAgilityCostStock } from "../agility-cost-stock.mjs";
 
 afterEach(() => {
-  for (const name of ["document", "customElements", "MutationObserver", "Game", "mod", "SwalLocale"]) delete globalThis[name];
+  for (const name of ["document", "customElements", "MutationObserver", "Game", "mod", "SwalLocale", "formatNumber", "numberWithCommas", "toggleDangerSuccess", "$"]) delete globalThis[name];
 });
 
 class Element {
@@ -36,18 +37,24 @@ class Element {
   matches(selector) {
     return selector.split(",").some(value => {
       value = value.trim();
-      return value.startsWith(".") ? this.classList.contains(value.slice(1))
-        : value.startsWith("#") ? this.id === value.slice(1) : this.tagName.toLowerCase() === value;
+      const parts = value.split(/\s*>\s*/);
+      if (parts.length > 1) return this.matches(parts.pop()) && this.parentElement?.matches(parts.join(" > "));
+      if (value.includes(":first-child") && this.parentElement?.children[0] !== this) return false;
+      value = value.replace(":first-child", "");
+      const tag = value.match(/^[a-z][a-z0-9-]*/i)?.[0], id = value.match(/#([\w-]+)/)?.[1];
+      return (!tag || this.tagName.toLowerCase() === tag) && (!id || this.id === id)
+        && [...value.matchAll(/\.([\w-]+)/g)].every(([, name]) => this.classList.contains(name));
     });
   }
   closest(selector) { return this.matches(selector) ? this : this.parentElement?.closest(selector); }
+  contains(node) { return node === this || this.children.some(child => child.contains(node)); }
   querySelectorAll(selector) { return this.children.flatMap(node => [...(node.matches(selector) ? [node] : []), ...node.querySelectorAll(selector)]); }
   querySelector(selector) { return this.querySelectorAll(selector)[0] ?? null; }
   setAttribute(name, value) { this.attributes[name] = value; }
   getAttribute(name) { return this.attributes[name] ?? null; }
   addEventListener(name, callback) {
     if (!this.listeners.has(name)) this.listeners.set(name, []);
-    this.listeners.get(name).push(callback);
+    if (!this.listeners.get(name).includes(callback)) this.listeners.get(name).push(callback);
   }
   dispatch(name, event = { stopped: false, prevented: false, stopPropagation() { this.stopped = true; }, preventDefault() { this.prevented = true; } }) {
     for (const callback of this.listeners.get(name) ?? []) callback(event);
@@ -56,16 +63,49 @@ class Element {
     return event;
   }
   click() { return this.dispatch("click"); }
+  focus() {
+    this.focuses = (this.focuses ?? 0) + 1; document.activeElement = this;
+    const event = { target: this, stopped: false, stopPropagation() { this.stopped = true; } };
+    document.dispatchFocus(this, event);
+  }
 }
 
-function fixture(provider = "available", saved = false, install = installItemSourcesAndUses, upgradeRegistered = true) {
+function fixture(provider = "available", saved = false, install = installItemSourcesAndUses, upgradeRegistered = true, agilityRegistered = true, focusMode = "native") {
   const html = new Element("html"), head = new Element("head"), page = new Element(), nativeRoot = new Element(), workforce = new Element("section"), skillRoot = new Element();
   page.id = "page-container"; nativeRoot.id = "smithing-container"; workforce.className = "kroky-production"; skillRoot.className = "kroky-production-recipe-details";
   html.append(head, page); page.append(nativeRoot); nativeRoot.append(workforce); workforce.append(skillRoot);
   const items = ["Iron", "Coal", "ShopIngredient", "PotionI", "PotionIV"].map(name => ({ id: `test:${name}`, name }));
   items[2].buyable = true;
-  const calls = [], observers = [], patches = [], hooks = {}, fields = new Map(), values = new Map();
-  globalThis.document = { head, createElement: tag => new Element(tag), getElementById: id => html.querySelector(`#${id}`), querySelectorAll: selector => html.querySelectorAll(selector) };
+  const calls = [], observers = [], patches = [], hooks = {}, fields = new Map(), values = new Map(), focusCaptures = [], modalHidden = [], jqueryFocus = [];
+  globalThis.document = { head, createElement: tag => new Element(tag), getElementById: id => html.querySelector(`#${id}`), querySelector: selector => html.querySelector(selector), querySelectorAll: selector => html.querySelectorAll(selector),
+    addEventListener(type, callback, capture) { assert.equal(type, "focusin"); assert.equal(capture, true); focusCaptures.push(callback); },
+    dispatchFocus(target, nativeEvent) {
+      const dispatchJQuery = event => {
+        // jQuery queues matching delegated ancestors before its direct document handlers.
+        const queue = [];
+        for (let node = target; node !== html; node = node.parentElement) {
+          const matches = jqueryFocus.filter(({ selector }) => selector && node.matches(selector));
+          if (matches.length) queue.push(matches);
+        }
+        queue.push(jqueryFocus.filter(({ selector }) => !selector));
+        for (const handlers of queue) {
+          if (event.stopped) break;
+          for (const { callback } of handlers) callback(event);
+        }
+      };
+      // jQuery 3.5 simulates focusin from capture focus before native focusin is dispatched.
+      if (focusMode === "jquery-polyfill") dispatchJQuery({ ...nativeEvent, isSimulated: true });
+      for (const callback of focusCaptures) callback(nativeEvent);
+      if (!nativeEvent.stopped) target.dispatch("focusin", nativeEvent);
+      if (focusMode === "native" && !nativeEvent.stopped) dispatchJQuery(nativeEvent);
+    },
+  };
+  globalThis.$ = node => ({ on(type, selector, callback) {
+    assert.equal(node, document);
+    if (type === "hidden.bs.modal.krokyItemSources") { modalHidden.push(selector); return; }
+    assert.match(type, /^focusin\./);
+    jqueryFocus.push(typeof selector === "string" ? { selector, callback } : { callback: selector });
+  } });
   globalThis.MutationObserver = class {
     constructor(callback) { this.callback = callback; this.nodes = new Map(); observers.push(this); }
     observe(node, options) { this.nodes.set(node, options); }
@@ -73,10 +113,12 @@ function fixture(provider = "available", saved = false, install = installItemSou
   };
   globalThis.Game = class { decode(value) { values.set("recipe-item-sources-enabled", value); } render() {} };
   const game = new Game();
+  const stock = new Map(); game.bank = { getQty: item => stock.get(item) ?? 0 }; game._isInOnlineLoop = true;
   game.items = { getObjectByID: id => items.find(item => item.id === id) };
   game.herblore = { tier: 0, getPotionTier() { return this.tier; } };
   if (provider === "available") globalThis.mod = { api: { ShowItemSourcesAndUses: { showList(id) { calls.push(id); } } } };
   else if (provider === "incompatible") globalThis.mod = { api: { ShowItemSourcesAndUses: { showList: true } } };
+  else delete globalThis.mod;
   class QuantityIcon extends Element {
     constructor() {
       super("item-quantity-icon"); this.container = new Element(); this.itemImage = new Element("img"); this.autoBuyIcon = new Element("img");
@@ -142,10 +184,34 @@ function fixture(provider = "available", saved = false, install = installItemSou
       return "native upgrade costs";
     }
   }
+  class AgilitySelection extends Element {
+    constructor() {
+      super("agility-obstacle-selection"); this.link = new Element("a"); this.costContainer = new Element(); this.requirementContainer = new Element(); this.builds = 0;
+      this.requirementImage = new Element("img"); this.requirementContainer.append(this.requirementImage);
+      this.link.onclick = () => this.builds++; this.link.append(this.costContainer, this.requirementContainer); this.append(this.link);
+    }
+    setCosts(items, currencies) {
+      for (const row of this.costContainer.children) row.tooltip.destroyed = true;
+      this.costContainer.replaceChildren();
+      for (const cost of [...items, ...currencies]) {
+        const target = cost.item ?? cost.currency, owned = cost.item ? game.bank.getQty(cost.item) : cost.currency.amount;
+        const row = new Element("inline-requirement"); row.className = `font-size-sm font-w400 mr-2 ml-2 ${owned >= cost.quantity ? "text-success" : "text-danger"}`;
+        row.image = new Element("img"); row.image.className = "skill-icon-xs mr-2"; row.image.src = target.media;
+        row.text = new Element("span"); row.text.textContent = `${cost.quantity}`;
+        row.tooltip = { target: row.image, content: target.name, destroyed: false };
+        row.append(row.image, row.text); this.costContainer.append(row);
+      }
+      return "native agility costs";
+    }
+    setObstacle(target) { this.realm = target.realm; return this.setCosts(target.items, target.currencies); }
+    setPillar(target) { this.realm = target.realm; return this.setCosts(target.items, target.currencies); }
+  }
   const classes = new Map([["item-quantity-icon", QuantityIcon], ["item-current-icon", CurrentIcon], ["item-chance-icon", ChanceIcon], ["cooking-stockpile-icon", StockpileIcon], ["item-recipe-option", RecipeOption],
-    ["herblore-recipe-option", HerbloreOption], ["fishing-area-menu-button", FishOption], ["item-upgrade-menu", UpgradeMenu]]);
+    ["herblore-recipe-option", HerbloreOption], ["fishing-area-menu-button", FishOption], ["item-upgrade-menu", UpgradeMenu], ["agility-obstacle-selection", AgilitySelection]]);
   if (!upgradeRegistered) classes.delete("item-upgrade-menu");
+  if (!agilityRegistered) classes.delete("agility-obstacle-selection");
   globalThis.customElements = { get: tag => classes.get(tag) };
+  const pipelines = new WeakMap();
   const ctx = {
     settings: { section(name) {
       assert.equal(name, "General");
@@ -163,22 +229,32 @@ function fixture(provider = "available", saved = false, install = installItemSou
         get: name => values.get(name),
       };
     } },
-    onCharacterLoaded(callback) { hooks.character = callback; },
-    onInterfaceReady(callback) { hooks.interface = callback; },
+    onCharacterLoaded(callback) { const previous = hooks.character; hooks.character = () => { previous?.(); callback(); }; },
+    onInterfaceReady(callback) { const previous = hooks.interface; hooks.interface = () => { previous?.(); callback(); }; },
     patch(Class, method) {
       patches.push([Class, method]);
-      return { after(callback) {
-        const original = Class.prototype[method];
+      let methods = pipelines.get(Class); if (!methods) { methods = new Map(); pipelines.set(Class, methods); }
+      let pipeline = methods.get(method);
+      if (!pipeline) {
+        pipeline = { original: Class.prototype[method], before: [], after: [], replace: [] }; methods.set(method, pipeline);
         Class.prototype[method] = function (...args) {
-          const result = original.apply(this, args); callback.call(this, result, ...args); return result;
+          for (const callback of pipeline.before) { const changed = callback.apply(this, args); if (Array.isArray(changed)) args = changed; }
+          let index = pipeline.replace.length;
+          const next = (...values) => { args = values; return --index < 0 ? pipeline.original.apply(this, args) : pipeline.replace[index].call(this, next, ...args); };
+          let result = next(...args);
+          for (const callback of pipeline.after) { const changed = callback.call(this, result, ...args); if (changed !== undefined) result = changed; }
+          return result;
         };
-      } };
+      }
+      return { before: callback => pipeline.before.push(callback), after: callback => pipeline.after.push(callback), replace: callback => pipeline.replace.push(callback) };
     },
   };
   install(ctx, game);
   const field = fields.get("recipe-item-sources-enabled");
   const toggle = enabled => { const input = field.root.querySelector("input"); input.checked = enabled; input.dispatch("change"); };
-  return { game, items, calls, observers, patches, hooks, field, values, page, nativeRoot, workforce, skillRoot, head, QuantityIcon, CurrentIcon, ChanceIcon, StockpileIcon, RecipeOption, HerbloreOption, FishOption, UpgradeMenu, registerUpgrade: () => classes.set("item-upgrade-menu", UpgradeMenu), toggle };
+  return { game, items, stock, calls, observers, patches, hooks, ctx, field, values, html, page, nativeRoot, workforce, skillRoot, head, QuantityIcon, CurrentIcon, ChanceIcon, StockpileIcon, RecipeOption, HerbloreOption, FishOption, UpgradeMenu, AgilitySelection,
+    registerUpgrade: () => classes.set("item-upgrade-menu", UpgradeMenu), registerAgility: () => classes.set("agility-obstacle-selection", AgilitySelection), toggle,
+    hideModal(modal) { modal.classList.remove("show"); modalHidden.forEach(callback => callback({ target: modal })); } };
 }
 
 function sourceButton(icon) { return icon.querySelector(".kroky-item-source-button"); }
@@ -473,4 +549,213 @@ test("late-defined upgrade menus receive their source hook at interface readines
   assert.equal(buttons.length, 3);
   for (const button of buttons) button.click();
   assert.deepEqual(f.calls, upgrade.itemCosts.map(({ item }) => item.id), "one click invokes the provider once after repeated interface readiness");
+});
+
+function agilityFixture(f) {
+  const modal = new Element(); modal.id = "modal-select-agility-obstacle"; modal.className = "modal show"; f.page.append(modal);
+  const menu = new f.AgilitySelection(); modal.append(menu);
+  const target = { realm: "Abyssal", items: f.items.map((item, index) => ({ item, quantity: (index + 1) * 1000 })),
+    currencies: [{ currency: { id: "melvorItA:AbyssalPieces", name: "AP", amount: 50_000 }, quantity: 2 },
+      { currency: { id: "melvorItA:AbyssalSlayerCoins", name: "ASC", amount: 0 }, quantity: 3 }] };
+  return { modal, menu, target };
+}
+
+test("Agility obstacle and pillar cost items in both realms get source shortcuts without touching currencies, requirements or native build actions", () => {
+  const f = fixture("available", true), { menu, target, modal } = agilityFixture(f); f.hooks.interface();
+  for (const realm of ["Melvor", "Abyssal"]) for (const method of ["setObstacle", "setPillar"]) {
+    const build = menu.link.onclick; assert.equal(menu[method]({ ...target, realm }), "native agility costs");
+    const rows = [...menu.costContainer.children];
+    assert.equal(menu.costContainer.querySelectorAll(".kroky-item-source-button").length, target.items.length);
+    for (const [index, { item }] of target.items.entries()) {
+      const row = rows[index], wrapper = row.image.parentElement, button = sourceButton(row);
+      assert.equal(wrapper.classList.contains("kroky-agility-cost-icon"), true); assert.equal(wrapper.classList.contains("skill-icon-xs"), true);
+      assert.equal(wrapper.classList.contains("mr-2"), true); assert.equal(wrapper.classList.contains("skill-icon-sm"), false);
+      assert.equal(wrapper.children[0], row.image); assert.equal(row.tooltip.target, row.image); assert.equal(row.tooltip.destroyed, false);
+      assert.equal(row.text.parentElement, row); assert.equal(row.text.textContent, `${target.items[index].quantity}`);
+      assert.equal(row.classList.contains("text-danger"), true); assert.equal(button.type, "button");
+      const event = button.click(); assert.equal(event.prevented, true); assert.equal(event.stopped, true); assert.equal(f.calls.at(-1), item.id);
+      for (const event of ["dblclick", "keydown", "keyup"]) assert.equal(button.dispatch(event).stopped, true);
+    }
+    for (const row of rows.slice(target.items.length)) { assert.equal(sourceButton(row), null); assert.equal(row.image.parentElement, row); }
+    assert.equal(sourceButton(menu.requirementContainer), null); assert.equal(menu.requirementImage.parentElement, menu.requirementContainer);
+    assert.equal(menu.link.onclick, build); assert.equal(menu.builds, 0);
+    rows[0].image.click(); assert.equal(menu.builds, 1); menu.builds = 0;
+    assert.equal(f.observers[0].nodes.has(modal), false, "the Agility modal does not add a quantity-text observer");
+  }
+});
+
+test("Agility costs bound while disabled or before readiness decorate through one-off enable scans and reuse buttons", () => {
+  const f = fixture("available", false), { menu, target, modal } = agilityFixture(f);
+  menu.setObstacle(target); const rows = [...menu.costContainer.children], images = rows.map(row => row.image);
+  assert.equal(menu.querySelectorAll(".kroky-item-source-button").length, 0); assert.equal(images[0].parentElement, rows[0]);
+  f.hooks.interface(); assert.equal(menu.querySelectorAll(".kroky-item-source-button").length, 0);
+  f.toggle(true); const buttons = menu.querySelectorAll(".kroky-item-source-button"); assert.equal(buttons.length, target.items.length);
+  assert.equal(f.observers[0].nodes.has(modal), false); f.toggle(false);
+  buttons[0].click(); assert.deepEqual(f.calls, []); assert.equal(menu.builds, 0);
+  f.toggle(true); assert.deepEqual(menu.querySelectorAll(".kroky-item-source-button"), buttons); assert.deepEqual(rows.map(row => row.image), images);
+  f.game.decode(false); buttons[0].click(); assert.deepEqual(f.calls, []);
+  f.values.set("recipe-item-sources-enabled", true); f.hooks.character(); buttons[0].click(); assert.deepEqual(f.calls, [f.items[0].id]);
+  const oldTooltips = rows.map(row => row.tooltip), next = { ...target, items: [{ item: f.items[2], quantity: 1 }] };
+  menu.setPillar(next); assert(oldTooltips.every(tooltip => tooltip.destroyed));
+  assert.equal(menu.querySelectorAll(".kroky-item-source-button").length, 1); sourceButton(menu.costContainer.children[0]).click(); assert.equal(f.calls.at(-1), f.items[2].id);
+});
+
+test("Agility shortcuts compose with the native stock formatter in either SDK after-hook order without scanning stock-text updates", () => {
+  for (const order of ["before", "after"]) {
+    let updateStock;
+    globalThis.formatNumber = value => value >= 1000 ? `${value / 1000}K` : `${value}`;
+    globalThis.numberWithCommas = value => value.toLocaleString("en-US");
+    globalThis.toggleDangerSuccess = (element, success) => { element.classList.remove(success ? "text-danger" : "text-success"); element.classList.add(success ? "text-success" : "text-danger"); };
+    const f = fixture("available", true, (ctx, game) => {
+      if (order === "before") updateStock = installAgilityCostStock(ctx, game);
+      installItemSourcesAndUses(ctx, game);
+      if (order === "after") updateStock = installAgilityCostStock(ctx, game);
+    });
+    const { menu, target, modal } = agilityFixture(f); f.hooks.interface(); menu.setObstacle(target);
+    const rows = [...menu.costContainer.children], button = sourceButton(rows[0]); assert.ok(button);
+    assert.equal(rows[0].text.textContent, "(1K/0)"); assert.equal(rows.at(-2).text.textContent, "(2/50K)");
+    assert.equal(f.observers[0].nodes.has(modal), false);
+    const query = menu.costContainer.querySelectorAll;
+    menu.costContainer.querySelectorAll = function (selector) {
+      if (selector === "img") throw new Error("quantity refresh must not scan cost icons");
+      return query.call(this, selector);
+    };
+    for (let quantity = 1000; quantity <= 20_000; quantity += 1000) { f.stock.set(f.items[0], quantity); updateStock(); }
+    assert.equal(rows[0].text.textContent, "(1K/20K)"); assert.equal(rows[0].classList.contains("text-success"), true);
+    assert.equal(rows[0].text.title, "Iron: Required 1,000 / Owned 20,000"); assert.equal(sourceButton(rows[0]), button);
+    assert.deepEqual(f.calls, []); button.click(); assert.deepEqual(f.calls, [f.items[0].id]); assert.equal(menu.builds, 0);
+  }
+});
+
+test("late Agility definitions install one hook and unavailable providers leave the native cost icons intact", () => {
+  const f = fixture("available", true, installItemSourcesAndUses, true, false), { menu, target } = agilityFixture(f);
+  assert.equal(f.patches.some(([Class]) => Class === f.AgilitySelection), false);
+  f.registerAgility(); f.hooks.interface(); menu.setObstacle(target); f.hooks.interface(); f.hooks.interface();
+  assert.equal(f.patches.filter(([Class, method]) => Class === f.AgilitySelection && method === "setCosts").length, 1);
+  assert.equal(menu.querySelectorAll(".kroky-item-source-button").length, target.items.length);
+  for (const provider of ["missing", "incompatible"]) {
+    const missing = fixture(provider, true), native = agilityFixture(missing); native.menu.setPillar(native.target);
+    assert.equal(native.menu.querySelectorAll(".kroky-item-source-button").length, 0);
+    assert.equal(native.menu.costContainer.children[0].image.parentElement, native.menu.costContainer.children[0]);
+    assert.equal(missing.patches.length, 0); assert.equal(missing.field.root.querySelector("input").disabled, true);
+  }
+});
+
+test("source popups keep focus in native and jQuery-simulated focusin paths before Bootstrap's direct guard", () => {
+  for (const focusMode of ["native", "jquery-polyfill"]) for (const kind of ["agility", "upgrade"]) {
+    let modal, guarded = 0;
+    const f = fixture("available", true, (ctx, game) => {
+      // Bootstrap can register first; jQuery still dispatches the delegated source boundary first.
+      $(document).on("focusin.bs.modal", event => {
+        if (event.target !== modal && !modal.contains(event.target)) { guarded++; modal.focus(); }
+      });
+      installItemSourcesAndUses(ctx, game);
+    }, true, true, focusMode);
+    const context = kind === "agility" ? agilityFixture(f) : upgradeFixture(f);
+    const { menu } = context; modal = context.modal; modal.className = "modal show";
+    f.hooks.interface();
+    if (kind === "agility") menu.setObstacle(context.target); else menu.setUpgradeCosts(context.upgrade, context.bank, f.game);
+    let popup, confirm, entered = 0, providerFocus;
+    f.html.addEventListener("keydown", () => entered++);
+    mod.api.ShowItemSourcesAndUses.showList = () => {
+      popup = new Element(); popup.className = "swal2-container";
+      confirm = new Element("button"); confirm.className = "swal2-confirm"; popup.append(confirm); f.html.append(popup);
+      confirm.focus(); providerFocus = document.activeElement;
+    };
+    sourceButton(kind === "agility" ? menu.costContainer : menu.itemCosts).click();
+    assert.equal(providerFocus === confirm, true, `${focusMode}: the provider's first focus attempt stays in its popup`);
+    assert.equal(document.activeElement === confirm, true); assert.equal(guarded, 0); assert.equal(modal.contains(popup), false); assert.equal(popup.parentElement === f.html, true);
+    confirm.dispatch("keydown"); assert.equal(entered, 1, "SweetAlert keyboard events keep bubbling normally");
+    const outside = new Element("button"); f.html.append(outside); outside.focus();
+    assert.equal(document.activeElement === modal, true); assert.equal(guarded, 1, "the original Bootstrap guard still handles other outside controls");
+    assert.equal(menu.builds ?? 0, 0);
+  }
+});
+
+test("ordinary recipe sources and providers without a SweetAlert retain their native focus behavior", () => {
+  const f = fixture("available", true), icon = new f.QuantityIcon(); f.skillRoot.append(icon); icon.setItem(f.items[0], 1); f.hooks.interface();
+  const popup = new Element(); popup.className = "swal2-container"; const confirm = new Element("button"); confirm.className = "swal2-confirm"; popup.append(confirm); f.html.append(popup);
+  mod.api.ShowItemSourcesAndUses.showList = () => confirm.focus(); sourceButton(icon).click();
+  assert.equal(document.activeElement === confirm, true); assert.equal(confirm.focuses, 1); assert.equal(popup.listeners.has("focusin"), false);
+  popup.remove(); const context = agilityFixture(f); context.menu.setObstacle(context.target);
+  mod.api.ShowItemSourcesAndUses.showList = id => f.calls.push(id);
+  assert.doesNotThrow(() => sourceButton(context.menu.costContainer).click()); assert.deepEqual(f.calls, [f.items[0].id]);
+});
+
+test("a provider error popup receives the same modal focus boundary", () => {
+  for (const focusMode of ["native", "jquery-polyfill"]) {
+    const f = fixture("available", true, installItemSourcesAndUses, true, true, focusMode), { menu, modal, target } = agilityFixture(f); f.hooks.interface(); menu.setObstacle(target);
+    $(document).on("focusin.bs.modal", event => { if (!modal.contains(event.target)) modal.focus(); });
+    mod.api.ShowItemSourcesAndUses.showList = () => { throw new Error("provider failure"); };
+    let confirm;
+    globalThis.SwalLocale = { fire() { const popup = new Element(); popup.className = "swal2-container"; confirm = new Element("button"); confirm.className = "swal2-confirm"; popup.append(confirm); f.html.append(popup); confirm.focus(); } };
+    const warn = console.warn; console.warn = () => {};
+    try { sourceButton(menu.costContainer).click(); } finally { console.warn = warn; }
+    assert.equal(document.activeElement === confirm, true); assert.equal(menu.builds, 0);
+  }
+});
+
+test("new provider drilldown popups preserve local focus handlers and lose the exemption when the source modal or settings close", () => {
+  for (const focusMode of ["native", "jquery-polyfill"]) for (const reset of ["hidden", "disabled", "character"]) {
+    const f = fixture("available", true, installItemSourcesAndUses, true, true, focusMode), { menu, modal, target } = agilityFixture(f); f.hooks.interface(); menu.setObstacle(target);
+    $(document).on("focusin.bs.modal", event => { if (!modal.contains(event.target)) modal.focus(); });
+    let popup, confirm, localFocus = 0;
+    const openPopup = () => {
+      popup?.remove(); popup = new Element(); popup.className = "swal2-container";
+      confirm = new Element("button"); confirm.className = "swal2-confirm"; confirm.addEventListener("focusin", () => localFocus++);
+      popup.append(confirm); f.html.append(popup); confirm.focus();
+    };
+    mod.api.ShowItemSourcesAndUses.showList = openPopup; sourceButton(menu.costContainer).click();
+    const first = popup; openPopup(); assert.notEqual(popup === first, true);
+    assert.equal(document.activeElement === confirm, true); assert.equal(localFocus, 2, "both initial and newly created popup descendants receive focusin");
+    assert.equal(popup.listeners.has("focusin"), false, "the delegated boundary needs no per-popup handler");
+    if (reset === "hidden") { f.hideModal(modal); modal.classList.add("show"); }
+    else if (reset === "disabled") f.toggle(false);
+    else f.hooks.character();
+    confirm.focus(); assert.equal(document.activeElement === modal, true, `${reset} ends the source focus scope`);
+  }
+});
+
+test("provider dialogs size to their main content area without polling, including bank entrypoints with shortcuts disabled", () => {
+  for (const focusMode of ["native", "jquery-polyfill"]) {
+    const resizes = [];
+    const f = fixture("available", false, (ctx, game) => {
+      document.defaultView = { addEventListener(type, callback) { assert.equal(type, "resize"); resizes.push(callback); } };
+      installItemSourcesAndUses(ctx, game);
+    }, true, true, focusMode);
+    const main = new Element(); main.id = "main-container"; f.page.append(main);
+    let width = 1200, reads = 0, writes = 0;
+    Object.defineProperty(main, "clientWidth", { get() { reads++; return width; } });
+    f.hooks.interface();
+    const css = f.head.querySelector("style").textContent;
+    assert.match(css, /\.kroky-item-sources-dialog\s*\{[^}]*width:\s*max-content[^}]*max-width:\s*min\(var\(--kroky-item-sources-max-width, 75vw\)/);
+    assert.match(css, /td:first-child\s*\{[^}]*white-space:\s*nowrap/);
+    assert.match(css, /td:last-child\s*\{[^}]*white-space:\s*normal/);
+    const open = (provider = true) => {
+      const container = new Element(); container.className = "swal2-container";
+      const popup = new Element(); popup.className = "swal2-popup";
+      popup.style = { values: new Map(), getPropertyValue(key) { return this.values.get(key) ?? ""; },
+        setProperty(key, value) { writes++; this.values.set(key, value); } };
+      const html = new Element(); html.id = "swal2-html-container";
+      const table = new Element("table"); table.className = provider ? "font-w400 font-size-sm mb-1" : "table";
+      const body = new Element("tbody"), row = new Element("tr"), label = new Element("td"), detail = new Element("td");
+      label.className = "text-info"; label.textContent = "Farming:"; detail.textContent = "Whispertallow Herb";
+      row.append(label, detail); body.append(row); table.append(body); html.append(table);
+      const confirm = new Element("button"); confirm.className = "swal2-confirm";
+      popup.append(html, confirm); container.append(popup); f.html.append(container); confirm.focus();
+      return { container, popup, confirm };
+    };
+    const first = open();
+    assert.equal(first.popup.classList.contains("kroky-item-sources-dialog"), true);
+    assert.equal(first.popup.style.getPropertyValue("--kroky-item-sources-max-width"), "900px");
+    assert.equal(f.page.classList.contains("kroky-item-sources-enabled"), false, "native bank Sources opens without enabling recipe shortcuts");
+    first.confirm.focus(); assert.equal(reads, 1, "Tab focus does not measure again"); assert.equal(writes, 1);
+    width = 800; resizes[0](); assert.equal(first.popup.style.getPropertyValue("--kroky-item-sources-max-width"), "600px");
+    resizes[0](); assert.equal(writes, 2, "an unchanged cap is not rewritten");
+    first.container.remove(); const before = reads; resizes[0](); assert.equal(reads, before, "closed dialogs cause no layout read on resize");
+    const unrelated = open(false); assert.equal(unrelated.popup.classList.contains("kroky-item-sources-dialog"), false); assert.equal(reads, before);
+    unrelated.container.remove(); const next = open();
+    assert.equal(next.popup.style.getPropertyValue("--kroky-item-sources-max-width"), "600px", "fresh provider drilldowns are sized independently");
+    assert.equal(reads, before + 1);
+  }
 });

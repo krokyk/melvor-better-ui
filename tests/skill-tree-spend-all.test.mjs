@@ -3,20 +3,48 @@ import { afterEach, test } from "node:test";
 import { installSkillTreeSpendAll } from "../skill-tree-spend-all.mjs";
 
 const originalError = console.error;
-afterEach(() => { for (const name of ["document", "SwalLocale", "SkillTreeMenuElement"]) delete globalThis[name]; console.error = originalError; });
+afterEach(() => { for (const name of ["document", "SwalLocale", "SkillTreeMenuElement", "$"]) delete globalThis[name]; console.error = originalError; });
 class Element {
-  constructor() { this.children = []; this.events = {}; this.disabled = false; this.classList = { add() {} }; }
+  constructor() {
+    this.children = []; this.events = {}; this.disabled = false; this.className = "";
+    this.classList = { add: (...names) => { this.className = [...new Set([...this.className.split(" "), ...names])].filter(Boolean).join(" "); } };
+  }
   append(node) { node.parentElement = this; this.children.push(node); }
   after(node) { node.parentElement = this.parentElement; this.parentElement.children.splice(this.parentElement.children.indexOf(this) + 1, 0, node); }
   addEventListener(event, callback) { this.events[event] = callback; }
+  matches(selector) { return selector.startsWith(".") && selector.slice(1).split(".").every(name => this.className.split(" ").includes(name)); }
+  closest(selector) { return this.matches(selector) ? this : this.parentElement?.closest(selector); }
+  contains(node) { return node === this || this.children.some(child => child.contains(node)); }
+  focus() { document.activeElement = this; document.dispatchFocus(this); }
 }
-function fixture() {
-  const state = { saves: 0, attempts: [], paid: [], shown: [], confirms: [], logs: [], items: 10, currency: 10 };
+function fixture(trapFocus = false) {
+  const state = { saves: 0, attempts: [], paid: [], shown: [], confirms: [], popups: [], logs: [], items: 10, currency: 10 };
   const loads = [];
-  globalThis.document = { visibilityState: "visible", createElement: () => new Element() };
+  const focusHandlers = [];
+  globalThis.document = { visibilityState: "visible", createElement: () => new Element(), dispatchFocus(target) {
+    const event = { target, stopped: false, stopPropagation() { this.stopped = true; } };
+    const queue = [];
+    for (let node = target; node; node = node.parentElement) {
+      const handlers = focusHandlers.filter(({ selector }) => selector && node.matches?.(selector));
+      if (handlers.length) queue.push([node, handlers]);
+    }
+    queue.push([document, focusHandlers.filter(({ selector }) => !selector)]);
+    for (const [node, handlers] of queue) {
+      if (event.stopped) break;
+      for (const { callback } of handlers) callback.call(node, event);
+    }
+  } };
+  globalThis.$ = node => ({ on(type, selector, callback) {
+    assert.equal(node, document); assert.match(type, /^focusin\./);
+    focusHandlers.push(typeof selector === "string" ? { selector, callback } : { callback: selector });
+  } });
   globalThis.SwalLocale = { fire(options) {
     state.shown.push(options);
-    if (options.icon === "error") { if (state.reportError) throw state.reportError; return Promise.resolve({}); }
+    if (options.icon === "error" && state.reportError) throw state.reportError;
+    const popup = new Element(), confirm = new Element(); popup.className = "swal2-popup"; popup.append(confirm);
+    options.willOpen?.(popup); confirm.focus();
+    state.popups.push({ popup, confirm, firstFocus: document.activeElement });
+    if (options.icon === "error") return Promise.resolve({});
     return new Promise(resolve => state.confirms.push(resolve));
   } };
   console.error = (...args) => state.logs.push(args);
@@ -27,6 +55,8 @@ function fixture() {
     setSkillTree(tree) { this.tree = tree; return "native-bind"; }
     render() { this.renders++; this.renderQueue.currentPoints = this.renderQueue.costs = this.renderQueue.requirements = false; return "native-render"; }
     onClose() { this.tree = undefined; this.visible = false; return "native-close"; }
+    closest(selector) { return this.parentElement?.closest(selector); }
+    contains(node) { return node === this || this.row.contains(node); }
   }
   globalThis.SkillTreeMenuElement = Menu;
   const menu = new Menu(), game = { scheduleSave() { state.saves++; if (state.saveError) throw state.saveError; } };
@@ -34,6 +64,8 @@ function fixture() {
     const native = Class.prototype[method];
     return { replace(hook) { Class.prototype[method] = function (...args) { return hook.call(this, native.bind(this), ...args); }; } };
   } };
+  const modal = new Element(); modal.className = "modal show"; modal.append(menu);
+  if (trapFocus) $(document).on("focusin.bs.modal", event => { if (!modal.contains(event.target)) modal.focus(); });
   installSkillTreeSpendAll(ctx, game);
   const tree = (name, points, specs) => {
     const result = { name, skill: { name: "Mining" }, game, points, nodes: { allObjects: [] }, unlockedNodes: [], checks: 0 };
@@ -61,7 +93,7 @@ function fixture() {
   };
   const button = () => menu.row.children.find(node => node.textContent === "Spend All");
   const bind = target => { menu.visible = true; return menu.setSkillTree(target, game); };
-  return { state, game, menu, tree, button, bind, load: () => loads.forEach(callback => callback()),
+  return { state, game, menu, modal, tree, button, bind, load: () => loads.forEach(callback => callback()),
     click: () => button().events.click(), confirm: (index = 0, isConfirmed = true) => state.confirms[index]({ isConfirmed }) };
 }
 
@@ -165,4 +197,22 @@ test("new nodes added during purchases cannot exceed the initial attempt bound",
   const m = fixture(), tree = m.tree("Bounded", 5, [{ id: "one", onUnlock() { tree.nodes.allObjects.push({ id: "new", costs: { points: 0 }, isUnlocked: false, canUnlock: true, requirements: [] }); } }]); m.bind(tree);
   const pending = m.click(); m.confirm(); await pending;
   assert.deepEqual(m.state.attempts, ["one"]); assert.equal(tree.nodes.allObjects[1].isUnlocked, false); assert.equal(m.state.saves, 1);
+});
+
+test("owned Spend All confirmation and error dialogs keep their first focus above Bootstrap without changing unrelated dialogs", async () => {
+  const m = fixture(true), tree = m.tree("Abyssal", 2, [{ id: "one" }]); m.bind(tree);
+  let pending = m.click();
+  let dialog = m.state.popups.at(-1);
+  assert.equal(dialog.firstFocus === dialog.confirm, true, "willOpen marks the popup before SweetAlert focuses its confirmation button");
+  assert.equal(m.state.shown[0].target, undefined); assert.equal(m.state.shown[0].customClass, undefined, "native backdrop and button classes remain unchanged");
+  m.confirm(0, false); await pending;
+  assert.deepEqual(m.state.attempts, []); assert.equal(m.state.saves, 0);
+  const unrelated = new Element(), unrelatedConfirm = new Element(); unrelated.className = "swal2-popup"; unrelated.append(unrelatedConfirm); unrelatedConfirm.focus();
+  assert.equal(document.activeElement === m.modal, true, "Bootstrap still traps unrelated popups");
+  m.menu.render(); tree.nodes.allObjects[0].fail = "before"; tree.nodes.allObjects[0].error = new Error("native purchase failed");
+  pending = m.click(); m.confirm(1); await assert.rejects(pending, /native purchase failed/);
+  dialog = m.state.popups.at(-1);
+  assert.equal(m.state.shown.at(-1).icon, "error"); assert.equal(dialog.firstFocus === dialog.confirm, true);
+  m.modal.className = "modal"; dialog.confirm.focus();
+  assert.equal(document.activeElement === m.modal, true, "the exemption ends when the originating Bootstrap modal closes");
 });

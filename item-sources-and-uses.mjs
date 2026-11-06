@@ -1,13 +1,13 @@
 const settingName = "recipe-item-sources-enabled";
 const unavailable = "Requires Show Item Sources And Uses to be installed and enabled with a compatible API. Reload after changing mods.";
-const recipeAreas = ".kroky-production-recipe-details, .kroky-woodcutting-stock, .kroky-mining-stock, .kroky-fishing-stock, .kroky-upgrade-costs, #firemaking-container, #cooking-container";
+const recipeAreas = ".kroky-production-recipe-details, .kroky-woodcutting-stock, .kroky-mining-stock, .kroky-fishing-stock, .kroky-upgrade-costs, .kroky-agility-costs, #firemaking-container, #cooking-container";
 const observedAreas = ".kroky-production, #woodcutting-tree-container, #mining-ores-container, #fishing-area-menu-container, #modal-item-upgrade, #firemaking-container, #cooking-container";
 
 export function installItemSourcesAndUses(ctx, game) {
   const getProvider = () => typeof mod === "undefined" ? undefined : mod.api?.ShowItemSourcesAndUses;
   const available = typeof getProvider()?.showList === "function";
   const settings = ctx.settings.section("General");
-  let enabled = false, ready = false, observer;
+  let enabled = false, ready = false, observer, sourceModal;
   const bindings = new WeakMap();
 
   settings.add({
@@ -26,7 +26,7 @@ export function installItemSourcesAndUses(ctx, game) {
       const hint = document.createElement("small");
       hint.className = "d-block";
       hint.textContent = available
-        ? "Add a blue ? just outside the top-right corner of recipe and upgrade-cost item icons, mirroring the shop-coin overlay. Main artwork and shop coin shortcuts stay unchanged."
+        ? "Add a blue ? just outside the top-right corner of recipe, upgrade-cost and Agility cost item icons, mirroring the shop-coin overlay. Main artwork and shop coin shortcuts stay unchanged."
         : unavailable;
       label.append(hint);
       root.append(input, label);
@@ -43,6 +43,29 @@ export function installItemSourcesAndUses(ctx, game) {
   });
   if (!available) return;
 
+  const sourceTable = "#swal2-html-container > table.font-w400.font-size-sm > tbody > tr > td:first-child.text-info";
+  const sizeSourcePopup = popup => {
+    if (!popup) return;
+    const width = document.getElementById("main-container")?.clientWidth;
+    if (!width) return;
+    const cap = `${width * .75}px`;
+    if (popup.style.getPropertyValue("--kroky-item-sources-max-width") !== cap) popup.style.setProperty("--kroky-item-sources-max-width", cap);
+  };
+  const handleSourceFocus = event => {
+    const popup = event.target.closest?.(".swal2-popup");
+    if (popup && !popup.classList.contains("kroky-item-sources-dialog") && popup.querySelector(sourceTable)) {
+      popup.classList.add("kroky-item-sources-dialog");
+      sizeSourcePopup(popup);
+    }
+    if (enabled && sourceModal?.classList.contains("show")) event.stopPropagation();
+  };
+  // jQuery delegates run before Bootstrap's direct focus guard, including simulated focusin events.
+  if (typeof $ === "function") $(document).on("focusin.krokyItemSources", ".swal2-container", handleSourceFocus);
+  document.defaultView?.addEventListener("resize", () => sizeSourcePopup(document.querySelector(".kroky-item-sources-dialog")));
+  if (typeof $ === "function") $(document).on("hidden.bs.modal.krokyItemSources", event => {
+    if (event.target === sourceModal) sourceModal = undefined;
+  });
+
   function exposeButton(container) {
     // Image roles hide their children from assistive technology.
     if (container?.getAttribute("role") !== "img") return;
@@ -58,9 +81,9 @@ export function installItemSourcesAndUses(ctx, game) {
     const eligible = item && !binding.quickBuy && !summoningProduct && !image.classList.contains("kroky-production-image");
     if (!eligible && !binding.button) return;
     if (!binding.button) {
-      if (binding.upgradeCost) {
+      if (binding.wrapperClass && !image.parentElement.classList.contains(binding.wrapperClass.split(" ")[0])) {
         const wrapper = document.createElement("span");
-        wrapper.className = "kroky-upgrade-cost-icon skill-icon-sm mr-1";
+        wrapper.className = binding.wrapperClass;
         image.before(wrapper); wrapper.append(image);
       }
       const button = document.createElement("button");
@@ -72,6 +95,7 @@ export function installItemSourcesAndUses(ctx, game) {
         event.preventDefault();
         const current = bindings.get(image)?.item, provider = getProvider();
         if (!enabled || !current || typeof provider?.showList !== "function") return;
+        sourceModal = image.closest(".modal.show");
         try { provider.showList(current.id); }
         catch (error) {
           console.warn("[Better UI] Show Item Sources And Uses could not open this item.", error);
@@ -93,12 +117,12 @@ export function installItemSourcesAndUses(ctx, game) {
     }
   }
 
-  function bind(image, item, quickBuy = false, upgradeCost = false) {
+  function bind(image, item, quickBuy = false, wrapperClass) {
     if (!image) return;
     const binding = bindings.get(image) ?? {};
     binding.item = item?.id && game.items.getObjectByID(item.id) === item ? item : undefined;
     binding.quickBuy = quickBuy;
-    binding.upgradeCost = upgradeCost;
+    binding.wrapperClass = wrapperClass;
     bindings.set(image, binding);
     if (ready && enabled) decorate(image);
   }
@@ -126,11 +150,23 @@ export function installItemSourcesAndUses(ctx, game) {
     ctx.patch(UpgradeMenu, "setUpgradeCosts").after(function (_result, upgrade) {
       this.itemCosts.classList.add("kroky-upgrade-costs");
       const images = this.itemCosts.querySelectorAll("img");
-      upgrade.itemCosts.forEach(({ item }, index) => bind(images[index], item, false, true));
+      upgrade.itemCosts.forEach(({ item }, index) => bind(images[index], item, false, "kroky-upgrade-cost-icon skill-icon-sm mr-1"));
     });
     upgradeHookInstalled = true;
   }
   installUpgradeHook();
+  let agilityHookInstalled = false;
+  function installAgilityHook() {
+    if (agilityHookInstalled) return;
+    const Selection = customElements.get("agility-obstacle-selection");
+    if (typeof Selection?.prototype.setCosts !== "function") return;
+    ctx.patch(Selection, "setCosts").after(function (_result, items) {
+      this.costContainer.classList.add("kroky-agility-costs");
+      items.forEach(({ item }, index) => bind(this.costContainer.children[index]?.image, item, false, "kroky-agility-cost-icon skill-icon-xs mr-2"));
+    });
+    agilityHookInstalled = true;
+  }
+  installAgilityHook();
   function scan(node) {
     if (node.nodeType !== 1) return;
     if (node.tagName === "IMG") decorate(node);
@@ -141,18 +177,22 @@ export function installItemSourcesAndUses(ctx, game) {
     if (!ready) return;
     document.getElementById("page-container")?.classList.toggle("kroky-item-sources-enabled", enabled);
     observer?.disconnect();
-    if (!enabled) return;
     if (!document.getElementById("kroky-item-sources-style")) {
       const style = document.createElement("style");
       style.id = "kroky-item-sources-style";
       style.textContent = `
         .kroky-item-source-button { display: none; }
-        .kroky-upgrade-cost-icon { position: relative; display: inline-block; vertical-align: middle; }
-        .kroky-upgrade-cost-icon > img { margin: 0 !important; }
+        .kroky-upgrade-cost-icon, .kroky-agility-cost-icon { position: relative; display: inline-block; vertical-align: middle; }
+        .kroky-upgrade-cost-icon > img, .kroky-agility-cost-icon > img { margin: 0 !important; }
         .kroky-item-sources-enabled .kroky-item-source-button:not([hidden]) { display: block; left: auto; right: -6px; z-index: 1; border: 0; line-height: 1; font-size: .875rem; font-weight: bold; border-radius: 50%; background: #232a35; text-decoration: none; }
+        .kroky-item-sources-dialog { width: max-content; max-width: min(var(--kroky-item-sources-max-width, 75vw), calc(100vw - 2rem)); }
+        .kroky-item-sources-dialog > #swal2-html-container > table td { vertical-align: top; }
+        .kroky-item-sources-dialog > #swal2-html-container > table td:first-child { white-space: nowrap; padding-right: .5rem; }
+        .kroky-item-sources-dialog > #swal2-html-container > table td:last-child { white-space: normal; word-break: normal; overflow-wrap: break-word; }
       `;
       document.head.append(style);
     }
+    if (!enabled) { sourceModal = undefined; return; }
     if (!observer && typeof MutationObserver === "function") observer = new MutationObserver(records => {
       for (const record of records) {
         exposeButton(record.target?.closest?.(".info-icon"));
@@ -163,9 +203,10 @@ export function installItemSourcesAndUses(ctx, game) {
       scan(root);
       observer?.observe(root, { childList: true, subtree: true });
     }
+    for (const area of document.querySelectorAll(".kroky-agility-costs")) scan(area);
   }
-  const restore = () => { enabled = settings.get(settingName) === true; update(); };
+  const restore = () => { sourceModal = undefined; enabled = settings.get(settingName) === true; update(); };
   ctx.onCharacterLoaded(restore);
-  ctx.onInterfaceReady(() => { ready = true; installUpgradeHook(); restore(); });
+  ctx.onInterfaceReady(() => { ready = true; installUpgradeHook(); installAgilityHook(); restore(); });
   ctx.patch(Game, "decode").after(restore);
 }

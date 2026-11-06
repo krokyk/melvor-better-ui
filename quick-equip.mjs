@@ -1,4 +1,5 @@
 const storageKey = "quick-equip-extra-slots";
+const highestTierStorageKey = "quick-equip-highest-tier-only";
 const dragType = "application/x-kroky-quick-equip";
 const settingName = "quick-equip-enabled";
 const extraSlotsSettingName = "extra-quick-slots-enabled";
@@ -15,6 +16,7 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
   let extra = {}, storageReady = false, storageError = false, enabled = true, extraSlotsEnabled = true, directUnequipEnabled = false, statsLayout = "compact";
   let equipmentEventPlayer, equipmentRefreshQueued = false;
   let equipBehavior = "close-bank";
+  let highestTierOnly = true;
   const validEquipBehavior = value => ["close-menu", "close-bank", "keep-open"].includes(value);
   settings.add({
     type: "switch", name: settingName, label: "Enhanced Equipment Menu", default: true,
@@ -108,6 +110,8 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
       extra = {}; storageError = true;
       console.warn("[Better UI] Could not read the extra quick-equip slots. Saved data was kept.", error);
     }
+    try { highestTierOnly = ctx.characterStorage.getItem(highestTierStorageKey) !== false; }
+    catch (error) { highestTierOnly = true; console.warn("[Better UI] Could not read the highest-tier filter preference.", error); }
     enabled = settings.get(settingName) !== false;
     extraSlotsEnabled = settings.get(extraSlotsSettingName) !== false;
     directUnequipEnabled = settings.get(directUnequipSettingName) === true;
@@ -176,6 +180,7 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
       .kroky-quick-equip-picker { display: flex; flex: 0 1 auto; min-height: 0; margin-top: .5rem; }
       .kroky-quick-equip-bank-pane { display: flex; flex-direction: column; width: 100%; min-height: 0; flex: 1; }
       .kroky-quick-equip-bank-pane > input { flex-shrink: 0; }
+      .kroky-quick-equip-highest-tier { display: flex; align-items: center; flex-shrink: 0; gap: .35rem; margin: .35rem 0 0; font-size: .8rem; }
       .kroky-quick-equip-quantity { width: 100%; flex-shrink: 0; margin-top: .5rem; text-align: left; }
       .kroky-quick-equip-quantity-row { display: flex; align-items: center; gap: .5rem; }
       .kroky-quick-equip-quantity-number { min-width: 0; flex: 1; }
@@ -424,12 +429,37 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
     positionPreview(view);
     tooltip?.popperInstance?.update();
   }
+  function highestTiers(candidates) {
+    const owned = new Set(candidates.map(({ item }) => item)), reachable = new Map();
+    const upgradesOf = item => {
+      if (!reachable.has(item)) {
+        const seen = new Set([item]), pending = [item];
+        while (pending.length) {
+          const root = pending.pop();
+          for (const upgrade of game.bank.itemUpgrades?.get(root) ?? []) {
+            const next = upgrade.upgradedItem;
+            if (upgrade.isDowngrade || !upgrade.rootItems?.includes(root) || !next || next === root || seen.has(next)) continue;
+            seen.add(next); pending.push(next);
+          }
+        }
+        seen.delete(item); reachable.set(item, seen);
+      }
+      return reachable.get(item);
+    };
+    // Mutually reachable items are peers; a modded upgrade cycle must not hide every alternative.
+    return candidates.filter(({ item }) => ![...upgradesOf(item)].some(upgrade => owned.has(upgrade) && !upgradesOf(upgrade).has(item)));
+  }
   function populateBank(view) {
     view.bankItems = [];
     view.pendingItem = view.draggedItem = view.hoveredItem = undefined;
+    view.highestTier.checked = highestTierOnly;
+    const candidates = [...game.bank.items.values()].filter(({ item, quantity }) => quantity > 0 && fits(view, item));
+    const offered = highestTierOnly ? highestTiers(candidates) : candidates;
+    if (view.selectedItem && candidates.some(({ item }) => item === view.selectedItem) && !offered.some(({ item }) => item === view.selectedItem)) {
+      view.selectedItem = undefined; view.selectedQuantity = undefined; clearPreview(view);
+    }
     const fragment = document.createDocumentFragment();
-    for (const { item, quantity } of game.bank.items.values()) {
-      if (quantity <= 0 || !fits(view, item)) continue;
+    for (const { item, quantity } of offered) {
       const button = document.createElement("button"), image = document.createElement("img");
       button.type = "button"; button.className = "btn btn-outline-secondary kroky-quick-equip-bank-item";
       button.draggable = true; button.dataset.itemId = item.id;
@@ -480,6 +510,7 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
     for (const menu of document.querySelectorAll(".kroky-quick-equip")) {
       const view = menus.get(menu);
       if (!view) continue;
+      if (view.highestTier) view.highestTier.checked = highestTierOnly;
       if (!isCurrent(view)) { closePicker(view); continue; }
       redraw(view);
       if (!view.picker || view.picker.hidden) continue;
@@ -582,11 +613,13 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
         if (!view.pendingItem || !["Enter", " "].includes(event.key)) return;
         event.preventDefault(); event.stopPropagation(); activate(view, index);
       });
-      equip.addEventListener("dragover", event => {
+      const acceptDrop = event => {
         if ((index >= 3 && !extraSlotsEnabled) || !canAssign(view, view.draggedItem)) return;
         event.preventDefault(); event.dataTransfer.dropEffect = "copy";
         equip.classList.add("kroky-drop-target");
-      });
+      };
+      equip.addEventListener("dragenter", acceptDrop);
+      equip.addEventListener("dragover", acceptDrop);
       equip.addEventListener("dragleave", () => equip.classList.remove("kroky-drop-target"));
       equip.addEventListener("drop", event => {
         if (!enabled) return;
@@ -603,6 +636,23 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
           view.search = document.createElement("input"); view.search.type = "search";
           view.search.className = "form-control form-control-sm"; view.search.placeholder = "Search Bank";
           view.search.setAttribute("aria-label", "Search compatible bank equipment");
+          const highestTier = document.createElement("label"), highestTierLabel = document.createElement("span");
+          highestTier.className = "kroky-quick-equip-highest-tier";
+          view.highestTier = document.createElement("input"); view.highestTier.type = "checkbox"; view.highestTier.checked = highestTierOnly;
+          highestTierLabel.textContent = "show highest tier only";
+          highestTier.title = "Hide lower upgrade-family equipment when a higher upgrade is in Bank and usable in this slot.";
+          highestTier.append(view.highestTier, highestTierLabel);
+          view.highestTier.addEventListener("change", () => {
+            const next = view.highestTier.checked;
+            if (!isCurrent(view)) { view.highestTier.checked = highestTierOnly; return; }
+            try { ctx.characterStorage.setItem(highestTierStorageKey, next); }
+            catch (error) {
+              view.highestTier.checked = highestTierOnly;
+              view.status.textContent = "Could not save this filter. Your previous preference was kept.";
+              console.warn("[Better UI] Could not save the highest-tier filter preference.", error); return;
+            }
+            highestTierOnly = next; refreshOpenPickers();
+          });
           const bankPane = document.createElement("div"); bankPane.className = "kroky-quick-equip-bank-pane";
           view.quantitySection = document.createElement("div"); view.quantitySection.className = "kroky-quick-equip-quantity"; view.quantitySection.hidden = true;
           const quantityRow = document.createElement("div"), quantityRange = document.createElement("input");
@@ -628,7 +678,7 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
           view.preview.setAttribute("aria-label", "Item stats preview");
           view.items = document.createElement("div"); view.items.className = "kroky-quick-equip-items";
           view.search.addEventListener("input", () => { view.hoveredItem = undefined; filterBank(view); renderPreview(view); });
-          bankPane.append(view.search, view.quantitySection, view.items);
+          bankPane.append(view.search, highestTier, view.quantitySection, view.items);
           view.picker.append(bankPane); view.column.append(view.picker); view.layout.append(view.preview);
           view.quantitySlider = new BankRangeSlider(quantityRange);
           view.quantitySlider.setOnChange(quantity => {
@@ -689,21 +739,42 @@ export function installQuickEquip(ctx, game, createItemStatsPreview) {
     if (popup && binding.popup !== popup) {
       binding.popup = popup;
       const { onHide } = popup.props;
-      popup.setProps({ onHide(instance) {
-        if (onHide?.(instance) === false) return false;
+      const wrappedShows = new WeakSet(), wrappedUpdates = new WeakSet();
+      let showing = 0;
+      const wrapShow = callback => {
+        if (wrappedShows.has(callback)) return callback;
+        const wrapped = function (...args) {
+          let result;
+          showing++;
+          try { result = callback?.apply(this, args); }
+          finally { showing--; }
+          if (!showing && result !== false) {
+            icon.tooltip?.hide();
+            if (enabled) icon.classList.add("kroky-equipment-selected");
+          }
+          return result;
+        };
+        wrappedShows.add(wrapped); return wrapped;
+      };
+      const wrapUpdate = callback => {
+        if (wrappedUpdates.has(callback)) return callback;
+        const wrapped = function (...args) {
+          const result = callback?.apply(this, args), props = args[1];
+          if ("onShow" in props) props.onShow = wrapShow(props.onShow);
+          if ("onBeforeUpdate" in props) props.onBeforeUpdate = wrapUpdate(props.onBeforeUpdate);
+          return result;
+        };
+        wrappedUpdates.add(wrapped); return wrapped;
+      };
+      // Compose callbacks before Tippy merges them; another setProps would rebuild its visible Popper.
+      popup.setProps({ onBeforeUpdate: wrapUpdate(popup.props.onBeforeUpdate), onShow: wrapShow(popup.props.onShow), onHide(...args) {
+        const result = onHide?.apply(this, args);
+        if (result === false) return false;
         icon.classList.remove("kroky-equipment-selected");
         const view = menus.get(icon.quickEquip);
         if (view) closePicker(view);
+        return result;
       } });
-    }
-    if (popup && binding.popupOnShow !== popup.props.onShow) {
-      const { onShow } = popup.props;
-      binding.popupOnShow = instance => {
-        if (onShow?.(instance) === false) return false;
-        icon.tooltip?.hide();
-        if (enabled) icon.classList.add("kroky-equipment-selected");
-      };
-      popup.setProps({ onShow: binding.popupOnShow });
     }
     const tooltip = icon.tooltip;
     if (tooltip && binding.statsTooltip !== tooltip) {

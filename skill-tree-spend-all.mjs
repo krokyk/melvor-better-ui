@@ -1,5 +1,13 @@
 export function installSkillTreeSpendAll(ctx, game) {
   const views = new Map();
+  const dialogMenus = new WeakMap();
+  const openDialog = (menu, options) => SwalLocale.fire({ ...options, willOpen(popup) {
+    dialogMenus.set(popup, menu); popup.classList.add("kroky-skill-tree-spend-dialog");
+  } });
+  if (typeof $ === "function") $(document).on("focusin.krokySkillTreeSpendAll", ".kroky-skill-tree-spend-dialog", function (event) {
+    // jQuery delegates precede Bootstrap's document focus trap, including simulated focusin events.
+    if (dialogMenus.get(this)?.closest(".modal.show")) event.stopPropagation();
+  });
   let generation = 0;
   const visible = menu => (typeof document === "undefined" || document.visibilityState !== "hidden") && menu.getClientRects().length > 0;
   const invalidate = view => { view.version++; view.operation = undefined; view.button.disabled = true; };
@@ -21,7 +29,7 @@ export function installSkillTreeSpendAll(ctx, game) {
     view.operation = operation; view.button.disabled = true;
     let purchased = 0, failed = false, failure;
     try {
-      const result = await SwalLocale.fire({
+      const result = await openDialog(menu, {
         icon: "question", title: "Spend all available points?",
         text: `${tree.skill.name} — ${tree.name}\nAvailable points: ${tree.points}.\nUnlock affordable nodes in this tree, cheapest point cost first. Normal item and currency costs also apply.`,
         showConfirmButton: true, showCancelButton: true, confirmButtonText: "Spend All", cancelButtonText: "Cancel",
@@ -46,7 +54,7 @@ export function installSkillTreeSpendAll(ctx, game) {
     if (failed) {
       try {
         console.error("[Better UI] Spend all skill tree points stopped.", failure);
-        SwalLocale.fire({ icon: "error", title: "Spend all stopped",
+        openDialog(menu, { icon: "error", title: "Spend all stopped",
           text: `Some nodes may have been unlocked.\n\n${failure instanceof Error ? failure.message : String(failure)}`,
           showConfirmButton: true, showCancelButton: false, confirmButtonText: "Close" });
       } finally { throw failure; }

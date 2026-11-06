@@ -9,6 +9,8 @@ const targets = [
 
 const styles = `
 #sidebar .nav-main-link.kroky-sidebar-selected { background-color: #343a46; }
+#combat-player-container .px-2:has(> .combat-menu-img) { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .25rem; padding-bottom: .25rem; }
+#combat-player-container .px-2 > .combat-menu-img { flex: 0 0 auto; margin: 0!important; }
 .kroky-page-pin { display: inline-flex; align-items: center; justify-content: center; gap: .35rem; flex: 0 0 auto; min-width: 32px; min-height: 32px; padding: .3rem .4rem; white-space: nowrap; }
 .kroky-page-pin[aria-pressed="false"] > i { transform: rotate(-45deg); }
 .kroky-page-pin:enabled:is(:hover, :focus-visible) { filter: brightness(1.2); }
@@ -95,6 +97,56 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
   const sidebarLinks = new Map();
   let summaryStats, masteryOptions, masteryActions, masteryPools, summaryUpgrades;
   let currentPage, container, wrapper, stationary, header, root, button, observer, compactHeader;
+  let geometryDirty = true, displayCache = new Map(), statVisibility = [], viewportWidth, viewportHeight;
+  const observedNodes = new Set();
+  const observe = node => {
+    if (!observer || !node || observedNodes.has(node)) return;
+    observer.observe(node); observedNodes.add(node);
+  };
+  const syncObserved = nodes => {
+    if (!observer) return;
+    const current = new Set(nodes.filter(Boolean));
+    for (const node of observedNodes) if (!current.has(node)) { observer.unobserve(node); observedNodes.delete(node); }
+    for (const node of current) observe(node);
+  };
+
+  // shortcut: native attribute and structure changes invalidate display; add stylesheet tracking if dynamic CSSOM display rules are introduced.
+  const visibilityTargets = new Map(), visibilityNodes = new Set();
+  let visibilityObserver;
+  const clearVisibility = () => {
+    displayCache.clear(); visibilityObserver?.disconnect(); visibilityTargets.clear(); visibilityNodes.clear(); geometryDirty = true;
+  };
+  const visibilityChanged = records => {
+    const attributes = new Map();
+    for (const record of records) {
+      if (record.type === "childList" && (record.addedNodes.length || record.removedNodes.length)) { clearVisibility(); return; }
+      if (record.type !== "attributes") continue;
+      let previous = attributes.get(record.target);
+      if (!previous) { previous = new Map(); attributes.set(record.target, previous); }
+      if (!previous.has(record.attributeName)) previous.set(record.attributeName, record.oldValue);
+    }
+    for (const [node, previous] of attributes) for (const [name, value] of previous) {
+      if (node.getAttribute(name) !== value) { clearVisibility(); return; }
+    }
+  };
+  if (typeof MutationObserver === "function") visibilityObserver = new MutationObserver(visibilityChanged);
+  const watchVisibility = (node, children = false) => {
+    if (!visibilityObserver || !node || visibilityTargets.get(node) === true || visibilityTargets.get(node) === children) return;
+    visibilityObserver.observe(node, { attributes: true, attributeOldValue: true, attributeFilter: ["class", "style", "hidden"], childList: children });
+    visibilityTargets.set(node, children);
+  };
+  const watchGlobals = () => {
+    if (!visibilityObserver) return;
+    for (const node of [document.documentElement, document.body, root]) if (node && !visibilityTargets.has(node)) {
+      visibilityObserver.observe(node, { attributes: true, attributeOldValue: true, attributeFilter: ["class"] }); visibilityTargets.set(node, false);
+    }
+  };
+  const watchOrigin = (node, parent) => {
+    if (!visibilityObserver || visibilityNodes.has(node)) return;
+    visibilityNodes.add(node); watchVisibility(node, true); watchVisibility(parent, true);
+    for (const sibling of parent?.children ?? []) watchVisibility(sibling, true);
+  };
+  const drainVisibility = () => { if (visibilityObserver) visibilityChanged(visibilityObserver.takeRecords()); };
 
   const updateSidebarSelection = page => {
     for (const [link, original] of sidebarLinks) {
@@ -175,6 +227,8 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
     decorate(node, "aria-valuetext", node.textContent);
   };
   const restoreSkillHeader = () => {
+    if (compactHeader || headerMoves.size) { geometryDirty = true; clearVisibility(); }
+    statVisibility = [];
     for (const [node, marker] of headerMoves) putBack(node, marker);
     headerMoves.clear();
     for (const [node, attributes] of headerAttributes) {
@@ -262,18 +316,20 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
         native[field]?.parentElement.classList.add(name);
       }
     }
+    const shownStats = statFields.map(([field]) => !!native[field] && visible(native[field].parentElement));
+    if (shownStats.some((shown, index) => shown !== statVisibility[index])) geometryDirty = true;
+    statVisibility = shownStats;
     setHeaderText(native.skillLevel?.parentElement.querySelector("lang-string"), "Level");
     setHeaderText(native.skillXp?.parentElement.querySelector("lang-string"), "XP");
     setHeaderText(native.skillTreeButton?.querySelector("lang-string"), "Skill tree");
     const skillID = native.getAttribute("data-skill-id");
     const skill = (skillID ? game.skills?.getObjectByID(skillID) : undefined) ?? game.openPage?.action;
     if (skill) {
-      for (const [levelField, xpField, levelKey, capKey, progressKey] of [
+      for (const [index, [levelField, xpField, levelKey, capKey, progressKey]] of [
         ["skillLevel", "skillXp", "level", "currentLevelCap", "nextLevelProgress"],
         ["abyssalLevel", "abyssalXp", "abyssalLevel", "currentAbyssalLevelCap", "nextAbyssalLevelProgress"],
-      ]) {
-        const showLevel = native[levelField] && visible(native[levelField].parentElement);
-        const showXP = native[xpField] && visible(native[xpField].parentElement);
+      ].entries()) {
+        const showLevel = shownStats[index * 2], showXP = shownStats[index * 2 + 1];
         if (!showLevel && !showXP) continue;
         const level = skill[levelKey], cap = skill[capKey];
         if (!Number.isFinite(level) || !Number.isFinite(cap)) continue;
@@ -282,9 +338,14 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
           const xp = native[xpField], capped = level >= cap;
           setProgress(xp, capped ? 100 : skill[progressKey], xpField === "skillXp" ? "XP" : "Abyssal XP");
           if (!cappedXPWidths.has(xp)) cappedXPWidths.set(xp, xp.style.getPropertyValue("--kroky-summary-xp-chars"));
+          if (xp.classList.contains("kroky-summary-xp-capped") !== capped) geometryDirty = true;
           xp.classList.toggle("kroky-summary-xp-capped", capped);
-          if (capped) setStyle(xp, "--kroky-summary-xp-chars", String(xp.textContent.length));
-          else if (xp.style.getPropertyValue("--kroky-summary-xp-chars")) xp.style.removeProperty("--kroky-summary-xp-chars");
+          const width = capped ? String(xp.textContent.length) : "";
+          if (xp.style.getPropertyValue("--kroky-summary-xp-chars") !== width) {
+            if (width) setStyle(xp, "--kroky-summary-xp-chars", width);
+            else xp.style.removeProperty("--kroky-summary-xp-chars");
+            geometryDirty = true;
+          }
         }
       }
       const realms = masteryOptions ? [...(skill.getRealmsWithMastery?.() ?? [])]
@@ -293,7 +354,7 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
       realms.sort((a, b) => order(a.id) - order(b.id));
       for (const [realm, group] of poolGroups) {
         if (realms.includes(realm)) continue;
-        group.remove(); poolGroups.delete(realm);
+        group.remove(); poolGroups.delete(realm); geometryDirty = true;
       }
       for (const [index, realm] of realms.entries()) {
         let group = poolGroups.get(realm);
@@ -307,10 +368,10 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
           percent.className = "kroky-summary-percent";
           group.append(icon, document.createElement("span"), percent);
           poolGroups.set(realm, group);
-          masteryPools.append(group);
+          masteryPools.append(group); geometryDirty = true;
         }
         const position = masteryPools.children[index];
-        if (position !== group) masteryPools.insertBefore(group, position ?? null);
+        if (position !== group) { masteryPools.insertBefore(group, position ?? null); geometryDirty = true; }
         const progress = group.children[1];
         const current = skill.getMasteryPoolXP(realm), maximum = skill.getMasteryPoolCap(realm);
         const format = value => typeof numberWithCommas === "function" ? numberWithCommas(Math.floor(value)) : Math.floor(value).toLocaleString("en-US");
@@ -344,11 +405,19 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
     } catch { preference ??= false; }
     return preference;
   };
+  const displayNone = node => {
+    if (!displayCache.has(node)) {
+      watchGlobals(); watchVisibility(node, true);
+      displayCache.set(node, getComputedStyle(node).display === "none");
+    }
+    return displayCache.get(node);
+  };
   const visible = node => {
-    if (node.hidden || node.classList.contains("d-none") || getComputedStyle(node).display === "none") return false;
+    watchOrigin(node, moved.get(node)?.parentElement ?? node.parentElement);
+    if (node.hidden || node.classList.contains("d-none") || displayNone(node)) return false;
     // Moved controls still inherit the visibility of their original native section.
     for (let parent = moved.get(node)?.parentElement ?? node.parentElement; parent && parent !== container; parent = parent.parentElement) {
-      if (parent.hidden || parent.classList.contains("d-none") || getComputedStyle(parent).display === "none") return false;
+      if (parent.hidden || parent.classList.contains("d-none") || displayNone(parent)) return false;
     }
     return true;
   };
@@ -361,6 +430,8 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
     dropdowns.delete(owner);
   };
   const restore = () => {
+    clearVisibility();
+    geometryDirty = true;
     for (const owner of dropdowns.keys()) restoreDropdown(owner);
     restoreSkillHeader();
     for (const [node, marker] of moved) putBack(node, marker);
@@ -372,13 +443,14 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
     root?.classList.remove("kroky-page-pinned");
     header?.classList.remove("kroky-page-pin-overflow");
     setStyle(document.documentElement, "--kroky-page-pin-offset", `${nativeOffset()}px`);
-    observer?.disconnect();
-    if (header) observer?.observe(header);
+    observer?.disconnect(); observedNodes.clear();
+    syncObserved([header, header?.firstElementChild]);
   };
   const measure = () => {
-    if (header?.getClientRects?.().length === 0) return;
+    if (document.visibilityState === "hidden" || header?.getClientRects?.().length === 0) { geometryDirty = true; return; }
     if (!root?.classList.contains("kroky-page-pinned")) {
       setStyle(document.documentElement, "--kroky-page-pin-offset", `${nativeOffset()}px`);
+      geometryDirty = false;
       return;
     }
     const cap = window.innerHeight / 2;
@@ -403,6 +475,7 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
     setStyle(document.documentElement, "--kroky-page-pin-static-height", `${Math.ceil(fixed)}px`);
     const controls = wrapper ? Math.min(Math.max(0, cap - height - fixed), wrapper.getBoundingClientRect().height) : 0;
     setStyle(document.documentElement, "--kroky-page-pin-offset", `${Math.ceil(height + fixed + controls)}px`);
+    geometryDirty = false;
   };
   const ensureHeader = () => {
     header = document.getElementById("page-header");
@@ -428,8 +501,9 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
       try { window.localStorage.setItem(storageKey, String(enabled)); } catch { /* Browser privacy settings can disable local storage. */ }
       update();
     });
-    if (typeof ResizeObserver !== "undefined") observer = new ResizeObserver(measure);
-    window.addEventListener("resize", measure);
+    const resized = () => { clearVisibility(); measure(); };
+    if (typeof ResizeObserver !== "undefined") observer = new ResizeObserver(resized);
+    window.addEventListener("resize", resized);
     if (typeof $ !== "undefined") {
       $(document).on("shown.bs.dropdown.krokyPagePin", event => {
         if (!root.classList.contains("kroky-page-pinned") || dropdowns.has(event.target)) return;
@@ -453,6 +527,10 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
   };
   const update = () => {
     if (!ensureHeader()) return;
+    drainVisibility();
+    if (!visibilityObserver) displayCache.clear();
+    if (viewportWidth !== window.innerWidth || viewportHeight !== window.innerHeight) clearVisibility();
+    viewportWidth = window.innerWidth; viewportHeight = window.innerHeight;
     const page = game.openPage;
     if (page !== currentPage || document.getElementById(page?.containerID) !== container) {
       restore();
@@ -474,12 +552,17 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
     button.classList.toggle("btn-info", pinned);
     if (!pinned) {
       if (wrapper || root.classList.contains("kroky-page-pinned")) restore();
-      measure();
+      if (visibilityTargets.size || displayCache.size) clearVisibility();
+      syncObserved([header, header.firstElementChild]);
+      if (geometryDirty || !observer) measure();
       return;
     }
-    if (!root.classList.contains("kroky-page-pinned")) root.classList.add("kroky-page-pinned");
+    if (!root.classList.contains("kroky-page-pinned")) { root.classList.add("kroky-page-pinned"); geometryDirty = true; }
+    watchGlobals();
+    let selectedControls = [];
     if (container) {
       if (!wrapper) {
+        geometryDirty = true;
         wrapper = document.createElement("div");
         wrapper.className = "kroky-page-pin-controls";
         // Combat's XP table destroys its rows when disconnected, so pin that native segment in place.
@@ -488,7 +571,6 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
           stationary.classList.add("kroky-page-pin-static");
           wrapper.classList.add("kroky-page-pin-after-static");
           stationary.after(wrapper);
-          observer?.observe(stationary);
         } else container.prepend(wrapper);
       }
       // Keep Bank labels themed and narrow-screen controls in their native layout.
@@ -503,31 +585,35 @@ export function installPagePinning(ctx, game, isEnabled = () => true, isCompactH
         (!bank || window.innerWidth >= 992 && !bank.contains(node)) &&
         (visible(node) || node.matches("bank-move-mode-menu,bank-sell-mode-menu")));
       const selected = candidates.filter(node => !candidates.some(parent => parent !== node && parent.contains(node)));
+      selectedControls = selected;
       for (const [node, marker] of moved) {
         if (selected.includes(node)) continue;
         putBack(node, marker);
-        moved.delete(node);
+        moved.delete(node); geometryDirty = true;
       }
       for (const node of selected) {
         if (moved.has(node)) continue;
         const marker = document.createComment("better ui pinned control");
         node.before(marker);
-        moved.set(node, marker);
+        moved.set(node, marker); geometryDirty = true;
       }
       selected.sort((a, b) => moved.get(a).compareDocumentPosition(moved.get(b)) & 4 ? -1 : 1);
       selected.forEach((node, index) => {
         if (wrapper.children[index] === node) return;
         wrapper.insertBefore(node, wrapper.children[index] ?? null);
-        refreshTooltips(node);
+        refreshTooltips(node); geometryDirty = true;
       });
+      drainVisibility();
       if (isCompactHeaderEnabled()) syncSkillHeader();
       else restoreSkillHeader();
-      if (wrapper.hidden !== (selected.length === 0)) wrapper.hidden = selected.length === 0;
-      observer?.observe(wrapper);
+      if (wrapper.hidden !== (selectedControls.length === 0)) { wrapper.hidden = selectedControls.length === 0; geometryDirty = true; }
     }
-    observer?.observe(header);
-    measure();
+    // Natural child sizes still change when the scrolling outer boxes are capped.
+    syncObserved([header, header.firstElementChild, wrapper, stationary, stationary?.firstElementChild, ...selectedControls]);
+    // ResizeObserver handles live size changes; synchronous layout is needed only after structural changes.
+    if (geometryDirty || !observer) measure();
   };
+  ctx.onCharacterLoaded?.(clearVisibility);
   Object.defineProperty(update, "offset", { get: () => parseFloat(document.documentElement.style.getPropertyValue("--kroky-page-pin-offset")) || 0 });
   return update;
 }

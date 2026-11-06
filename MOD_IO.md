@@ -16,6 +16,30 @@ One shared pin choice follows you across skills, Combat, Bank, Shop, Settings, F
 The currently viewed skill has a lighter grey background in the left navigation, independently of page pinning.
 Shop item costs show current Bank stock in a blue oval beneath each required-item icon, including Quick Buy and purchase confirmations.
 Badges refresh with Bank changes and show exact quantities on hover while keeping the required amount and affordability colour visible.
+Item upgrade dialogs show a blue stock badge over the bottom edge of each required material icon, with live Bank quantities and exact counts on hover.
+The upgraded item's artwork has its own blue Bank stock badge.
+Agility obstacle and pillar selection costs show `(required/stock)` for materials and currencies, with live quantities and native affordability colors.
+Bank item details show their native `Type` below View Item Stats.
+Required material icons in Agility obstacle and pillar previews offer the Sources and Uses shortcut when that integration is enabled.
+Bank selection glows sit behind quantity badges.
+Normal Bank selection uses the same gold glow as skill category tabs, while Move and Sell selections keep their mode colors.
+The **Categories** menu beside Sort combines upgradeability, item type, equipment slot, handedness, equipment requirements and lock state with search and native filters.
+Active Categories filters give the button a static gold outline and a badge counting the active filter groups.
+The Item Type list keeps All first, followed by broad groups and native Type choices, alphabetically sorted within each section.
+Native Type choices appear when they match at least 10 distinct items in the loaded game catalogue, independently of Bank stock.
+Special, Lemon, Lime and Christmas, Birthday or Easter types are omitted from the type list.
+Inactive Bank tabs containing matching items glow while a category, native filter or search is active.
+Highlighted Bank tabs pulse together across filter and Move Mode changes.
+Arrow, bolt and javelin types include native ammunition variants as well as matching crafting materials.
+Archaeology artefacts include both ordinary finds and artefact equipment.
+Arrow keys navigate visible Bank items, with Enter or Space selecting the focused item in Move and Sell modes.
+Closing Upgrade Item or Sources and Uses returns keyboard focus to the Bank grid unless another control or dialog has taken focus.
+Escape cancels Move or Sell mode while preserving the search query, with open dialogs taking priority.
+Cancelling Move or Sell mode retains the first selected item as the normal Bank selection.
+Drag Bank tabs to reorder them in normal Bank mode, with the display order saved per character and item assignments kept with their native tabs.
+Completable Township tasks appear first within the selected regular category or casual task list, preserving the existing order within each group.
+Quick Equip's **show highest tier only** filter hides lower upgrade-family variants when an owned, usable upgrade is available.
+The filter defaults on and remembers its state per character.
 **Spend All** beside the skill-tree point total unlocks the displayed tree's cheapest affordable upgrades first after one confirmation, respecting normal costs and prerequisites.
 Skill-tree controls show a gold outer glow when an upgrade can be unlocked, covering the sidebar link, skill chooser entries and each skill's header button through native change updates.
 
@@ -85,6 +109,7 @@ Produced Summoning tablets have no **?**; their ingredients and other skills' pr
 Other native recipe-selection views, including Smithing and Fletching lists, stay unchanged.
 It defaults to off and is saved per character.
 Clicking **?** opens the item's dialog from [Show Item Sources And Uses](https://mod.io/g/melvoridle/m/show-item-sources-and-uses), calculating the information only when clicked.
+Sources and Uses dialogs keep category labels on one line and fit their contents up to 75% of the main game area, with longer descriptions wrapping at that limit.
 Ordinary icon clicks keep their existing behavior, and ingredients with a gold shop-coin overlay keep Quick Buy without a **?**.
 Currencies, XP and spell artwork without a specific item do not receive a **?**.
 The integration is optional, with no hard dependency.
@@ -191,7 +216,7 @@ Its native-game features and shared equipment sets work independently of the opt
 | --- | --- | --- |
 | Kroky's Workforce | Pins supported controls and worker summaries, expands supported recipe grids, and enhances supported artwork and recipe icons | Better UI continues enhancing the native game without Workforce-specific controls |
 | Skill Boosts | Includes its menu in pinned skill and Combat controls | Pinning continues without the additional menu |
-| Speedup++ | Processes offline replay at ×1 and restores the selected multiplier afterward | Replay uses the game's native behavior |
+| Speedup++ 1.0.4 | Preserves the selected multiplier and processes the captured offline window in small native tick batches | Replay uses the installed mod's own behavior |
 | Show Item Sources And Uses | Recipe and upgrade-material **?** shortcuts open its item dialog | The shortcut setting is disabled with an explanation while retaining its saved preference |
 | [Myth] Combat Simulator 3.2.0 | Equipment-set imports include remembered inactive gear, retaining native spell, prayer, food and summoning-synergy imports | No simulator import hooks are installed; shared equipment sets continue working independently |
 
@@ -209,7 +234,7 @@ Reload after changing optional mods so their integrations can be detected.
 
 ### 1.1.0
 
-- Run Speedup++ offline replay at ×1 and recover the previous multiplier after replay or an interrupted reload.
+- Keep Speedup++ 1.0.4's selected multiplier during the captured offline window and yield between native tick batches.
 
 - Import remembered inactive equipment sets into [Myth] Combat Simulator 3.2.0 while retaining its native import behavior and the real inventory.
 - Add optional Better Moving with persistent Move Mode and multiselected stack transfers by destination-tab click or drag and drop.

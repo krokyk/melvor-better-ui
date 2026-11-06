@@ -8,6 +8,30 @@ The currently viewed skill has a lighter grey background in the left navigation.
 The highlight follows navigation and works when page pinning is disabled.
 Shop item costs show current Bank stock in a blue oval beneath each required-item icon, including Quick Buy and purchase confirmations.
 The badges refresh with Bank changes, show zero for missing items and reveal exact quantities on hover.
+Item upgrade dialogs show the same blue stock badge over the bottom edge of each required material icon, with live Bank quantities and exact counts on hover.
+The upgraded item's artwork has its own blue Bank stock badge.
+Agility obstacle and pillar selection costs show `(required/stock)` for materials and currencies, with live quantities and native affordability colors.
+Bank item details show their native `Type` below View Item Stats.
+Required material icons in Agility obstacle and pillar previews offer the Sources and Uses shortcut when that integration is enabled.
+Bank selection glows sit behind quantity badges.
+Normal Bank selection uses the same gold glow as skill category tabs, while Move and Sell selections keep their mode colors.
+The **Categories** menu beside Sort combines upgradeability, item type, equipment slot, handedness, equipment requirements and lock state with search and native filters.
+Active Categories filters give the button a static gold outline and a badge counting the active filter groups.
+The Item Type list keeps All first, followed by broad groups and native Type choices, alphabetically sorted within each section.
+Native Type choices appear when they match at least 10 distinct items in the loaded game catalogue, independently of Bank stock.
+Special, Lemon, Lime and Christmas, Birthday or Easter types are omitted from the type list.
+Inactive Bank tabs containing matching items glow while a category, native filter or search is active.
+Highlighted Bank tabs pulse together across filter and Move Mode changes.
+Arrow, bolt and javelin types include native ammunition variants as well as matching crafting materials.
+Archaeology artefacts include both ordinary finds and artefact equipment.
+Arrow keys navigate visible Bank items, with Enter or Space selecting the focused item in Move and Sell modes.
+Closing Upgrade Item or Sources and Uses returns keyboard focus to the Bank grid unless another control or dialog has taken focus.
+Escape cancels Move or Sell mode while preserving the search query, with open dialogs taking priority.
+Cancelling Move or Sell mode retains the first selected item as the normal Bank selection.
+Drag Bank tabs to reorder them in normal Bank mode, with the display order saved per character and item assignments kept with their native tabs.
+Completable Township tasks appear first within the selected regular category or casual task list, preserving the existing order within each group.
+Quick Equip's **show highest tier only** filter hides lower upgrade-family variants when an owned, usable upgrade is available.
+The filter defaults on and remembers its state per character.
 The skill-tree modal has a compact **Spend All** button beside the point total.
 After one confirmation, it unlocks the displayed tree's cheapest affordable upgrades first, using native order for equal point costs and respecting normal costs and prerequisites.
 Skill-tree controls glow when an upgrade is affordable and its prerequisites are met: the sidebar link for any ready skill, each ready skill in the chooser, and that skill's header button.
@@ -120,6 +144,7 @@ Clicking **?** opens the item's dialog from [Show Item Sources And Uses](https:/
 Ingredients with a gold shop-coin overlay keep Quick Buy without a **?**.
 Currencies, XP and spell artwork without a specific item do not receive a **?**.
 Sources and uses are calculated only when clicked.
+Sources and Uses dialogs keep category labels on one line and fit their contents up to 75% of the main game area, with longer descriptions wrapping at that limit.
 This integration is optional and does not add a hard dependency.
 If Show Item Sources And Uses is missing, disabled or lacks the required API, the toggle is disabled with an explanation while retaining your saved preference.
 Install or enable a compatible version and reload the game to make the toggle available.
@@ -220,7 +245,7 @@ Its native-game features and shared equipment sets work independently of the opt
 | --- | --- | --- |
 | Kroky's Workforce | Pins supported controls and worker summaries, expands supported recipe grids, and enhances supported artwork and recipe icons | Better UI continues enhancing the native game without Workforce-specific controls |
 | Skill Boosts | Includes its menu in pinned skill and Combat controls | Pinning continues without the additional menu |
-| Speedup++ | Processes offline replay at ×1 and restores the selected multiplier afterward | Replay uses the game's native behavior |
+| Speedup++ 1.0.4 | Preserves the selected multiplier and processes the captured offline window in small native tick batches | Replay uses the installed mod's own behavior |
 | Show Item Sources And Uses | Recipe and upgrade-material **?** shortcuts open its item dialog | The shortcut setting is disabled with an explanation while retaining its saved preference |
 | [Myth] Combat Simulator 3.2.0 | Equipment-set imports include remembered inactive gear, retaining native spell, prayer, food and summoning-synergy imports | No simulator import hooks are installed; shared equipment sets continue working independently |
 
@@ -229,8 +254,10 @@ An absent, disabled, failed-to-load or unsupported simulator API leaves this int
 Importing a set leaves the active equipment set, real gear and Bank stock unchanged.
 The bridge targets Combat Simulator 3.2.0's synchronous equipment-set imports.
 Reload the game after changing optional mods so their integrations can be detected.
-With Speedup++ installed, offline rewards accrue at ×1 during replay.
-If a save occurs before replay finishes, Better UI restores the previous multiplier the next time that character loads.
+With Speedup++ 1.0.4 installed, offline replay uses the selected multiplier within the native 24-hour away-time cap.
+The replay covers the away window captured when loading; time spent calculating it does not add another accelerated backlog.
+Processing yields between small native tick batches while retaining native actions, rewards and unfinished timers.
+Online speed stays unchanged, and other Speedup++ versions retain their own replay behavior.
 
 ## Installation
 
