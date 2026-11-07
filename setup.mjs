@@ -18,7 +18,7 @@ export async function setup(ctx) {
   const { installTownshipTaskOrder } = await ctx.loadModule("township-task-order.mjs");
   const { installSkillTreeSpendAll } = await ctx.loadModule("skill-tree-spend-all.mjs");
   const { installSkillTreeGlow } = await ctx.loadModule("skill-tree-glow.mjs");
-  const { installReplaySpeed } = await ctx.loadModule("replay-speed.mjs");
+  const { installReplaySpeed, installReplaySummaryKeyboard } = await ctx.loadModule("replay-speed.mjs");
   ctx.onModsLoaded(() => {
     const settings = ctx.settings.section("General");
     const settingName = "page-pinning-enabled";
@@ -82,6 +82,7 @@ export async function setup(ctx) {
     installTownshipTaskOrder(ctx, game);
     installSkillTreeSpendAll(ctx, game);
     installSkillTreeGlow(ctx, game);
+    installReplaySummaryKeyboard(game);
     installReplaySpeed(ctx, game);
     // Native Abyss clears omit the Area Info pet-status refresh.
     game.combat?.on("abyssDepthCompleted", ({ depth }) => {

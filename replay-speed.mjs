@@ -3,6 +3,17 @@ const recoveryKey = "speedup-replay-previous-factor";
 const isMultiplier = value => Number.isFinite(value) && value > 0;
 const tickInterval = 50;
 
+export function installReplaySummaryKeyboard(game) {
+  if (typeof Swal === "undefined" || typeof Swal.fire !== "function") return;
+  const original = Swal.fire;
+  Swal.fire = function (...args) {
+    const options = args[0];
+    if (typeof SwalLocale !== "undefined" && this === SwalLocale && game._isInOnlineLoop !== false && options?.html?.tagName === "OFFLINE-PROGRESS")
+      args[0] = { ...options, allowEscapeKey: true };
+    return original.apply(this, args);
+  };
+}
+
 export function installReplaySpeed(ctx, game) {
   if (typeof mod === "undefined") return;
   let settings, version;

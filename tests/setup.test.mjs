@@ -135,7 +135,9 @@ test("independent config restores on load and QuickLoad, updates new pages immed
         assert.equal(actualCtx, ctx); assert.equal(actualGame, game);
         skillTreeGlowInstalled++; installed.push("skill-tree-glow");
       } };
-      if (path === "replay-speed.mjs") return { installReplaySpeed() {} };
+      if (path === "replay-speed.mjs") return { installReplaySpeed() {}, installReplaySummaryKeyboard(actualGame) {
+        assert.equal(actualGame, game); installed.push("replay-summary");
+      } };
       const pinning = path === "page-pinning.mjs";
       assert.ok(pinning || path === "wide-layout.mjs");
       return { [pinning ? "installPagePinning" : "installWideLayout"](actualCtx, actualGame, isEnabled, isCompactHeaderEnabled) {
@@ -202,7 +204,7 @@ test("independent config restores on load and QuickLoad, updates new pages immed
   assert.equal(skillTreeGlowInstalled, 1);
   assert.equal(prepareQuickEquipCopy(2, 1), preparedCopy);
   assert.deepEqual(shortcutCopies, [[2, 1]]);
-  assert.deepEqual(installed, ["loadouts", "equipment", "skills", "sources", "moving", "bank-keyboard", "bank-tab-order", "bank-item-type", "background-rendering", "shop-stock", "upgrade-stock", "agility-cost-stock", "township-task-order", "skill-tree", "skill-tree-glow"], "loadout lifecycle hooks precede quick equip while existing UI installs retain their order");
+  assert.deepEqual(installed, ["loadouts", "equipment", "skills", "sources", "moving", "bank-keyboard", "bank-tab-order", "bank-item-type", "background-rendering", "shop-stock", "upgrade-stock", "agility-cost-stock", "township-task-order", "skill-tree", "skill-tree-glow", "replay-summary"], "loadout lifecycle hooks precede quick equip while existing UI installs retain their order");
   const pinning = fields.get("page-pinning-enabled"), wide = fields.get("wide-layout-enabled");
   const compact = fields.get("compact-skill-header-enabled");
   assert.equal(fields.size, 3);
@@ -416,7 +418,7 @@ test("render remains the page-change fallback without MutationObserver or the pa
           assert.equal(actualCtx, ctx); assert.equal(actualGame, game);
           skillTreeGlowInstalled++;
         } };
-      if (path === "replay-speed.mjs") return { installReplaySpeed() {} };
+      if (path === "replay-speed.mjs") return { installReplaySpeed() {}, installReplaySummaryKeyboard() {} };
         return path === "page-pinning.mjs"
           ? { installPagePinning: () => () => calls.pinning++ }
           : { installWideLayout: () => () => calls.wide++ };
