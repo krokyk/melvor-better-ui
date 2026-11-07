@@ -28,6 +28,7 @@ Archaeology artefacts include both ordinary finds and artefact equipment.
 Arrow keys navigate visible Bank items, with Enter or Space selecting the focused item in Move and Sell modes.
 Closing Upgrade Item or Sources and Uses returns keyboard focus to the Bank grid unless another control or dialog has taken focus.
 Escape cancels Move or Sell mode while preserving the search query, with open dialogs taking priority.
+Entering Move or Sell mode carries the selected Bank item into that mode, respecting Sell mode's lock protection.
 Cancelling Move or Sell mode retains the first selected item as the normal Bank selection.
 Drag Bank tabs to reorder them in normal Bank mode, with the display order saved per character and item assignments kept with their native tabs.
 Completable Township tasks appear first within the selected regular category or casual task list, preserving the existing order within each group.

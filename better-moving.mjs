@@ -434,10 +434,15 @@ export function installBetterMoving(ctx, game) {
   });
 
   ctx.patch(Bank, "setItemSelectionMode").replace(function (original, mode, ...args) {
-    const first = this === game.bank && !retentionSuppressed && mode === 0 && [1, 2].includes(this.itemSelectionMode)
-      ? [...this.selectedItems].find(entry => this.items.get(entry.item) === entry) : undefined;
+    let first;
+    if (this === game.bank && !retentionSuppressed) {
+      if (mode === 0 && [1, 2].includes(this.itemSelectionMode))
+        first = [...this.selectedItems].find(entry => this.items.get(entry.item) === entry);
+      else if (this.itemSelectionMode === 0 && [1, 2].includes(mode)) first = this.selectedBankItem;
+    }
     const result = original(mode, ...args);
-    if (first && this.itemSelectionMode === 0 && this.items.get(first.item) === first && this.selectedBankItem !== first)
+    if (first && this.itemSelectionMode === mode && this.items.get(first.item) === first &&
+        (mode === 0 ? this.selectedBankItem !== first : first.tab === this.selectedBankTab && !this.selectedItems.has(first)))
       this.selectItemOnClick(first.item);
     return result;
   });

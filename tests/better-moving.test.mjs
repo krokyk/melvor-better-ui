@@ -99,7 +99,7 @@ function fixture(enabled, load = true) {
   globalThis.Bank = class {
     constructor() {
       this.itemsByTab = [items.slice(0, 3), items.slice(3), []]; this.items = new Map(items.map(item => [item.item, item]));
-      this.selectedBankTab = 0; this.selectedItems = new Set(); this.itemSelectionMode = 0; this.selectedBankItem = items[0];
+      this.selectedBankTab = 0; this.selectedItems = new Set(); this.itemSelectionMode = 0; this.selectedBankItem = undefined;
       this.lockedItems = new Set();
       this.itemUpgrades = new Map(); this.currentSearchQuery = ""; this.filterChanges = 0;
       reindex(this);
@@ -132,7 +132,8 @@ function fixture(enabled, load = true) {
       this.selectedItems.clear(); this.itemSelectionMode = mode;
       if (mode !== 0) this.selectedBankItem = undefined;
       menu.classList.toggle("d-none", mode !== 1);
-      if (this.nativeModeSelection) this.selectedBankItem = this.nativeModeSelection;
+      if (this.nativeModeSelection && mode === 0) this.selectedBankItem = this.nativeModeSelection;
+      else if (this.nativeModeSelection) this.selectedItems.add(this.nativeModeSelection);
       return this.modeResult;
     }
     toggleItemSelected(item) { this.selectedItems.has(item) ? this.selectedItems.delete(item) : this.selectedItems.add(item); }
@@ -312,7 +313,7 @@ test("staggered filter and Move Mode tab pulses share one timeline without recur
   assert.equal(clock.reads.length, stableReads); assert.equal(clock.writes(), stableWrites);
   f.bank.setItemSelectionMode(0); clock.run();
   clock.animations.get(first).push(clock.pulse(first, 1200));
-  f.bank.moveItemModeOnClick(); select(f, f.items[0]);
+  f.bank.moveItemModeOnClick();
   f.bank.toggleItemSelected(f.items[0]); select(f, f.items[0]);
   assert.equal(clock.frames.size, 1, "rapid membership changes coalesce into one frame"); clock.run();
   assert.equal(clock.animations.get(first).at(-1).startTime, 0);
@@ -451,6 +452,51 @@ test("Deselect All clears the Shift-click anchor along with the selected group",
   assert.deepEqual([...f.bank.selectedItems], [f.items[1]]); assert.equal(f.bank.itemSelectionMode, 1);
 });
 
+for (const mode of [1, 2]) test(`entering mode ${mode} retains the normal Bank selection`, () => {
+  for (const enabled of [false, true]) {
+    const f = fixture(enabled), quantities = f.items.map(item => item.quantity), order = f.bank.itemsByTab.map(tab => [...tab]);
+    f.bank.selectItemOnClick(f.items[1].item);
+    (mode === 1 ? f.bank.moveItemModeOnClick : f.bank.sellItemModeOnClick).call(f.bank);
+    assert.equal(f.bank.itemSelectionMode, mode); assert.equal(f.bank.selectedBankItem, undefined);
+    assert.deepEqual([...f.bank.selectedItems], [f.items[1]]);
+    assert.deepEqual(f.sellSelections, mode === 2 ? [[f.items[1]]] : [], "Sell uses the native selection and total refresh");
+    f.bank.setItemSelectionMode(mode);
+    assert.deepEqual([...f.bank.selectedItems], [f.items[1]], "a repeated mode request never toggles off the retained item");
+    f.bank.setItemSelectionMode(0); assert.equal(f.bank.selectedBankItem, f.items[1]);
+    assert.deepEqual(f.items.map(item => item.quantity), quantities); assert.deepEqual(f.bank.itemsByTab, order);
+  }
+});
+
+test("entry retention allows locked items in Move Mode and leaves them protected in Sell Mode", () => {
+  for (const mode of [1, 2]) {
+    const f = fixture(true); f.bank.lockedItems.add(f.items[1].item); f.bank.selectItemOnClick(f.items[1].item);
+    f.bank.setItemSelectionMode(mode);
+    assert.deepEqual([...f.bank.selectedItems], mode === 1 ? [f.items[1]] : []);
+    assert.deepEqual(f.sellSelections, []);
+  }
+});
+
+test("entry retention skips removed, replaced and off-tab selections and other banks", () => {
+  for (const mode of [1, 2]) for (const state of ["removed", "replaced", "off-tab", "empty"]) {
+    const f = fixture(true); f.bank.selectedBankItem = state === "empty" ? undefined : state === "off-tab" ? f.items[3] : f.items[1];
+    if (state === "removed") f.bank.items.delete(f.items[1].item);
+    if (state === "replaced") f.bank.items.set(f.items[1].item, { ...f.items[1] });
+    f.bank.setItemSelectionMode(mode); assert.equal(f.bank.selectedItems.size, 0, state);
+    const foreign = new Bank(); foreign.selectedBankItem = f.items[1]; foreign.setItemSelectionMode(mode);
+    assert.equal(foreign.selectedItems.size, 0, "other Bank instances retain native behavior");
+  }
+});
+
+test("entry retention preserves native errors, return values and already selected items", () => {
+  const f = fixture(true), marker = {}, error = new Error("native mode failure");
+  f.bank.selectItemOnClick(f.items[1].item); f.bank.modeFailure = error;
+  assert.throws(() => f.bank.setItemSelectionMode(1), value => value === error);
+  assert.equal(f.bank.itemSelectionMode, 0); assert.equal(f.bank.selectedBankItem, f.items[1]);
+  delete f.bank.modeFailure; f.bank.modeResult = marker; f.bank.nativeModeSelection = f.items[1];
+  assert.equal(f.bank.setItemSelectionMode(2, "extra", 4), marker);
+  assert.deepEqual(f.bank.modeArgs, [2, "extra", 4]); assert.deepEqual([...f.bank.selectedItems], [f.items[1]]);
+});
+
 for (const mode of [1, 2]) test(`canceling mode ${mode} retains the first selected item in normal Bank selection`, () => {
   for (const enabled of [false, true]) {
     const f = fixture(enabled), quantities = f.items.map(item => item.quantity), order = f.bank.itemsByTab.map(tab => [...tab]);
@@ -459,7 +505,7 @@ for (const mode of [1, 2]) test(`canceling mode ${mode} retains the first select
     assert.equal(f.bank.selectedBankItem, f.items[2], "selection insertion order takes priority over grid order");
     assert.deepEqual(f.normalSelections, [f.items[2].item]); assert.equal(f.bank.selectedItems.size, 0);
     assert.equal(f.bank.selectedBankTab, 0); assert.deepEqual(f.items.map(item => item.quantity), quantities); assert.deepEqual(f.bank.itemsByTab, order);
-    f.bank.setItemSelectionMode(mode); select(f, f.items[1]);
+    f.bank.setItemSelectionMode(mode); select(f, f.items[2], f.items[1]);
     (mode === 1 ? f.bank.moveItemModeOnClick : f.bank.sellItemModeOnClick).call(f.bank);
     assert.equal(f.bank.selectedBankItem, f.items[1], "the native cancel button uses the same path");
   }
@@ -494,9 +540,9 @@ test("native return values, extra arguments and errors survive selection retenti
   const f = fixture(true), marker = {}, error = new Error("native mode failure"); f.bank.setItemSelectionMode(1); select(f, f.items[1]);
   f.bank.modeResult = marker; assert.equal(f.bank.setItemSelectionMode(0, "extra", 4), marker);
   assert.deepEqual(f.bank.modeArgs, [0, "extra", 4]); assert.equal(f.bank.selectedBankItem, f.items[1]);
-  f.bank.setItemSelectionMode(1); select(f, f.items[2]); f.bank.nativeModeSelection = f.items[2];
+  f.bank.setItemSelectionMode(1); select(f, f.items[1], f.items[2]); f.bank.nativeModeSelection = f.items[2];
   f.bank.setItemSelectionMode(0); assert.deepEqual(f.normalSelections, [f.items[1].item], "an original handler already selecting the retained entry must not be toggled off");
-  delete f.bank.nativeModeSelection; f.bank.setItemSelectionMode(2); select(f, f.items[0]); f.bank.modeFailure = error;
+  delete f.bank.nativeModeSelection; f.bank.setItemSelectionMode(2); select(f, f.items[2], f.items[0]); f.bank.modeFailure = error;
   assert.throws(() => f.bank.setItemSelectionMode(0), value => value === error);
   assert.equal(f.bank.itemSelectionMode, 2); assert.deepEqual([...f.bank.selectedItems], [f.items[0]]);
 });
@@ -660,7 +706,7 @@ test("Sell ranges retain native lock checks and sale-value refreshes, and stay o
   f.toggle(false); f.bank.setItemSelectionMode(0); f.bank.sellItemModeOnClick();
   f.bank.lockedItems.clear();
   f.click(f.items[0]); assert.equal(f.click(f.items[2], true).stopped, false);
-  assert.deepEqual([...f.bank.selectedItems], [f.items[0], f.items[2]]);
+  assert.deepEqual([...f.bank.selectedItems], [f.items[2]], "clicking the carried selection uses native deselection even with Better Moving off");
 });
 
 for (const mode of [1, 2]) test(`Mode ${mode}: Shift-click follows visible row order, skips filtered items, and keeps existing selections`, () => {
@@ -680,8 +726,8 @@ test("Shift-click without an anchor uses native toggling and range anchors never
   assert.equal(f.click(f.items[0], true).stopped, false);
   assert.equal(f.bank.selectedItems.size, 1);
   f.click(f.items[2]); f.bank.moveItemModeOnClick(); f.bank.moveItemModeOnClick();
-  assert.equal(f.click(f.items[0], true).stopped, false); assert.equal(f.bank.selectedItems.size, 1);
-  f.click(f.items[0]); f.tabs.selectTab(1, f.bank);
+  assert.equal(f.click(f.items[0], true).stopped, false); assert.equal(f.bank.selectedItems.size, 0, "without an anchor, Shift-click deselects the carried item");
+  f.tabs.selectTab(1, f.bank);
   assert.equal(f.click(f.items[3], true).stopped, false); assert.deepEqual([...f.bank.selectedItems], [f.items[3]]);
   f.bank.sellItemModeOnClick();
   assert.equal(f.click(f.items[3], true).stopped, false, "Sell Mode retains native item toggling");
@@ -841,7 +887,8 @@ test("upgradable keeps existing selections and quantities while Better Moving ra
   f.bank.moveItemModeOnClick(); select(f, f.items[1]); const quantities = f.items.map(entry => entry.quantity);
   f.filter(true); assert.equal(f.bank.selectedItems.has(f.items[1]), true, "filtering never silently deselects a previously selected stack");
   f.bank.setItemSelectionMode(0); f.bank.setItemSelectionMode(1); f.click(f.items[0]); f.click(f.items[2], true);
-  assert.deepEqual([...f.bank.selectedItems], [f.items[0], f.items[2]]); assert.deepEqual(f.items.map(entry => entry.quantity), quantities);
+  assert.deepEqual([...f.bank.selectedItems], [f.items[1], f.items[0], f.items[2]], "the carried selection stays selected while ranges skip hidden icons");
+  assert.deepEqual(f.items.map(entry => entry.quantity), quantities);
   assert.equal(f.calls.bulk + f.calls.single, 0);
 });
 
