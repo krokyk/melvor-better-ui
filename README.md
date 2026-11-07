@@ -6,6 +6,7 @@ Page header pinning, responsive desktop card grids, shared equipment sets, manua
 The mod works independently of Workforce.
 The currently viewed skill has a lighter grey background in the left navigation.
 The highlight follows navigation and works when page pinning is disabled.
+Abyss Area Info refreshes its Pet Located status after each full clear, so an unlocked pet immediately shows Yes.
 Shop item costs show current Bank stock in a blue oval beneath each required-item icon, including Quick Buy and purchase confirmations.
 The badges refresh with Bank changes, show zero for missing items and reveal exact quantities on hover.
 Item upgrade dialogs show the same blue stock badge over the bottom edge of each required material icon, with live Bank quantities and exact counts on hover.

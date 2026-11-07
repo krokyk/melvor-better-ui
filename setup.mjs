@@ -83,6 +83,10 @@ export async function setup(ctx) {
     installSkillTreeSpendAll(ctx, game);
     installSkillTreeGlow(ctx, game);
     installReplaySpeed(ctx, game);
+    // Native Abyss clears omit the Area Info pet-status refresh.
+    game.combat?.on("abyssDepthCompleted", ({ depth }) => {
+      if (depth.pet) game.combat.renderQueue.petStatus.add(depth);
+    });
     const restore = () => {
       enabled = settings.get(settingName) !== false;
       wideEnabled = settings.get(wideSettingName) !== false;

@@ -54,6 +54,16 @@ test("independent config restores on load and QuickLoad, updates new pages immed
     render() { renderEvents.push("native"); return "native render"; }
   };
   globalThis.game = new Game();
+  const combatEvents = new Map(), pet = {}, ownedPets = new Set([pet]);
+  let petLocated = false;
+  game.combat = {
+    renderQueue: { petStatus: new Set() },
+    on(name, callback) { combatEvents.set(name, callback); },
+    renderPetStatus() {
+      for (const depth of this.renderQueue.petStatus) petLocated = ownedPets.has(depth.pet.pet);
+      this.renderQueue.petStatus.clear();
+    },
+  };
   game.pages = { forEach: callback => [pageA, pageB, { containerID: "missing-container" }].forEach(callback) };
   const ctx = {
     async loadModule(path) {
@@ -168,6 +178,15 @@ test("independent config restores on load and QuickLoad, updates new pages immed
   assert.equal(bankTabOrderInstalled + townshipTaskOrderInstalled, 0);
   assert.equal(shopStockInstalled, 0, "shop stock hooks wait for all mods to load");
   hooks.mods();
+  const depthCompleted = combatEvents.get("abyssDepthCompleted"), depth = { pet: { pet } };
+  assert.equal(typeof depthCompleted, "function", "Abyss completion refreshes the Area Info pet label");
+  depthCompleted({ depth });
+  assert.equal(petLocated, false, "pet status waits for the normal native render queue");
+  game.combat.renderPetStatus();
+  assert.equal(petLocated, true, "Area Info agrees with ownership after an Abyss pet unlock");
+  assert.equal(ownedPets.size, 1, "the display correction does not grant pets");
+  depthCompleted({ depth: {} });
+  assert.equal(game.combat.renderQueue.petStatus.size, 0, "depths without pets need no refresh");
   assert.equal(sourcesInstalled, 1);
   assert.equal(quickEquipInstalled, 1);
   assert.equal(skillStatsInstalled, 1);
