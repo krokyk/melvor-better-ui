@@ -53,6 +53,9 @@ Existing Workforce pin preferences migrate automatically without changing the or
 The pinned stack uses at most half the viewport height and scrolls internally when necessary.
 Saved wide layouts and the initial pinned arrangement are prepared during native character loading before offline replay.
 Routine display updates pause during replay and while the game document is hidden.
+Mastery displays also defer updates on inactive skill pages and catch up with current values when viewed.
+Visible skills and open dialogs retain native mastery updates.
+Bulk Bank selections avoid repeatedly rewriting unchanged tab labels and accessibility attributes.
 Page navigation applies the pinned layout before the browser paints, while routine updates retain a 200 ms cadence.
 Combat's native XP table stays connected, and dropdown menus remain accessible outside scrolling sections.
 Pinned skills show Level and XP progress bars, enhancement icons, Melvor and Abyssal mastery pools, their native actions, and Skill tree together in a dark row below the main page header.

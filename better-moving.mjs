@@ -366,10 +366,12 @@ export function installBetterMoving(ctx, game) {
       tabLink.classList.toggle("kroky-bank-move-tab", enabled);
       if (enabled) {
         if (!tabAttributes.has(tabLink)) tabAttributes.set(tabLink, ["tabindex", "role", "aria-label", "aria-selected"].map(name => [name, tabLink.getAttribute(name)]));
-        tabLink.setAttribute("tabindex", "0");
-        tabLink.setAttribute("role", "tab");
-        tabLink.setAttribute("aria-label", hasSelection && tabID !== bank.selectedBankTab ? `Move selected items to bank tab ${tabID}` : `Bank tab ${tabID}`);
-        tabLink.setAttribute("aria-selected", String(tabID === bank.selectedBankTab));
+        if (tabLink.getAttribute("tabindex") !== "0") tabLink.setAttribute("tabindex", "0");
+        if (tabLink.getAttribute("role") !== "tab") tabLink.setAttribute("role", "tab");
+        const label = hasSelection && tabID !== bank.selectedBankTab ? `Move selected items to bank tab ${tabID}` : `Bank tab ${tabID}`;
+        if (tabLink.getAttribute("aria-label") !== label) tabLink.setAttribute("aria-label", label);
+        const selected = String(tabID === bank.selectedBankTab);
+        if (tabLink.getAttribute("aria-selected") !== selected) tabLink.setAttribute("aria-selected", selected);
       } else if (tabAttributes.has(tabLink)) {
         for (const [name, value] of tabAttributes.get(tabLink)) value === null ? tabLink.removeAttribute(name) : tabLink.setAttribute(name, value);
         tabAttributes.delete(tabLink);

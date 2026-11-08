@@ -7,8 +7,16 @@ export function installBackgroundRendering(ctx, game) {
   let ready = false, interfaceReady = false;
   const canPaint = () => game.enableRendering !== false && game._isInOnlineLoop !== false &&
     (typeof document === "undefined" || document.visibilityState !== "hidden");
-  const visible = (page, target) => !ready || game.isGolbinRaid || !game.openPage || canPaint() &&
+  const visible = (page, target) => page === masteryVisible ? page(target) : !ready || game.isGolbinRaid || !game.openPage || canPaint() &&
     (typeof page === "function" ? page(target) : game.openPage.containerID === page || page === "thieving-container" && game.openPage.action === game.thieving);
+  function masteryVisible(skill) {
+    if (!ready && game._isInOnlineLoop !== false || game.isGolbinRaid) return true;
+    if (!canPaint()) return false;
+    const pages = game.getPagesForSkill?.(skill);
+    if (!game.openPage || !pages?.length || game.openPage.action === skill || pages.some(page => page.containerID === game.openPage.containerID)) return true;
+    const body = typeof document === "undefined" ? undefined : document.body?.classList;
+    return !body || body.contains("modal-open") || body.contains("swal2-shown");
+  }
   const forget = (target, method) => {
     const methods = pending.get(target);
     methods?.delete(method);
@@ -22,7 +30,8 @@ export function installBackgroundRendering(ctx, game) {
       if (names.has(method) || typeof Class.prototype[method] !== "function") continue;
       names.add(method);
       ctx.patch(Class, method).replace(function (original, ...args) {
-        if (this !== getTarget(...args) || bankValues && args[0] !== game.bank) return original(...args);
+        if (page === masteryVisible && (method === "renderActionMastery" ? this.renderQueue?.actionMastery : this.renderQueue?.masteryPool)?.size === 0) return original(...args);
+        if (this !== getTarget.call(this, ...args) || bankValues && args[0] !== game.bank) return original(...args);
         if (visible(page, this)) {
           const result = original(...args);
           forget(this, method);
@@ -84,6 +93,9 @@ export function installBackgroundRendering(ctx, game) {
   };
   const install = () => {
     installSplashes();
+    const Mastery = typeof SkillWithMastery === "function" ? SkillWithMastery : undefined;
+    guard(Mastery, function () { return this.game === game && game.skills?.getObjectByID?.(this.id) === this ? this : undefined; },
+      ["renderActionMastery", "renderMasteryPool"], masteryVisible);
     const Menu = typeof customElements === "undefined" ? undefined : customElements.get("bank-tab-menu");
     guard(Menu, () => typeof document === "undefined" ? undefined : document.getElementById("bank-tab-menu"), ["updateBankValue"], "bank-container", true);
     const Icon = typeof customElements === "undefined" ? undefined : customElements.get("bank-item-icon");
@@ -125,11 +137,12 @@ export function installBackgroundRendering(ctx, game) {
     if (!ready || !canPaint() || game.isGolbinRaid) return;
     installETA();
     for (const [target, methods] of [...pending]) for (const [method, entry] of [...methods]) {
-      if (target !== entry.getTarget(...entry.args) || entry.bank && entry.bank !== game.bank) { forget(target, method); continue; }
+      if (target !== entry.getTarget.call(target, ...entry.args) || entry.bank && entry.bank !== game.bank) { forget(target, method); continue; }
       if (!visible(entry.page, target)) continue;
       // Invoke the current SDK pipeline; saved original callbacks retain mutable replacement state.
       const args = entry.getTarget === bankIconTarget ? [entry.args[0], game.settings.enableAccessibility] : entry.args;
       target[method](...args);
+      if (entry.page === masteryVisible && (method === "renderActionMastery" ? target.renderQueue?.actionMastery : target.renderQueue?.masteryPool)?.size === 0) forget(target, method);
       if (entry.bank && !pending.get(target)?.has(method)) entry.bank.renderQueue.bankValue = false;
     }
   };

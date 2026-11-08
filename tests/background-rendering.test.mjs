@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import { installBackgroundRendering } from "../background-rendering.mjs";
 
-afterEach(() => { delete globalThis.document; delete globalThis.customElements; delete globalThis.mod; delete globalThis.SplashManager; delete globalThis.numberWithCommas; });
+afterEach(() => { delete globalThis.document; delete globalThis.customElements; delete globalThis.mod; delete globalThis.SplashManager; delete globalThis.numberWithCommas; delete globalThis.SkillWithMastery; });
 const thievingMethods = ["renderMenu", "renderProgressBar", "renderStopButton", "renderNPCUnlock", "renderAreaRealmVisibility"];
-function fixture() {
+function fixture(prepare) {
   const calls = { value: 0, tabValue: 0, icons: 0, runes: 0, tokens: 0, nav: 0, sidebar: 0, before: [], after: [] }, hooks = {};
   let menu;
   class Game { decode() { return "decoded"; } }
@@ -75,6 +75,7 @@ function fixture() {
       return { replace: callback => pipeline.replace.push(callback), before: callback => pipeline.before.push(callback), after: callback => pipeline.after.push(callback) };
     },
   };
+  prepare?.(game, nativeRoot, ctx);
   const flush = installBackgroundRendering(ctx, game);
   return { game, menu, Bank, BankMenu, Thieving, calls, hooks, ctx, flush, document: nativeRoot,
     open(containerID) { game.openPage = { containerID, ...(containerID === "thieving-container" ? { action: game.thieving } : {}) }; } };
@@ -187,6 +188,118 @@ test("a foreign Game decode does not clear or suspend the current character's pe
   f.open("thieving-container"); f.flush();
   assert.deepEqual(f.game.thieving.paints, [["renderMenu", "current character"]]);
 });
+function masteryFixture(beforeInstall) {
+  let skill, Skill, skills, pages;
+  const paints = [], bodyClasses = new Set();
+  const f = fixture((game, doc, ctx) => {
+    Skill = class {
+      constructor(owner = game, id = "Mining") {
+        this.game = owner; this.id = id; this.xp = 10; this.poolXP = 20;
+        this.renderQueue = { actionMastery: new Set(), masteryPool: new Set() };
+      }
+      renderActionMastery(marker) {
+        if (this.renderQueue.actionMastery.size === 0) return;
+        if (this.fail) throw new Error("native mastery failed");
+        paints.push([this, "actions", this.xp, marker]); this.renderQueue.actionMastery.clear(); return "action mastery";
+      }
+      renderMasteryPool(marker) {
+        if (this.renderQueue.masteryPool.size === 0) return;
+        paints.push([this, "pool", this.poolXP, marker]); this.renderQueue.masteryPool.clear(); return "mastery pool";
+      }
+    };
+    globalThis.SkillWithMastery = Skill;
+    skill = new Skill(); skills = new Map([[skill.id, skill]]); pages = new Map([[skill, [{ containerID: "mining-container" }]]]);
+    game.skills = { getObjectByID: id => skills.get(id) }; game.getPagesForSkill = target => pages.get(target);
+    doc.body = { classList: { contains: name => bodyClasses.has(name) } };
+    beforeInstall?.(Skill, skill, ctx);
+  });
+  const queue = target => { target.renderQueue.actionMastery.add("action"); target.renderQueue.masteryPool.add("realm"); };
+  return { ...f, skill, Skill, skills, pages, paints, bodyClasses, queue, render(target = skill, marker) { target.renderActionMastery(marker); target.renderMasteryPool(marker); } };
+}
+
+test("owned mastery DOM work coalesces offline and hidden skill pages while native XP and pool state remain current", () => {
+  for (const scenario of ["offline", "hidden-page", "hidden-document", "rendering-disabled"]) {
+    const f = masteryFixture(); f.hooks.interface();
+    if (scenario === "offline") f.game._isInOnlineLoop = false;
+    if (scenario === "hidden-document") f.document.visibilityState = "hidden";
+    if (scenario === "rendering-disabled") f.game.enableRendering = false;
+    for (let i = 0; i < 10; i++) { f.skill.xp++; f.skill.poolXP += 2; f.queue(f.skill); f.render(f.skill, i); }
+    f.flush(); assert.deepEqual(f.paints, [], scenario);
+    assert.equal(f.skill.xp, 20); assert.equal(f.skill.poolXP, 40);
+    assert.equal(f.skill.renderQueue.actionMastery.size, 1); assert.equal(f.skill.renderQueue.masteryPool.size, 1);
+    f.game._isInOnlineLoop = true; f.game.enableRendering = true; f.document.visibilityState = "visible"; f.open("mining-container");
+    f.flush(); assert.deepEqual(f.paints.map(([, method, value, marker]) => [method, value, marker]), [["actions", 20, 9], ["pool", 40, 9]]);
+    assert.equal(f.skill.renderQueue.actionMastery.size + f.skill.renderQueue.masteryPool.size, 0);
+    f.flush(); assert.equal(f.paints.length, 2, "native dirty queues prevent repeated catch-up");
+  }
+});
+
+test("mastery remains native for the visible skill, dialogs, unknown pages, Raid and unowned skill instances", () => {
+  for (const context of ["page", "dialog", "unknown-page", "unknown-skill-page", "raid", "foreign", "clone"]) {
+    const f = masteryFixture(); f.hooks.interface(); let target = f.skill;
+    if (context === "page") f.open("mining-container");
+    if (context === "dialog") f.bodyClasses.add("modal-open");
+    if (context === "unknown-page") f.game.openPage = undefined;
+    if (context === "unknown-skill-page") f.pages.delete(f.skill);
+    if (context === "raid") f.game.isGolbinRaid = true;
+    if (context === "foreign") target = new f.Skill({});
+    if (context === "clone") target = new f.Skill(f.game);
+    f.queue(target);
+    assert.equal(target.renderActionMastery(context), "action mastery", context);
+    assert.equal(target.renderMasteryPool(context), "mastery pool", context);
+    assert.equal(f.paints.length, 2);
+  }
+});
+
+test("empty mastery queues avoid ownership and dialog probes", () => {
+  const f = masteryFixture(); f.hooks.interface();
+  f.game.skills.getObjectByID = () => assert.fail("empty queues need no ownership lookup");
+  f.game.getPagesForSkill = () => assert.fail("empty queues need no page lookup");
+  f.document.body.classList.contains = () => assert.fail("empty queues need no dialog lookup");
+  f.render(); assert.equal(f.paints.length, 0);
+});
+
+test("initial mastery loading stays native but explicit first-load offline rendering is deferred", () => {
+  const f = masteryFixture(); f.queue(f.skill); f.render(); assert.equal(f.paints.length, 2);
+  f.hooks.character(); f.game._isInOnlineLoop = false; f.game.openPage = undefined;
+  f.queue(f.skill); f.render(); assert.equal(f.paints.length, 2, "initial replay does not repeat native mastery DOM work");
+  f.game._isInOnlineLoop = true; f.open("mining-container"); f.hooks.interface(); f.flush(); assert.equal(f.paints.length, 4);
+});
+
+test("mastery catches up through later SDK hooks and errors while character restoration discards stale calls", () => {
+  const f = masteryFixture(); f.hooks.interface(); f.queue(f.skill); f.render(f.skill, "old");
+  const callbacks = [];
+  f.ctx.patch(f.Skill, "renderActionMastery").before(function (marker) { callbacks.push(marker); });
+  f.skill.xp = 55; f.skill.poolXP = 66; f.open("mining-container"); f.skill.fail = true;
+  assert.throws(f.flush, /native mastery failed/); assert.equal(f.skill.renderQueue.actionMastery.size, 1);
+  f.skill.fail = false; f.flush(); assert.deepEqual(callbacks, ["old", "old"]);
+  assert.deepEqual(f.paints.map(([, method, value]) => [method, value]), [["actions", 55], ["pool", 66]]);
+  f.open("woodcutting-container"); f.queue(f.skill); f.render(f.skill, "previous character");
+  f.game.decode(); f.skill.renderQueue.actionMastery.clear(); f.skill.renderQueue.masteryPool.clear();
+  f.open("mining-container"); f.flush(); assert.equal(f.paints.length, 2);
+});
+
+test("child mastery renderers can consume deferred queues without leaving repeated catch-up work in either load order", () => {
+  for (const order of ["before", "after"]) {
+    let dispatches = 0;
+    const replace = (Base, skill, ctx) => {
+      class Child extends Base {}
+      Object.setPrototypeOf(skill, Child.prototype);
+      ctx.patch(Child, "renderActionMastery").replace(function () {
+        dispatches++; this.renderQueue.actionMastery.clear();
+      });
+    };
+    const f = masteryFixture(order === "before" ? replace : undefined);
+    if (order === "after") replace(f.Skill, f.skill, f.ctx);
+    f.hooks.character(); f.game._isInOnlineLoop = false; f.queue(f.skill);
+    f.Skill.prototype.renderActionMastery.call(f.skill); f.skill.renderMasteryPool();
+    assert.equal(dispatches, 0); assert.equal(f.skill.renderQueue.actionMastery.size, 1);
+    f.game._isInOnlineLoop = true; f.open("mining-container"); f.hooks.interface(); f.flush();
+    assert.equal(dispatches, 1); assert.equal(f.skill.renderQueue.actionMastery.size, 0);
+    f.flush(); assert.equal(dispatches, 1, "a child that omits the base call still drains the pending presentation work");
+  }
+});
+
 test("optional ETA skips only the current game's combined Woodcutting forecast when Workforce hides its native panel", () => {
   const f = fixture(), tree = { id: "Tree" }, actions = [tree];
   f.game.woodcutting = { id: "Woodcutting" }; f.game.agility = { id: "Agility" }; f.game.currentGamemode = { enableInstantActions: false };

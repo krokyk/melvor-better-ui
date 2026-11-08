@@ -16,6 +16,8 @@ One shared pin choice follows you across skills, Combat, Bank, Shop, Settings, F
 The currently viewed skill has a lighter grey background in the left navigation, independently of page pinning.
 Abyss Area Info refreshes its Pet Located status after each full clear, so an unlocked pet immediately shows Yes.
 Escape dismisses a completed offline replay summary without scrolling down to its OK button.
+Mastery displays defer replay and inactive-page updates until they can be viewed, while visible skills and open dialogs retain native updates.
+Bulk Bank selections avoid redundant updates to unchanged tab labels and accessibility attributes.
 Shop item costs show current Bank stock in a blue oval beneath each required-item icon, including Quick Buy and purchase confirmations.
 Badges refresh with Bank changes and show exact quantities on hover while keeping the required amount and affordability colour visible.
 Item upgrade dialogs show a blue stock badge over the bottom edge of each required material icon, with live Bank quantities and exact counts on hover.
@@ -237,6 +239,7 @@ Reload after changing optional mods so their integrations can be detected.
 
 ### 1.1.0
 
+- Defer hidden and replay mastery presentation, and avoid redundant Bank tab attribute updates during bulk selection.
 - Dismiss completed offline replay summaries with Escape without scrolling to OK.
 - Carry the selected Bank item into Move or Sell mode while keeping locked items protected from selling.
 - Refresh Abyss Area Info after depth completions so Pet Located agrees with newly unlocked pets.

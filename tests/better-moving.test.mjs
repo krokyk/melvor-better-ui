@@ -799,6 +799,26 @@ test("keyboard users can navigate empty tabs and transfer selected groups withou
   assert.equal(f.key(0, "Escape").prevented, false); assert.equal(f.bank.selectedBankTab, 1);
 });
 
+test("stable Bank selections do not rewrite tab accessibility while changed state and external edits still update", () => {
+  const f = fixture(true), changes = [];
+  f.bank.moveItemModeOnClick(); select(f, f.items[0]);
+  for (const { tabLink } of f.tabs.tabs) {
+    const native = tabLink.setAttribute;
+    tabLink.setAttribute = function (name, value) { changes.push(name); return native.call(this, name, value); };
+  }
+  for (let index = 0; index < 10; index++) f.bank.toggleItemSelected(f.items[1]);
+  assert.deepEqual(changes, [], "a nonempty selection retains identical tab attributes");
+  f.tabs.tabs[0].tabLink.setAttribute("role", "button"); changes.length = 0;
+  f.bank.toggleItemSelected(f.items[1]);
+  assert.deepEqual(changes, ["role"], "another mod's attribute changes are repaired without a stale cache");
+  changes.length = 0; f.bank.setItemSelectionMode(0);
+  assert.deepEqual(changes, ["aria-label", "aria-label"], "ending Move Mode changes only destination labels");
+  changes.length = 0; f.tabs.selectTab(1, f.bank);
+  assert.deepEqual(changes, ["aria-selected", "aria-selected"]);
+  assert.equal(f.tabs.tabs[0].tabLink.getAttribute("aria-selected"), "false");
+  assert.equal(f.tabs.tabs[1].tabLink.getAttribute("aria-selected"), "true");
+});
+
 test("disabling restores existing tab accessibility attributes and removes added attributes", () => {
   const f = fixture(true, false), first = f.tabs.tabs[0].tabLink, second = f.tabs.tabs[1].tabLink;
   const original = { tabindex: "-1", role: "button", "aria-label": "Native label", "aria-selected": "mixed" };
