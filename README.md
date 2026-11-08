@@ -151,6 +151,7 @@ Ingredients with a gold shop-coin overlay keep Quick Buy without a **?**.
 Currencies, XP and spell artwork without a specific item do not receive a **?**.
 Sources and uses are calculated only when clicked.
 Sources and Uses dialogs keep category labels on one line and fit their contents up to 75% of the main game area, with longer descriptions wrapping at that limit.
+Their layout is established when they open and remains stable through clicks, focus changes and Bank focus-return updates.
 This integration is optional and does not add a hard dependency.
 If Show Item Sources And Uses is missing, disabled or lacks the required API, the toggle is disabled with an explanation while retaining your saved preference.
 Install or enable a compatible version and reload the game to make the toggle available.

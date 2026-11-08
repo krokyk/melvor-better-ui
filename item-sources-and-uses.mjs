@@ -44,24 +44,28 @@ export function installItemSourcesAndUses(ctx, game) {
   if (!available) return;
 
   const sourceTable = "#swal2-html-container > table.font-w400.font-size-sm > tbody > tr > td:first-child.text-info";
+  const sourcePopup = `.swal2-popup:has(> ${sourceTable})`;
   const sizeSourcePopup = popup => {
-    if (!popup) return;
+    if (!popup?.querySelector(sourceTable)) return;
     const width = document.getElementById("main-container")?.clientWidth;
     if (!width) return;
     const cap = `${width * .75}px`;
     if (popup.style.getPropertyValue("--kroky-item-sources-max-width") !== cap) popup.style.setProperty("--kroky-item-sources-max-width", cap);
   };
   const handleSourceFocus = event => {
-    const popup = event.target.closest?.(".swal2-popup");
-    if (popup && !popup.classList.contains("kroky-item-sources-dialog") && popup.querySelector(sourceTable)) {
-      popup.classList.add("kroky-item-sources-dialog");
-      sizeSourcePopup(popup);
-    }
     if (enabled && sourceModal?.classList.contains("show")) event.stopPropagation();
   };
+  if (typeof Swal !== "undefined" && typeof Swal.fire === "function") {
+    const original = Swal.fire;
+    Swal.fire = function (...args) {
+      const result = original.apply(this, args);
+      if (typeof SwalLocale !== "undefined" && this === SwalLocale) sizeSourcePopup(Swal.getPopup?.());
+      return result;
+    };
+  }
   // jQuery delegates run before Bootstrap's direct focus guard, including simulated focusin events.
   if (typeof $ === "function") $(document).on("focusin.krokyItemSources", ".swal2-container", handleSourceFocus);
-  document.defaultView?.addEventListener("resize", () => sizeSourcePopup(document.querySelector(".kroky-item-sources-dialog")));
+  document.defaultView?.addEventListener("resize", () => sizeSourcePopup(document.querySelector(".swal2-popup")));
   if (typeof $ === "function") $(document).on("hidden.bs.modal.krokyItemSources", event => {
     if (event.target === sourceModal) sourceModal = undefined;
   });
@@ -185,10 +189,10 @@ export function installItemSourcesAndUses(ctx, game) {
         .kroky-upgrade-cost-icon, .kroky-agility-cost-icon { position: relative; display: inline-block; vertical-align: middle; }
         .kroky-upgrade-cost-icon > img, .kroky-agility-cost-icon > img { margin: 0 !important; }
         .kroky-item-sources-enabled .kroky-item-source-button:not([hidden]) { display: block; left: auto; right: -6px; z-index: 1; border: 0; line-height: 1; font-size: .875rem; font-weight: bold; border-radius: 50%; background: #232a35; text-decoration: none; }
-        .kroky-item-sources-dialog { width: max-content; max-width: min(var(--kroky-item-sources-max-width, 75vw), calc(100vw - 2rem)); }
-        .kroky-item-sources-dialog > #swal2-html-container > table td { vertical-align: top; }
-        .kroky-item-sources-dialog > #swal2-html-container > table td:first-child { white-space: nowrap; padding-right: .5rem; }
-        .kroky-item-sources-dialog > #swal2-html-container > table td:last-child { white-space: normal; word-break: normal; overflow-wrap: break-word; }
+        ${sourcePopup} { width: max-content; max-width: min(var(--kroky-item-sources-max-width, 75vw), calc(100vw - 2rem)); }
+        ${sourcePopup} > #swal2-html-container > table td { vertical-align: top; }
+        ${sourcePopup} > #swal2-html-container > table td:first-child { white-space: nowrap; padding-right: .5rem; }
+        ${sourcePopup} > #swal2-html-container > table td:last-child { white-space: normal; word-break: normal; overflow-wrap: break-word; }
       `;
       document.head.append(style);
     }

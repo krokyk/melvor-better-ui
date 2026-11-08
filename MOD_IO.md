@@ -115,6 +115,7 @@ Other native recipe-selection views, including Smithing and Fletching lists, sta
 It defaults to off and is saved per character.
 Clicking **?** opens the item's dialog from [Show Item Sources And Uses](https://mod.io/g/melvoridle/m/show-item-sources-and-uses), calculating the information only when clicked.
 Sources and Uses dialogs keep category labels on one line and fit their contents up to 75% of the main game area, with longer descriptions wrapping at that limit.
+Their layout is established when they open and remains stable through clicks and focus changes.
 Ordinary icon clicks keep their existing behavior, and ingredients with a gold shop-coin overlay keep Quick Buy without a **?**.
 Currencies, XP and spell artwork without a specific item do not receive a **?**.
 The integration is optional, with no hard dependency.
@@ -239,6 +240,7 @@ Reload after changing optional mods so their integrations can be detected.
 
 ### 1.1.0
 
+- Keep Sources and Uses dialog columns and sizing stable from opening through clicks and focus changes.
 - Defer hidden and replay mastery presentation, and avoid redundant Bank tab attribute updates during bulk selection.
 - Dismiss completed offline replay summaries with Escape without scrolling to OK.
 - Carry the selected Bank item into Move or Sell mode while keeping locked items protected from selling.

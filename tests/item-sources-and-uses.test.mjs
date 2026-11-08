@@ -6,7 +6,7 @@ import { installItemSourcesAndUses } from "../item-sources-and-uses.mjs";
 import { installAgilityCostStock } from "../agility-cost-stock.mjs";
 
 afterEach(() => {
-  for (const name of ["document", "customElements", "MutationObserver", "Game", "mod", "SwalLocale", "formatNumber", "numberWithCommas", "toggleDangerSuccess", "$"]) delete globalThis[name];
+  for (const name of ["document", "customElements", "MutationObserver", "Game", "mod", "Swal", "SwalLocale", "formatNumber", "numberWithCommas", "toggleDangerSuccess", "$"]) delete globalThis[name];
 });
 
 class Element {
@@ -716,11 +716,31 @@ test("new provider drilldown popups preserve local focus handlers and lose the e
   }
 });
 
-test("provider dialogs size to their main content area without polling, including bank entrypoints with shortcuts disabled", () => {
+test("provider dialogs are sized before first focus and stay stable on clicks, including bank entrypoints with shortcuts disabled", () => {
   for (const focusMode of ["native", "jquery-polyfill"]) {
-    const resizes = [];
+    const resizes = [], fireCalls = [];
+    let createPopup, currentPopup;
     const f = fixture("available", false, (ctx, game) => {
       document.defaultView = { addEventListener(type, callback) { assert.equal(type, "resize"); resizes.push(callback); } };
+      globalThis.Swal = class {
+        static getPopup() { return currentPopup?.popup; }
+        static fire(...args) {
+          fireCalls.push({ receiver: this, args });
+          if (args[0].failure) throw args[0].failure;
+          currentPopup = createPopup(args[0].html !== "unrelated");
+          currentPopup.params = { ...args[0] };
+          currentPopup.update = function (changes) {
+            this.updates = (this.updates ?? 0) + 1;
+            this.params = { ...this.params, ...changes };
+            const customClass = this.params.customClass ?? { popup: "native-popup", confirmButton: "native-confirm" };
+            this.popup.className = `swal2-popup ${customClass.popup}`;
+            this.confirm.className = `swal2-confirm ${customClass.confirmButton ?? ""}`;
+          };
+          currentPopup.update({});
+          return currentPopup;
+        }
+      };
+      globalThis.SwalLocale = class extends Swal {};
       installItemSourcesAndUses(ctx, game);
     }, true, true, focusMode);
     const main = new Element(); main.id = "main-container"; f.page.append(main);
@@ -728,10 +748,10 @@ test("provider dialogs size to their main content area without polling, includin
     Object.defineProperty(main, "clientWidth", { get() { reads++; return width; } });
     f.hooks.interface();
     const css = f.head.querySelector("style").textContent;
-    assert.match(css, /\.kroky-item-sources-dialog\s*\{[^}]*width:\s*max-content[^}]*max-width:\s*min\(var\(--kroky-item-sources-max-width, 75vw\)/);
+    assert.match(css, /\.swal2-popup:has\(> #swal2-html-container > table[^\n]+\)\s*\{[^}]*width:\s*max-content[^}]*max-width:\s*min\(var\(--kroky-item-sources-max-width, 75vw\)/);
     assert.match(css, /td:first-child\s*\{[^}]*white-space:\s*nowrap/);
     assert.match(css, /td:last-child\s*\{[^}]*white-space:\s*normal/);
-    const open = (provider = true) => {
+    createPopup = (provider = true) => {
       const container = new Element(); container.className = "swal2-container";
       const popup = new Element(); popup.className = "swal2-popup";
       popup.style = { values: new Map(), getPropertyValue(key) { return this.values.get(key) ?? ""; },
@@ -742,20 +762,32 @@ test("provider dialogs size to their main content area without polling, includin
       label.className = "text-info"; label.textContent = "Farming:"; detail.textContent = "Whispertallow Herb";
       row.append(label, detail); body.append(row); table.append(body); html.append(table);
       const confirm = new Element("button"); confirm.className = "swal2-confirm";
-      popup.append(html, confirm); container.append(popup); f.html.append(container); confirm.focus();
+      popup.append(html, confirm); container.append(popup); f.html.append(container);
       return { container, popup, confirm };
     };
+    const open = (provider = true) => SwalLocale.fire({ html: provider ? "SOURCES USES" : "unrelated" });
     const first = open();
-    assert.equal(first.popup.classList.contains("kroky-item-sources-dialog"), true);
+    assert.equal(first, currentPopup, "the native dialog result is preserved");
+    assert.equal(fireCalls[0].receiver, SwalLocale);
     assert.equal(first.popup.style.getPropertyValue("--kroky-item-sources-max-width"), "900px");
+    assert.equal(first.confirm.classList.contains("native-confirm"), true, "native mixin styling is preserved");
+    assert.equal(first.popup.classList.contains("native-popup"), true);
+    assert.equal(first.params.customClass, undefined, "native mixin defaults are not replaced");
+    assert.equal(first.updates, 1, "styling does not introduce another popup render");
+    assert.equal(fireCalls[0].args[0].customClass, undefined, "caller options are not mutated");
     assert.equal(f.page.classList.contains("kroky-item-sources-enabled"), false, "native bank Sources opens without enabling recipe shortcuts");
-    first.confirm.focus(); assert.equal(reads, 1, "Tab focus does not measure again"); assert.equal(writes, 1);
+    first.update({ didClose() {} });
+    assert.equal(first.popup.style.getPropertyValue("--kroky-item-sources-max-width"), "900px", "Bank focus-return updates preserve the width cap");
+    first.confirm.focus(); first.confirm.click(); first.confirm.focus();
+    assert.equal(reads, 1, "focus and clicks do not measure again"); assert.equal(writes, 1);
     width = 800; resizes[0](); assert.equal(first.popup.style.getPropertyValue("--kroky-item-sources-max-width"), "600px");
     resizes[0](); assert.equal(writes, 2, "an unchanged cap is not rewritten");
     first.container.remove(); const before = reads; resizes[0](); assert.equal(reads, before, "closed dialogs cause no layout read on resize");
-    const unrelated = open(false); assert.equal(unrelated.popup.classList.contains("kroky-item-sources-dialog"), false); assert.equal(reads, before);
+    const unrelated = open(false); assert.equal(unrelated.popup.style.getPropertyValue("--kroky-item-sources-max-width"), ""); assert.equal(reads, before);
     unrelated.container.remove(); const next = open();
     assert.equal(next.popup.style.getPropertyValue("--kroky-item-sources-max-width"), "600px", "fresh provider drilldowns are sized independently");
     assert.equal(reads, before + 1);
+    const failure = new Error("native fire failure");
+    assert.throws(() => SwalLocale.fire({ failure }), error => error === failure);
   }
 });
