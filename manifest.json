@@ -1,4 +1,5 @@
 {
   "namespace": "KrokyBetterUI",
+  "icon": "icon.svg",
   "setup": "setup.mjs"
 }

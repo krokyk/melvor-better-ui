@@ -1,5 +1,7 @@
 # Kroky's Better UI
 
+![Kroky's Better UI](assets/cover.png)
+
 Version: **1.1.0**.
 
 Page header pinning, responsive desktop card grids, shared equipment sets, manual equip quantities, up to six quick-equip slots and optional recipe item sources and uses for Melvor Idle, including Kroky's Workforce layouts when installed.
@@ -270,7 +272,7 @@ Online speed stays unchanged, and other Speedup++ versions retain their own repl
 
 Load this folder with Melvor's Creator Toolkit, or import `krokys-better-ui-1.1.0.zip` through **Creator Toolkit → Local Mods**.
 Enable the mod and reload the game.
-The release archive contains `manifest.json` and the runtime `.mjs` files, including `replay-speed.mjs`, at its root.
+The release archive contains `manifest.json`, the configuration icon `icon.svg` and the runtime `.mjs` files, including `replay-speed.mjs`, at its root.
 Ready-to-paste listing text and release notes are in [MOD_IO.md](MOD_IO.md).
 
 ## Development checks

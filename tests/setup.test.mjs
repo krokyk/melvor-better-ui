@@ -9,6 +9,13 @@ afterEach(() => {
   globalThis.performance = originalPerformance;
 });
 
+test("manifest preserves the namespace and resolves its configuration icon", async () => {
+  const manifest = JSON.parse(await readFile(new URL("../manifest.json", import.meta.url), "utf8"));
+  assert.deepEqual(manifest, { namespace: "KrokyBetterUI", icon: "icon.svg", setup: "setup.mjs" });
+  const icon = await readFile(new URL(`../${manifest.icon}`, import.meta.url), "utf8");
+  assert.match(icon, /<svg[^>]+viewBox="0 0 64 64"/);
+});
+
 test("setup loads its packaged modules through Melvor's standalone module URLs", async () => {
   let registered = false;
   const loaded = [];
