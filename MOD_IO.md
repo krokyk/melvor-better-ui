@@ -6,50 +6,45 @@ Kroky's Better UI
 
 ## Summary
 
-Pinned headers, readable card grids, smarter Bank filters and keyboard navigation, shared equipment sets, quick-equip shortcuts, stock badges and skill-tree controls.
+Pinned headers, Bank filters and keyboard controls, shared equipment sets, quick-equip shortcuts, stock badges and skill-tree tools.
 
 ## Description
 
-Make Melvor's menus easier to navigate and its information easier to see.
-Works independently of Workforce.
+Pinned headers, Bank tools and equipment shortcuts.
 
-- **Pinned headers:** keep skill statistics, realm selectors and controls visible while scrolling.
-- **Readable layouts:** fit more cards on wide screens and choose compact or vanilla item-stat previews.
-- **Bank tools:** combine category filters with search, highlight matching tabs, reorder tabs by dragging and navigate items with arrow keys.
-- **Better Moving:** persistent Move Mode, multi-selection, Shift-click ranges and Escape cancellation with selection retained.
-- **Equipment:** share owned gear between remembered sets, copy loadouts, choose stack quantities and use up to six quick-equip shortcuts with a searchable Bank picker.
-- **Stock information:** see Bank quantities in Shop and upgrade costs, `(required/stock)` in Agility, and item types in Bank details.
-- **Skill trees:** highlight affordable upgrades and use **Spend All** to buy the displayed tree's cheapest available upgrades after one confirmation.
-- **Convenience:** show completable Township tasks first, close completed replay summaries with Escape and refresh Abyss pet-location status.
-- **Less background work:** defer hidden-page and replay presentation until it can be viewed.
+- Pin headers and skill controls; fit more cards on desktop.
+- Filter Bank items, highlight matching tabs, move multiple items, reorder tabs and use arrow keys.
+- Share owned gear between remembered sets, copy loadouts and save up to six quick-equip shortcuts.
+- Show Bank stock beside costs, required/stock in Agility and item types in Bank.
+- Highlight affordable skill-tree upgrades and buy the cheapest available upgrades with **Spend All** after one confirmation.
 
-Settings let you enable or disable the main interface features.
-Better Moving and recipe Sources and Uses shortcuts are optional settings.
-
-### Equipment-set behavior
-
-Shared sets keep real items in Bank or the active set and remember inactive loadouts.
-Leave enough free Bank space for the initial migration of inactive gear.
+**Equipment sets:** Real items stay in Bank or the active set.
+Leave free Bank space for the initial migration of inactive gear.
 Disabling Better UI keeps active gear and Bank stock; inactive equipment sets are empty.
 
-### Optional integrations
+Main features can be toggled in Mod Settings.
+No other mod is required.
 
-No third-party mod is required.
-The integrations below extend those mods rather than replace them.
-
-- **Kroky's Workforce:** pinned worker controls, readable recipe grids and enhanced item icons.
-- **Skill Boosts:** its controls join the pinned header.
-- **[Show Item Sources And Uses](https://mod.io/g/melvoridle/m/show-item-sources-and-uses):** item **?** shortcuts on supported recipe, upgrade and Agility material icons.
-- **Speedup++ 1.0.4:** preserve the selected multiplier during offline replay and process the captured away window in small native tick batches.
-- **[Myth] Combat Simulator 3.2.0:** import remembered inactive equipment sets without changing real equipment or Bank stock.
-
+**Optional integrations:** pinned controls from [Skill Boosts](https://mod.io/g/melvoridle/m/skill-boosts); recipe **?** shortcuts using [Show Item Sources And Uses](https://mod.io/g/melvoridle/m/show-item-sources-and-uses); offline replay that retains the selected multiplier with [Speedup++ 1.0.4](https://mod.io/g/melvoridle/m/speedup2); remembered equipment-set imports for [[Myth] Combat Simulator 3.2.0](https://mod.io/g/melvoridle/m/myth-combat-simulator).
 Reload after changing optional mods.
+
+### See my other mods:
+
+- [Kroky's Bardic Troupe](https://mod.io/g/melvoridle/m/krokys-bardic-troupe)
+- [Kroky's Workforce](https://mod.io/g/melvoridle/m/krokys-workforce)
+- [Kroky's Armed to the Seeds](https://mod.io/g/melvoridle/m/krokys-armed-to-the-seeds)
+- [Kroky's Mapmaking](https://mod.io/g/melvoridle/m/krokys-mapmaking)
+- [Kroky's No Pain, All Gain](https://mod.io/g/melvoridle/m/krokys-no-pain-all-gain)
 
 ## Version
 
-1.1.0
+1.1.1
 
-## Changelog
+## Changelog for 1.1.1
+
+Add bulk Shop quantities and stock badges, and fix Quick Buy dialog layering and focus.
+
+## Changelog for 1.1.0
 
 - Add Bank categories, matching-tab glows, keyboard navigation and drag-to-reorder tabs.
 - Preserve item selection when entering and cancelling Move or Sell mode and restore grid focus after item dialogs.
@@ -61,7 +56,7 @@ Reload after changing optional mods.
 
 ## Release assets
 
-- **ZIP:** `krokys-better-ui-1.1.0.zip`.
+- **ZIP:** `krokys-better-ui-1.1.1.zip`.
 - **Cover:** `assets/cover.png`.
 - **Configuration icon:** `icon.svg`, declared by `manifest.json`.
 

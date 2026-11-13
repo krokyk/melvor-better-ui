@@ -2,7 +2,7 @@
 
 ![Kroky's Better UI](assets/cover.png)
 
-Version: **1.1.0**.
+Version: **1.1.1**.
 
 Page header pinning, responsive desktop card grids, shared equipment sets, manual equip quantities, up to six quick-equip slots and optional recipe item sources and uses for Melvor Idle, including Kroky's Workforce layouts when installed.
 The mod works independently of Workforce.
@@ -12,6 +12,12 @@ Abyss Area Info refreshes its Pet Located status after each full clear, so an un
 Escape dismisses a completed offline replay summary without scrolling down to its OK button.
 Shop item costs show current Bank stock in a blue oval beneath each required-item icon, including Quick Buy and purchase confirmations.
 The badges refresh with Bank changes, show zero for missing items and reveal exact quantities on hover.
+Shop purchase confirmations include the native quantity chooser for bulk purchases and retain the selected Shop amount.
+Native repeatable item-only Shop purchases support bulk buying when their native batch limit allows more than one, including equipment, outfits and upgrade kits.
+Purchases capped at one and permanent upgrades, pets, charges, Bank tabs and loot boxes retain their native quantity behavior.
+Single-item purchase confirmations and Quick Buy show current Bank stock in a centered blue oval beneath the main artwork.
+Confirmation quantities, total costs and Buy availability update together, including when the selected batch is unaffordable.
+Quick Buy opens above recipe dialogs, keeps purchase confirmation above both and returns focus to the remaining dialog when closed.
 Item upgrade dialogs show the same blue stock badge over the bottom edge of each required material icon, with live Bank quantities and exact counts on hover.
 The upgraded item's artwork has its own blue Bank stock badge.
 Agility obstacle and pillar selection costs show `(required/stock)` for materials and currencies, with live quantities and native affordability colors.
@@ -270,7 +276,7 @@ Online speed stays unchanged, and other Speedup++ versions retain their own repl
 
 ## Installation
 
-Load this folder with Melvor's Creator Toolkit, or import `krokys-better-ui-1.1.0.zip` through **Creator Toolkit → Local Mods**.
+Load this folder with Melvor's Creator Toolkit, or import `krokys-better-ui-1.1.1.zip` through **Creator Toolkit → Local Mods**.
 Enable the mod and reload the game.
 The release archive contains `manifest.json`, the configuration icon `icon.svg` and the runtime `.mjs` files, including `replay-speed.mjs`, at its root.
 Ready-to-paste listing text and release notes are in [MOD_IO.md](MOD_IO.md).

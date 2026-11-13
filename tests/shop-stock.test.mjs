@@ -3,12 +3,12 @@ import { afterEach, test } from "node:test";
 import { installShopStock } from "../shop-stock.mjs";
 
 afterEach(() => {
-  for (const name of ["ShopCostsAndUnlock", "document", "formatNumber", "numberWithCommas"]) delete globalThis[name];
+  for (const name of ["ShopCostsAndUnlock", "ShopMenu", "ShopConfirmModalItem", "QuickBuyItem", "Swal", "document", "formatNumber", "numberWithCommas"]) delete globalThis[name];
 });
 
 class Element {
   constructor(tag = "span") {
-    this.tagName = tag; this.children = []; this.className = ""; this.hidden = false; this.attributes = {};
+    this.tagName = tag; this.children = []; this.className = ""; this.hidden = false; this.attributes = {}; this.style = {};
     this.classList = {
       add: name => { this.className += ` ${name}`; },
       contains: name => this.className.split(" ").includes(name),
@@ -21,6 +21,10 @@ class Element {
   before(node) {
     node.remove(); const parent = this.parentElement;
     parent.children.splice(parent.children.indexOf(this), 0, node); node.parentElement = parent;
+  }
+  after(node) {
+    node.remove(); const parent = this.parentElement;
+    parent.children.splice(parent.children.indexOf(this) + 1, 0, node); node.parentElement = parent;
   }
   remove() {
     if (this.parentElement) this.parentElement.children.splice(this.parentElement.children.indexOf(this), 1);
@@ -118,4 +122,80 @@ test("native refresh updates stock without duplicate badges and buy limits hide 
   for (const { image } of view.costElements.slice(2)) {
     assert.ok(image.parentElement.classList.contains("d-inline-flex")); assert.equal(image.parentElement.children.length, 2);
   }
+});
+
+function productFixture() {
+  const item = { name: "Slayer Helmet (Basic)" }, stock = new Map([[item, 0]]), root = new Element("div"), quickModal = new Element("div");
+  let popup, image, reads = 0;
+  const game = { bank: { getQty(value) { reads++; return stock.get(value) ?? 0; } } };
+  globalThis.document = { createElement: tag => new Element(tag), getElementById: () => quickModal };
+  globalThis.formatNumber = value => value >= 1000 ? `${value / 1000}K` : `${value}`;
+  globalThis.numberWithCommas = value => value.toLocaleString("en-US");
+  globalThis.Swal = { getImage: () => image, getPopup: () => popup };
+  globalThis.ShopCostsAndUnlock = class {
+    constructor(purchase) { this.purchase = purchase; this.game = game; this.costElements = []; }
+    createCostElements() {}
+    updateCostElements() {}
+    setToBuyLimit() {}
+  };
+  globalThis.ShopConfirmModalItem = class extends ShopCostsAndUnlock { destroy() {} };
+  globalThis.QuickBuyItem = class extends ShopCostsAndUnlock {
+    constructor(purchase) { super(purchase); this.image = new Element("img"); const art = new Element("div"); art.append(this.image); root.append(art); }
+  };
+  globalThis.ShopMenu = class {
+    constructor() { this.game = game; }
+    showConfirmBuyPrompt(purchase) {
+      this.confirmBuyItem = new ShopConfirmModalItem(purchase);
+      popup = new Element("div"); image = new Element("img"); image.className = "swal2-image";
+      this.title = new Element("h2"); this.title.textContent = purchase.contains.items[0]?.item.name ?? "Upgrade";
+      popup.append(image, this.title); root.append(popup);
+    }
+    updateForCostChange() { this.confirmBuyItem?.updateCostElements(); this.quickbuyMenu?.updateCostElements(); }
+    changeQuickBuyItem(purchase) { this.quickbuyMenu = new QuickBuyItem(purchase); }
+  };
+  const ctx = { patch(Class, method) { return { after(callback) {
+    const native = Class.prototype[method]; Class.prototype[method] = function (...args) { const result = native.apply(this, args); callback.call(this, result, ...args); return result; };
+  } }; } };
+  installShopStock(ctx);
+  const menu = new ShopMenu();
+  const purchase = contains => ({ contains, costs: { currencies: [], items: [] } });
+  const ordinary = purchase({ items: [{ item, quantity: 1 }] });
+  return { item, stock, menu, ordinary, purchase, root, quickModal, image: () => image, popup: () => popup, reads: () => reads,
+    badge: () => image?.parentElement?.children.find(node => node.classList.contains("kroky-shop-product-stock")),
+    close() { menu.confirmBuyItem.destroy(); menu.confirmBuyItem = undefined; popup = undefined; },
+  };
+}
+
+test("purchase artwork shows one centered blue Bank-stock badge and refreshes through native cost events", () => {
+  const f = productFixture(); f.menu.showConfirmBuyPrompt(f.ordinary);
+  const image = f.image(), badge = f.badge(), title = f.menu.title;
+  assert.ok(badge, "purchase artwork must show its current Bank reserve");
+  assert.ok(badge.classList.contains("badge-pill")); assert.ok(badge.classList.contains("bg-primary"));
+  assert.equal(badge.textContent, "0"); assert.equal(badge.getAttribute("aria-label"), "Slayer Helmet (Basic) in Bank: 0");
+  assert.deepEqual(f.popup().children, [image, badge, title]); assert.equal(badge.style.justifySelf, "center");
+  assert.equal(badge.style.marginTop, "-1rem", "badge occupies the native artwork's bottom margin");
+  f.stock.set(f.item, 1250); f.menu.updateForCostChange(); f.menu.updateForCostChange();
+  assert.equal(f.badge(), badge); assert.equal(badge.textContent, "1.25K"); assert.equal(badge.title, "Slayer Helmet (Basic) in Bank: 1,250");
+  assert.deepEqual(f.popup().children, [image, badge, title]);
+  badge.remove(); f.menu.confirmBuyItem.updateCostElements();
+  assert.equal(f.badge(), badge, "native quantity refresh repairs a detached badge without replacing its image or title");
+  const foreign = new ShopMenu(), reads = f.reads(); foreign.updateForCostChange(); assert.equal(f.reads(), reads);
+  f.close(); const closed = f.reads(); f.menu.updateForCostChange(); assert.equal(f.reads(), closed, "closed confirmations perform no stock work");
+});
+
+test("purchase artwork skips ambiguous bundles and special grants while retaining native image and title", () => {
+  const f = productFixture();
+  for (const contains of [{ items: [] }, { items: [{ item: f.item }, { item: { name: "Other" } }] }, { items: [{ item: f.item }], stats: {} }, { items: [{ item: f.item }], itemCharges: {} }]) {
+    f.menu.showConfirmBuyPrompt(f.purchase(contains)); assert.equal(f.badge(), undefined); assert.deepEqual(f.popup().children, [f.image(), f.menu.title]); f.close();
+  }
+  f.menu.showConfirmBuyPrompt(f.ordinary); assert.equal(f.badge().textContent, "0");
+});
+
+test("Quick Buy shares product stock badges without refreshing its hidden artwork", () => {
+  const f = productFixture(); f.stock.set(f.item, 7); f.menu.changeQuickBuyItem(f.ordinary);
+  const image = f.menu.quickbuyMenu.image, badge = image.parentElement.children[1];
+  assert.ok(badge, "Quick Buy artwork uses the same product stock badge"); assert.equal(badge.textContent, "7");
+  f.stock.set(f.item, 8); const hiddenReads = f.reads(); f.menu.updateForCostChange(); assert.equal(f.reads(), hiddenReads);
+  f.quickModal.classList.add("show"); f.menu.updateForCostChange(); assert.equal(badge.textContent, "8");
+  assert.deepEqual(image.parentElement.children, [image, badge]); assert.equal(badge.style.marginTop, undefined);
 });

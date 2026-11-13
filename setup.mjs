@@ -13,6 +13,8 @@ export async function setup(ctx) {
   const { installBankItemType } = await ctx.loadModule("bank-item-type.mjs");
   const { installBackgroundRendering } = await ctx.loadModule("background-rendering.mjs");
   const { installShopStock } = await ctx.loadModule("shop-stock.mjs");
+  const { installQuickBuyModal } = await ctx.loadModule("quick-buy-modal.mjs");
+  const { installShopQuantities } = await ctx.loadModule("shop-quantities.mjs");
   const { installUpgradeStock } = await ctx.loadModule("upgrade-stock.mjs");
   const { installAgilityCostStock } = await ctx.loadModule("agility-cost-stock.mjs");
   const { installTownshipTaskOrder } = await ctx.loadModule("township-task-order.mjs");
@@ -77,6 +79,8 @@ export async function setup(ctx) {
     installBankItemType(ctx, game);
     const flushBackgroundRendering = installBackgroundRendering(ctx, game);
     installShopStock(ctx);
+    const restoreQuickBuyFocus = installQuickBuyModal(ctx);
+    installShopQuantities(ctx, game, restoreQuickBuyFocus);
     installUpgradeStock(ctx, game);
     const updateAgilityCosts = installAgilityCostStock(ctx, game);
     installTownshipTaskOrder(ctx, game);

@@ -28,7 +28,7 @@ test("setup loads its packaged modules through Melvor's standalone module URLs",
     onModsLoaded() { registered = true; },
   });
   assert.equal(registered, true);
-  assert.deepEqual(loaded, ["page-pinning.mjs", "wide-layout.mjs", "item-stats.mjs", "loadout-plan.mjs", "loadout-transaction.mjs", "equipment-loadouts.mjs", "quick-equip.mjs", "item-sources-and-uses.mjs", "better-moving.mjs", "bank-keyboard.mjs", "bank-tab-order.mjs", "bank-item-type.mjs", "background-rendering.mjs", "shop-stock.mjs", "upgrade-stock.mjs", "agility-cost-stock.mjs", "township-task-order.mjs", "skill-tree-spend-all.mjs", "skill-tree-glow.mjs", "replay-speed.mjs"]);
+  assert.deepEqual(loaded, ["page-pinning.mjs", "wide-layout.mjs", "item-stats.mjs", "loadout-plan.mjs", "loadout-transaction.mjs", "equipment-loadouts.mjs", "quick-equip.mjs", "item-sources-and-uses.mjs", "better-moving.mjs", "bank-keyboard.mjs", "bank-tab-order.mjs", "bank-item-type.mjs", "background-rendering.mjs", "shop-stock.mjs", "quick-buy-modal.mjs", "shop-quantities.mjs", "upgrade-stock.mjs", "agility-cost-stock.mjs", "township-task-order.mjs", "skill-tree-spend-all.mjs", "skill-tree-glow.mjs", "replay-speed.mjs"]);
 });
 
 test("independent config restores on load and QuickLoad, updates new pages immediately, and throttles same-page pinning", async () => {
@@ -120,6 +120,12 @@ test("independent config restores on load and QuickLoad, updates new pages immed
       if (path === "shop-stock.mjs") return { installShopStock(actualCtx) {
         assert.equal(actualCtx, ctx);
         shopStockInstalled++; installed.push("shop-stock");
+      } };
+      if (path === "quick-buy-modal.mjs") return { installQuickBuyModal(actualCtx) {
+        assert.equal(actualCtx, ctx); return () => {};
+      } };
+      if (path === "shop-quantities.mjs") return { installShopQuantities(actualCtx, actualGame, restoreQuickBuyFocus) {
+        assert.equal(actualCtx, ctx); assert.equal(actualGame, game); assert.equal(typeof restoreQuickBuyFocus, "function");
       } };
       if (path === "upgrade-stock.mjs") return { installUpgradeStock(actualCtx, actualGame) {
         assert.equal(actualCtx, ctx); assert.equal(actualGame, game);
@@ -403,6 +409,12 @@ test("render remains the page-change fallback without MutationObserver or the pa
         if (path === "shop-stock.mjs") return { installShopStock(actualCtx) {
           assert.equal(actualCtx, ctx);
           shopStockInstalled++;
+        } };
+        if (path === "quick-buy-modal.mjs") return { installQuickBuyModal(actualCtx) {
+          assert.equal(actualCtx, ctx); return () => {};
+        } };
+        if (path === "shop-quantities.mjs") return { installShopQuantities(actualCtx, actualGame, restoreQuickBuyFocus) {
+          assert.equal(actualCtx, ctx); assert.equal(actualGame, game); assert.equal(typeof restoreQuickBuyFocus, "function");
         } };
         if (path === "upgrade-stock.mjs") return { installUpgradeStock(actualCtx, actualGame) {
           assert.equal(actualCtx, ctx); assert.equal(actualGame, game);
